@@ -1,0 +1,28 @@
+default_provider: openai
+default_model: gpt-4o-mini
+
+agents:
+  triage:
+    primary: openai/gpt-4o-mini
+    fallback: groq/llama-3.1-8b-instant
+    cost_floor: 0.001
+  rag:
+    primary: openai/gpt-4o-mini
+    fallback: groq/llama-3.1-8b-instant
+    cost_floor: 0.001
+  narrative:
+    primary: openai/gpt-4o
+    fallback: anthropic/claude-3-haiku-20240307
+    cost_floor: 0.01
+  compliance:
+    primary: openai/gpt-4o-mini
+    fallback: groq/llama-3.1-8b-instant
+    cost_floor: 0.001
+  anomaly:
+    primary: openai/gpt-4o-mini
+    fallback: groq/llama-3.1-8b-instant
+    cost_floor: 0.002
+  supervisor:
+    primary: openai/gpt-4o
+    fallback: anthropic/claude-3-haiku-20240307
+    cost_floor: 0.01

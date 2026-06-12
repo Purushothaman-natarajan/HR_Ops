@@ -1,0 +1,28 @@
+default_strategy: recursive
+strategies:
+  recursive:
+    chunk_size: 400
+    chunk_overlap: 80
+    separators:
+      - "\n\n"
+      - "\n"
+      - "."
+      - " "
+  fixed_size:
+    chunk_size: 300
+    chunk_overlap: 50
+  semantic:
+    threshold: 0.75
+    min_chunk_size: 100
+    max_chunk_size: 500
+    embedding_model: all-MiniLM-L6-v2
+  parent_document:
+    parent_chunk_size: 1000
+    child_chunk_size: 200
+    child_overlap: 40
+  agentic:
+    llm_model: gpt-4o-mini
+    max_iterations: 3
+  late_chunking:
+    base_chunk_size: 400
+    overlap: 80

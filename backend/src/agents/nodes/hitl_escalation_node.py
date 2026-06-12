@@ -1,0 +1,35 @@
+import logging
+from datetime import datetime
+
+from backend.src.agents.state import SharedState, HITLRequest, TraceEntry, AgentRole
+
+logger = logging.getLogger("hr_ops.nodes.hitl")
+
+
+def hitl_escalation_node(state: SharedState) -> dict:
+    if not state.hitl_needed:
+        return {}
+    request = HITLRequest(
+        interaction_id=f"HITL-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
+        query=state.query,
+        context={
+            "current_agent": state.current_agent,
+            "anomaly_results": [a.__dict__ for a in state.anomaly_results] if state.anomaly_results else [],
+            "compliance_veto": state.compliance_veto,
+        },
+    )
+    from backend.src.utils.agui_store import agui_store
+    agui_store.add_request(request)
+
+    return {
+        "hitl_request": request,
+        "final_response": f"Escalated to human. Interaction ID: {request.interaction_id}",
+        "trace_log": [
+            TraceEntry(
+                node="hitl_escalation", agent_role=AgentRole.SUPERVISOR,
+                input_text=state.query,
+                output_text=f"Escalated: {request.interaction_id}",
+                timestamp=datetime.utcnow(), duration_ms=0,
+            )
+        ],
+    }

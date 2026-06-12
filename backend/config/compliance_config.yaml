@@ -1,0 +1,11 @@
+hard_veto_rules:
+  - cannot_approve_termination_without_approval
+  - cannot_modify_salary_below_minimum_wage
+  - cannot_grant_leave_exceeding_accrued_balance
+  - cannot_change_compliance_status_without_evidence
+
+policy_reference_required: true
+
+escalation_roles:
+  - hr_manager
+  - compliance_officer

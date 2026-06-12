@@ -1,0 +1,22 @@
+guardrails:
+  input_enabled: true
+  output_enabled: true
+  tool_enabled: true
+  model_enabled: true
+
+rl:
+  enabled: true
+  learn_mode: true
+
+dspy:
+  enabled: true
+  optimization_schedule_cron: "0 3 * * 0"
+
+semantic_cache:
+  enabled: true
+
+hitl:
+  enabled: true
+
+cost_tracking:
+  enabled: true

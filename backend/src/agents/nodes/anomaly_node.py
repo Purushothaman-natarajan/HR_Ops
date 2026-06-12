@@ -1,0 +1,41 @@
+import json
+import logging
+from datetime import datetime
+
+from backend.src.agents.state import SharedState, TraceEntry
+from backend.src.utils.model_router import llm_call
+from backend.src.intelligence.anomaly import run_anomaly_detection
+from backend.src.tools.api_mocks import _EMPLOYEES
+
+logger = logging.getLogger("hr_ops.nodes.anomaly")
+
+
+def _generate_narrative(anomalies: list) -> str:
+    if not anomalies:
+        return "No anomalies detected."
+    prompt = (
+        f"The following HR anomalies were found:\n"
+        + "\n".join(f"- {a.description} (severity: {a.severity:.2f})" for a in anomalies)
+        + "\n\nProvide a concise narrative summary for HR management."
+    )
+    narrative, _ = llm_call("narrative", prompt, max_tokens=512)
+    return narrative
+
+
+def anomaly_node(state: SharedState) -> dict:
+    start = datetime.utcnow()
+    employees = list(_EMPLOYEES.values()) if _EMPLOYEES else []
+    results = run_anomaly_detection(employees)
+    narrative = _generate_narrative(results)
+    elapsed = (datetime.utcnow() - start).total_seconds() * 1000
+    return {
+        "anomaly_results": results,
+        "final_response": narrative,
+        "trace_log": [
+            TraceEntry(
+                node="anomaly_node", agent_role="anomaly",
+                input_text=state.query, output_text=narrative,
+                timestamp=start, duration_ms=elapsed,
+            )
+        ],
+    }

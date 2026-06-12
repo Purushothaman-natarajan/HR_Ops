@@ -1,0 +1,22 @@
+budgets:
+  monthly_usd: 500.0
+  per_run_max_usd: 0.50
+
+alerts:
+  daily_threshold_usd: 20.0
+  weekly_threshold_usd: 125.0
+
+cost_tiers:
+  cheap:
+    max_cost_usd: 0.01
+    preferred_model: openai/gpt-4o-mini
+  standard:
+    max_cost_usd: 0.05
+    preferred_model: openai/gpt-4o-mini
+  premium:
+    max_cost_usd: 0.50
+    preferred_model: openai/gpt-4o
+
+cost_weights:
+  input_token: 1.0
+  output_token: 2.0

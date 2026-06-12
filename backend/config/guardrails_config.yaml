@@ -1,0 +1,27 @@
+input:
+  pii_detection: true
+  injection_detection: true
+  topic_restriction: true
+  max_input_length: 4096
+  blocked_topics:
+    - violence
+    - illegal_activity
+    - discrimination
+
+output:
+  pii_redaction: true
+  hallucination_check: true
+  tone_validation: true
+  allowed_tones:
+    - professional
+    - empathetic
+    - informative
+
+tool:
+  validate_args: true
+  validate_output_schema: true
+
+model:
+  max_retries: 3
+  timeout_seconds: 30
+  cost_threshold_usd: 0.50
