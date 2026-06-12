@@ -5,21 +5,14 @@ import { TraceViewer } from "./components/TraceViewer";
 import { TraceQueryPanel } from "./components/TraceQueryPanel";
 import { RLDashboard } from "./components/RLDashboard";
 import { CostDashboard } from "./components/CostDashboard";
-import { api } from "./api/client";
-
-interface TraceEvent {
-  node: string;
-  agent_role: string;
-  input_text: string;
-  output_text: string;
-  duration_ms: number;
-  cost_usd?: number;
-  cache_hit?: boolean;
-}
+import { api, TraceEvent } from "./api/client";
 
 function App() {
   const [activeTab, setActiveTab] = useState("query");
   const [events, setEvents] = useState<TraceEvent[]>([]);
+  const [response, setResponse] = useState("");
+  const [runId, setRunId] = useState("");
+  const [cost, setCost] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -27,18 +20,35 @@ function App() {
     setLoading(true);
     setError("");
     try {
-      const res = await api.health();
-      console.log("Backend health:", res);
-      // real query would hit /graph/run endpoint
-      setEvents([
-        {
-          node: "triage",
-          agent_role: "supervisor",
-          input_text: query,
-          output_text: `Classified as policy (simulated — backend integration pending)`,
-          duration_ms: 0,
-        },
-      ]);
+      const res = await api.graph.run(query);
+      setEvents(res.trace_events);
+      setResponse(res.final_response);
+      setRunId(res.run_id);
+      setCost(res.total_cost_usd);
+      if (res.anomaly_results && res.anomaly_results.length > 0) {
+        setEvents((prev) => [
+          ...prev,
+          ...res.anomaly_results.map((a) => ({
+            node: "anomaly_detection",
+            agent_role: "anomaly",
+            input_text: `Anomaly in ${a.anomaly_field}`,
+            output_text: a.description,
+            duration_ms: 0,
+          })),
+        ]);
+      }
+      if (res.compliance_veto) {
+        setEvents((prev) => [
+          ...prev,
+          {
+            node: "compliance_veto",
+            agent_role: "compliance",
+            input_text: "Compliance check",
+            output_text: res.compliance_reason,
+            duration_ms: 0,
+          },
+        ]);
+      }
     } catch (e) {
       setError(String(e));
     } finally {
@@ -95,6 +105,15 @@ function App() {
           <>
             <QueryInput onSubmit={handleQuery} disabled={loading} />
             {loading && <p style={{ padding: "0 16px", color: "#666" }}>Processing...</p>}
+            {response && (
+              <div style={{ padding: "8px 16px" }}>
+                <div style={{ padding: 12, background: "#f0fdf4", borderRadius: 8, marginBottom: 8 }}>
+                  <strong>Response:</strong> {response}
+                  {runId && <span style={{ marginLeft: 12, color: "#666", fontSize: 12 }}>Run: {runId}</span>}
+                  {cost > 0 && <span style={{ marginLeft: 12, color: "#666", fontSize: 12 }}>Cost: ${cost.toFixed(5)}</span>}
+                </div>
+              </div>
+            )}
             <TraceViewer events={events} />
           </>
         )}

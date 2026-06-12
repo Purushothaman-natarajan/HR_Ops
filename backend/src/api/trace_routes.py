@@ -1,19 +1,28 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
+
+from backend.src.utils.trace_store import trace_store
 
 router = APIRouter(prefix="/trace", tags=["trace"])
 
 
 @router.get("/runs")
-def list_runs():
-    return {"runs": [], "message": "Trace query endpoint — returns aggregated trace data"}
+def list_runs(limit: int = 50):
+    runs = trace_store.list_runs(limit)
+    return {"runs": runs, "count": len(runs)}
 
 
-@router.get("/runs/{trace_id}")
-def get_run(trace_id: str):
-    return {"trace_id": trace_id, "events": [], "message": "Detailed trace for a single run"}
+@router.get("/runs/{run_id}")
+def get_run(run_id: str):
+    run = trace_store.get_run(run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+    return run
 
 
 @router.get("/compare")
-def compare_runs(trace_ids: str):
-    ids = trace_ids.split(",")
-    return {"trace_ids": ids, "comparison": {}, "message": "Compare two or more traces"}
+def compare_runs(run_ids: str):
+    ids = [rid.strip() for rid in run_ids.split(",") if rid.strip()]
+    if len(ids) < 2:
+        raise HTTPException(status_code=400, detail="Provide at least 2 run_ids")
+    runs = trace_store.compare(ids)
+    return {"run_ids": ids, "runs": runs, "compared": len(runs)}

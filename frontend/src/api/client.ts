@@ -31,6 +31,14 @@ export const api = {
       request(`/trace/compare?trace_ids=${ids.join(",")}`),
   },
 
+  graph: {
+    run: (query: string) =>
+      request<GraphRunResponse>("/graph/run", {
+        method: "POST",
+        body: JSON.stringify({ query }),
+      }),
+  },
+
   debug: {
     requests: (limit = 50) =>
       request<{ requests: unknown[] }>(`/debug/requests?limit=${limit}`),
@@ -38,3 +46,34 @@ export const api = {
       request(`/debug/replay/${id}`, { method: "POST" }),
   },
 };
+
+export interface TraceEvent {
+  node: string;
+  agent_role: string;
+  input_text: string;
+  output_text: string;
+  duration_ms: number;
+  cost_usd?: number;
+  cache_hit?: boolean;
+  model_used?: string;
+}
+
+export interface GraphRunResponse {
+  run_id: string;
+  langfuse_trace_id: string;
+  query: string;
+  final_response: string;
+  compliance_veto: boolean;
+  compliance_reason: string;
+  retrieved_policies: string[];
+  executed_actions: string[];
+  total_cost_usd: number;
+  trace_events: TraceEvent[];
+  anomaly_results: Array<{
+    detected: boolean;
+    severity: number;
+    description: string;
+    anomaly_field: string;
+    suggested_action: string;
+  }>;
+}

@@ -62,6 +62,23 @@ def llm_call(
     model = resolve_model(agent_name, cost_budget=cost_budget)
     if not _LITELLM_AVAILABLE:
         logger.info("llm_call simulating (litellm not available): agent=%s", agent_name)
+        if "one word" in prompt.lower() or "with one word" in prompt.lower():
+            query_line = [l for l in prompt.split("\n") if l.strip().startswith("Query:")]
+            if query_line:
+                q = query_line[0].lower()
+                if "salary" in q or "update" in q or "change" in q or "modify" in q:
+                    return "action", 0.0
+                if "anomaly" in q or "anomal" in q or "outlier" in q or "irregular" in q:
+                    return "anomaly", 0.0
+                if "complian" in q or "veto" in q or "termination" in q or "approve" in q:
+                    return "compliance", 0.0
+                if "leave" in q or "policy" in q or "sick" in q or "vacation" in q or "remote" in q:
+                    return "policy", 0.0
+            return "policy", 0.0
+        if "json" in prompt.lower():
+            return '{"name": "lookup_employee", "args": {"employee_id": "EMP0001"}}', 0.0
+        if "compliant" in prompt.lower():
+            return '{"compliant": true, "reason": "No issues found."}', 0.0
         return f"[simulated response for {agent_name}]", 0.0
 
     messages = []

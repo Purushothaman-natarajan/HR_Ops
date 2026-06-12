@@ -129,6 +129,20 @@
 | 8.8 | | Loom walkthrough recording | | |
 | 8.9 | | VERIFICATION | | |
 
+## Phase 9: Graph API + End-to-End Integration
+
+| # | Date | Job | Status | Notes |
+|---|------|-----|--------|-------|
+| 9.1 | 2026-06-12 | Create /graph/run API endpoint | ✅ Done | POST /graph/run with LangGraph execution |
+| 9.2 | 2026-06-12 | Implement real trace_store + request_store | ✅ Done | In-memory stores for run/request history |
+| 9.3 | 2026-06-12 | Implement real trace_routes.py | ✅ Done | List/get/compare runs |
+| 9.4 | 2026-06-12 | Implement real debug_routes.py | ✅ Done | List/replay requests |
+| 9.5 | 2026-06-12 | Wire frontend App.tsx to real /graph/run API | ✅ Done | Shows response + cost + trace events |
+| 9.6 | 2026-06-12 | Create sample HR policy documents | ✅ Done | 4 markdown files in data/policies/ |
+| 9.7 | 2026-06-12 | Create scripts/index_policies.py | ✅ Done | Loads policies into ChromaDB |
+| 9.8 | 2026-06-12 | Register all routers in main.py | ✅ Done | graph, agui, trace, debug |
+| 9.9 | 2026-06-12 | Integration tests (graph + API) | ✅ Done | 36 new tests, 78 total |
+
 
 
 

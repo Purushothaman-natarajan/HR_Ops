@@ -5,6 +5,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from backend.config.settings import settings
 from backend.src.utils.api_logger import RequestLog
+from backend.src.api.graph_routes import router as graph_router
+from backend.src.api.agui_routes import router as agui_router
+from backend.src.api.trace_routes import router as trace_router
+from backend.src.api.debug_routes import router as debug_router
 
 logger = logging.getLogger("hr_ops")
 
@@ -19,6 +23,11 @@ app.add_middleware(
 )
 
 app.add_middleware(RequestLog, log_level=settings.log_level)
+
+app.include_router(graph_router)
+app.include_router(agui_router)
+app.include_router(trace_router)
+app.include_router(debug_router)
 
 
 @app.get("/health")
