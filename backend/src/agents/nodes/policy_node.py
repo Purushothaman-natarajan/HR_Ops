@@ -1,6 +1,9 @@
-import logging
-from datetime import datetime
+"""Policy node: answers HR policy questions using RAG and semantic caching."""
 
+import logging
+from datetime import datetime, timezone
+
+from backend.config.settings import settings
 from backend.src.agents.state import SharedState, TraceEntry
 from backend.src.utils.model_router import llm_call
 from backend.src.memory.cache import semantic_cache
@@ -10,12 +13,18 @@ logger = logging.getLogger("hr_ops.nodes.policy")
 
 
 def policy_node(state: SharedState) -> dict:
-    start = datetime.utcnow()
-    cached = semantic_cache.get(state.query)
+    """Retrieve relevant policies and generate an answer; checks semantic cache first."""
+    start = datetime.now(timezone.utc)
+    cache_enabled = settings.feature_flags.get("semantic_cache", {}).get("enabled", True)
+    cached = semantic_cache.get(state.query) if cache_enabled else None
     if cached:
-        elapsed = (datetime.utcnow() - start).total_seconds() * 1000
+        elapsed = (datetime.now(timezone.utc) - start).total_seconds() * 1000
         return {
             "final_response": cached,
+            "messages": state.messages + [
+                {"role": "user", "content": state.query},
+                {"role": "assistant", "content": cached, "node": "policy"},
+            ],
             "trace_log": [
                 TraceEntry(
                     node="policy_node", agent_role="policy",
@@ -25,6 +34,10 @@ def policy_node(state: SharedState) -> dict:
             ],
         }
     docs = similarity_search(state.query, k=4)
+    rerank_enabled = settings.embed_config.get("reranker", {}).get("enabled", True)
+    if rerank_enabled:
+        from backend.src.utils.reranker import rerank_documents
+        docs = rerank_documents(state.query, docs, top_k=4)
     context = "\n\n".join(d.page_content for d in docs) if docs else "No policies retrieved."
     prompt = (
         f"Retrieved HR policies:\n{context}\n\n"
@@ -32,11 +45,16 @@ def policy_node(state: SharedState) -> dict:
         f"Provide a concise, policy-backed answer."
     )
     answer, cost = llm_call("rag", prompt, max_tokens=512)
-    semantic_cache.set(state.query, answer)
-    elapsed = (datetime.utcnow() - start).total_seconds() * 1000
+    if cache_enabled:
+        semantic_cache.set(state.query, answer)
+    elapsed = (datetime.now(timezone.utc) - start).total_seconds() * 1000
     return {
         "retrieved_policies": [d.page_content[:300] for d in (docs or [])],
         "final_response": answer,
+        "messages": state.messages + [
+            {"role": "user", "content": state.query},
+            {"role": "assistant", "content": answer, "node": "policy"},
+        ],
         "trace_log": [
             TraceEntry(
                 node="policy_node", agent_role="policy",

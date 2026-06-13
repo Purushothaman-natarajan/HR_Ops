@@ -1,7 +1,25 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
 
-// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-})
+  server: {
+    port: 5173,
+    proxy: {
+      "/auth": "http://localhost:8000",
+      "/health": "http://localhost:8000",
+      "/graph": "http://localhost:8000",
+      "/agui": "http://localhost:8000",
+      "/trace": "http://localhost:8000",
+      "/debug": "http://localhost:8000",
+      "/rl": "http://localhost:8000",
+      "/policies": "http://localhost:8000",
+      "/conversation": "http://localhost:8000",
+      "/feedback": "http://localhost:8000",
+      "/docs": "http://localhost:8000",
+      "/database": "http://localhost:8000",
+      "/vector-store": "http://localhost:8000",
+      "/openapi.json": "http://localhost:8000",
+    },
+  },
+});
