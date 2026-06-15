@@ -5,7 +5,7 @@ import { api } from "../api/client";
 import { TraceViewer } from "./TraceViewer";
 import { ActivityPanel, LiveActivityPanel } from "./ActivityPanel";
 import { Icon } from "./Icons";
-import type { ConversationMessage, TraceEvent, ActivityEvent } from "../types";
+import type { ConversationMessage, TraceEvent, ActivityEvent, ConversationSession } from "../types";
 
 type Mode = "standard" | "advanced";
 
@@ -25,7 +25,7 @@ const MODE_TEMPLATES: Record<Mode, { description: string; placeholder: string; e
     examples: [
       "Review whether a retroactive salary adjustment for EMP0001 is allowed under compensation policy.",
       "Check if sharing EMP0002 HR records with an external vendor is compliant.",
-      "Investigate employees with more than 3 unscheduled absences this quarter and explain the policy risk.",
+      "Find all employees named John and show their department.",
     ],
   },
 };
@@ -33,16 +33,15 @@ const MODE_TEMPLATES: Record<Mode, { description: string; placeholder: string; e
 interface ChatInterfaceProps {
   /** When scoping queries to a specific employee (employee role). */
   employeeId?: string;
+  /** Session ID to resume from (e.g., passed from HITL panel). */
+  resumeSessionId?: string;
+  /** Mode to use when resuming a session. */
+  resumeMode?: Mode;
+  /** Called once after the resumed session is loaded, so parent can clear the resume state. */
+  onMounted?: () => void;
 }
 
-/** Multi-turn conversation chat with session management, mode selector, and inline ratings.
- *
- * Self-contained component that creates/manages sessions via api.conversation.*.
- * Shows 👍/👎 buttons per assistant message for RL feedback.
- *
- * @example
- * <ChatInterface />
- */
+/** Multi-turn conversation chat with session management, source citations, and inline ratings. */
 interface NodeEvent {
   node: string;
   agent_role: string;
@@ -57,10 +56,176 @@ interface NodeEvent {
   tool_call?: Record<string, unknown>;
 }
 
-export function ChatInterface({ employeeId = "" }: ChatInterfaceProps) {
-  const [sessionId, setSessionId] = useState<string | null>(null);
+/** Source citation chip — shows file name, score, and expandable chunk text. */
+function SourceCitation({ doc }: { doc: { source: string; score: number; chunk: string } }) {
+  const [expanded, setExpanded] = useState(false);
+  const filename = doc.source.split(/[\\/]/).pop() || doc.source;
+  const scoreLabel = doc.score != null && isFinite(doc.score) && doc.score > 0
+    ? `${(doc.score * 100).toFixed(0)}%`
+    : null;
+
+  return (
+    <div
+      style={{
+        display: "inline-flex",
+        flexDirection: "column",
+        background: "var(--color-surface)",
+        border: "1px solid var(--color-border)",
+        borderRadius: 8,
+        padding: "4px 10px",
+        cursor: "pointer",
+        transition: "all 0.15s",
+        maxWidth: expanded ? 420 : "none",
+      }}
+      onClick={() => setExpanded(!expanded)}
+      title={`Click to ${expanded ? "collapse" : "expand"} source chunk`}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <Icon name="doc" size={12} style={{ color: "var(--color-accent)", flexShrink: 0 }} />
+        <span style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text)" }}>{filename}</span>
+        {scoreLabel && (
+          <span style={{ fontSize: 10, color: "var(--color-text-muted)", marginLeft: 2 }}>{scoreLabel}</span>
+        )}
+        <Icon
+          name="arrow"
+          size={10}
+          style={{ color: "var(--color-text-muted)", marginLeft: "auto", transform: expanded ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.15s" }}
+        />
+      </div>
+      {expanded && doc.chunk && (
+        <div style={{
+          marginTop: 6,
+          fontSize: 11,
+          color: "var(--color-text-secondary)",
+          lineHeight: 1.6,
+          maxHeight: 200,
+          overflowY: "auto",
+          borderTop: "1px solid var(--color-border)",
+          paddingTop: 6,
+          whiteSpace: "pre-wrap",
+        }}>
+          {doc.chunk.slice(0, 600)}{doc.chunk.length > 600 ? "…" : ""}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Sources panel shown below an assistant message. */
+function SourcesPanel({ events }: { events: NodeEvent[] }) {
+  const allDocs = events
+    .flatMap((e) => e.retrieved_docs || [])
+    .filter((d) => d.source);
+
+  // Deduplicate by source file
+  const seen = new Set<string>();
+  const uniqueDocs = allDocs.filter((d) => {
+    const key = d.source;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  if (uniqueDocs.length === 0) return null;
+
+  return (
+    <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid var(--color-border)" }}>
+      <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-muted)", letterSpacing: "0.06em", marginBottom: 6 }}>
+        SOURCES ({uniqueDocs.length})
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+        {uniqueDocs.map((doc, i) => (
+          <SourceCitation key={i} doc={doc} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Session history picker — lists past sessions for resumption. */
+function SessionPicker({
+  onSelect,
+  onClose,
+}: {
+  onSelect: (session: ConversationSession) => void;
+  onClose: () => void;
+}) {
+  const [sessions, setSessions] = useState<ConversationSession[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.conversation.list()
+      .then((r) => setSessions((r.data.sessions || []).slice(0, 20)))
+      .catch(() => setSessions([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  return (
+    <div style={{
+      position: "absolute",
+      top: "100%",
+      left: 0,
+      right: 0,
+      zIndex: 100,
+      background: "var(--color-card)",
+      border: "1px solid var(--color-border)",
+      borderRadius: 10,
+      boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+      maxHeight: 320,
+      overflowY: "auto",
+      marginTop: 4,
+    }}>
+      <div style={{ padding: "10px 14px", display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--color-border)" }}>
+        <span style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text)" }}>Select a Previous Session</span>
+        <button style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-text-muted)", fontSize: 16, lineHeight: 1 }} onClick={onClose}>×</button>
+      </div>
+      {loading ? (
+        <div style={{ padding: 16, textAlign: "center" }}><div className="spinner" /></div>
+      ) : sessions.length === 0 ? (
+        <div style={{ padding: 16, fontSize: 13, color: "var(--color-text-muted)", textAlign: "center" }}>No previous sessions found.</div>
+      ) : (
+        sessions.map((s) => (
+          <button
+            key={s.session_id}
+            onClick={() => onSelect(s)}
+            style={{
+              display: "block",
+              width: "100%",
+              textAlign: "left",
+              padding: "10px 14px",
+              background: "none",
+              border: "none",
+              borderBottom: "1px solid var(--color-border)",
+              cursor: "pointer",
+              color: "var(--color-text)",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-surface)")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
+          >
+            <div style={{ fontSize: 12, fontWeight: 600 }}>
+              {s.session_id.slice(0, 14)}… &nbsp;
+              <span style={{ fontWeight: 400, color: "var(--color-text-muted)" }}>({s.mode || "standard"})</span>
+            </div>
+            <div style={{ fontSize: 11, color: "var(--color-text-muted)", marginTop: 2 }}>
+              {s.message_count ?? (s.messages?.length ?? 0)} messages
+              {s.updated_at ? ` · ${new Date(s.updated_at).toLocaleString()}` : ""}
+            </div>
+          </button>
+        ))
+      )}
+    </div>
+  );
+}
+
+export function ChatInterface({
+  employeeId = "",
+  resumeSessionId,
+  resumeMode,
+  onMounted,
+}: ChatInterfaceProps) {
+  const [sessionId, setSessionId] = useState<string | null>(resumeSessionId || null);
   const [messages, setMessages] = useState<ConversationMessage[]>([]);
-  const [mode, setMode] = useState<Mode>("standard");
+  const [mode, setMode] = useState<Mode>(resumeMode || "standard");
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -69,9 +234,34 @@ export function ChatInterface({ employeeId = "" }: ChatInterfaceProps) {
   const [totalCost, setTotalCost] = useState(0);
   const [ratedTurns, setRatedTurns] = useState<Record<number, 1 | 0 | -1>>({});
   const [liveEvents, setLiveEvents] = useState<NodeEvent[]>([]);
+  const [showSessionPicker, setShowSessionPicker] = useState(false);
+  const [resumeLoading, setResumeLoading] = useState(!!resumeSessionId);
   const esRef = useRef<EventSource | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
   const modeTemplate = MODE_TEMPLATES[mode];
+
+  // Load resumed session history on mount
+  useEffect(() => {
+    if (!resumeSessionId) return;
+    setResumeLoading(true);
+    api.conversation.get(resumeSessionId)
+      .then((res) => {
+        const msgs = res.data.messages || [];
+        setMessages(msgs);
+        if (res.data.mode) setMode(res.data.mode);
+        setTotalCost(res.data.total_cost ?? res.data.total_cost_usd ?? 0);
+      })
+      .catch(() => {
+        setError(`Could not load session "${resumeSessionId}". Starting fresh.`);
+        setSessionId(null);
+      })
+      .finally(() => {
+        setResumeLoading(false);
+        onMounted?.();
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resumeSessionId]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -81,6 +271,26 @@ export function ChatInterface({ employeeId = "" }: ChatInterfaceProps) {
     return () => {
       esRef.current?.close();
     };
+  }, []);
+
+  const handleSelectSession = useCallback(async (s: ConversationSession) => {
+    setShowSessionPicker(false);
+    setLoading(true);
+    try {
+      const res = await api.conversation.get(s.session_id);
+      setSessionId(s.session_id);
+      setMessages(res.data.messages || []);
+      if (res.data.mode) setMode(res.data.mode);
+      setTotalCost(res.data.total_cost ?? res.data.total_cost_usd ?? 0);
+      setRatedTurns({});
+      setTraceEvents([]);
+      setLiveEvents([]);
+      setError("");
+    } catch {
+      setError(`Failed to load session ${s.session_id}`);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   const handleSend = useCallback(() => {
@@ -149,7 +359,6 @@ export function ChatInterface({ employeeId = "" }: ChatInterfaceProps) {
     });
 
     es.addEventListener("error", () => {
-      // EventSource auto-reconnects on network errors; if already closed ignore
       if (es.readyState === EventSource.CLOSED) {
         setError("Connection lost. Please try again.");
         setLoading(false);
@@ -169,7 +378,7 @@ export function ChatInterface({ employeeId = "" }: ChatInterfaceProps) {
       es.close();
       esRef.current = null;
     });
-  }, [input, loading, sessionId, mode, employeeId]);
+  }, [input, loading, sessionId, mode, employeeId, liveEvents]);
 
   const handleRating = async (turnIndex: number, rating: 1 | 0 | -1) => {
     if (ratedTurns[turnIndex] !== undefined) return;
@@ -202,6 +411,15 @@ export function ChatInterface({ employeeId = "" }: ChatInterfaceProps) {
     }
   };
 
+  if (resumeLoading) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: 300, gap: 12 }}>
+        <div className="spinner" />
+        <span style={{ color: "var(--color-text-secondary)", fontSize: 13 }}>Loading session {resumeSessionId?.slice(0, 12)}…</span>
+      </div>
+    );
+  }
+
   return (
     <div className="chat-page">
       <div className="chat-header">
@@ -209,8 +427,11 @@ export function ChatInterface({ employeeId = "" }: ChatInterfaceProps) {
           <h1 className="page-title" style={{ margin: 0 }}>Query Agent</h1>
           {sessionId && (
             <span className="chat-session-badge">
-              Session: {sessionId}
+              Session: {sessionId.slice(0, 14)}…
             </span>
+          )}
+          {resumeSessionId && sessionId === resumeSessionId && (
+            <span className="badge badge-warning" style={{ fontSize: 10 }}>RESUMED</span>
           )}
         </div>
         <div className="chat-header-right">
@@ -231,6 +452,20 @@ export function ChatInterface({ employeeId = "" }: ChatInterfaceProps) {
               </span>
             </div>
           )}
+          {/* Session history button */}
+          <div style={{ position: "relative" }} ref={headerRef}>
+            <button
+              className="btn btn-sm btn-secondary"
+              onClick={() => setShowSessionPicker((prev) => !prev)}
+              title="Browse past sessions"
+            >
+              <Icon name="trace" size={14} />
+              &nbsp;History
+            </button>
+            {showSessionPicker && (
+              <SessionPicker onSelect={handleSelectSession} onClose={() => setShowSessionPicker(false)} />
+            )}
+          </div>
           {sessionId && (
             <button className="btn btn-sm btn-secondary" onClick={handleNewSession}>
               New Session
@@ -285,6 +520,10 @@ export function ChatInterface({ employeeId = "" }: ChatInterfaceProps) {
                   msg.content
                 )}
               </div>
+              {/* Source Citations — shown for each assistant message that has retrieved docs */}
+              {msg.role === "assistant" && msg.liveEvents && msg.liveEvents.length > 0 && (
+                <SourcesPanel events={msg.liveEvents} />
+              )}
               {msg.role === "assistant" && (
                 <div className="chat-bubble-actions">
                   <button

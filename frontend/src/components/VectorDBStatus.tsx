@@ -19,10 +19,19 @@ export function VectorDBStatus() {
   const [info, setInfo] = useState<VectorStoreInfo | null>(null);
   const [error, setError] = useState("");
 
-  useEffect(() => {
+  const fetchStatus = () => {
     api.vectorStore.status()
-      .then((r) => setInfo(r.data))
+      .then((r) => {
+        setInfo(r.data);
+        setError("");
+      })
       .catch(() => setError("unavailable"));
+  };
+
+  useEffect(() => {
+    fetchStatus();
+    const interval = setInterval(fetchStatus, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   const statusColor =

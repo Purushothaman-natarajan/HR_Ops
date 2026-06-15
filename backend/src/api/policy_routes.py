@@ -218,6 +218,9 @@ async def api_upload_policy(
         return success_response(data=policy, correlation_id=correlation_id, message="Policy created")
     except ValueError as e:
         return error_response(message=str(e), correlation_id=correlation_id, status_code=400)
+    except Exception as e:
+        logger.exception("Failed to upload/ingest policy")
+        return error_response(message=f"Failed to ingest policy: {e}", correlation_id=correlation_id, status_code=500)
 
 
 @router.put("/{policy_id}")

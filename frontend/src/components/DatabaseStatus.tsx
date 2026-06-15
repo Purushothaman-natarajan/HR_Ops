@@ -27,12 +27,17 @@ export function DatabaseStatus() {
 
   const fetchStatus = () => {
     api.database.status()
-      .then((r) => setInfo(r.data))
+      .then((r) => {
+        setInfo(r.data);
+        setError("");
+      })
       .catch(() => setError("unavailable"));
   };
 
   useEffect(() => {
     fetchStatus();
+    const interval = setInterval(fetchStatus, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   const statusColor =

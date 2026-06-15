@@ -437,6 +437,25 @@ export const api = {
     },
   },
 
+  integrations: {
+    get: () =>
+      request<APIResponse<{
+        database: { type: string; connection_string: string; connected: boolean };
+        chat_hook: { enabled: boolean; webhook_url: string; events: string[] };
+      }>>("/integrations"),
+    update: (data: {
+      database: { type: string; connection_string: string; connected?: boolean };
+      chat_hook: { enabled: boolean; webhook_url: string; events: string[] };
+    }) =>
+      request<APIResponse<{
+        database: { type: string; connection_string: string; connected: boolean };
+        chat_hook: { enabled: boolean; webhook_url: string; events: string[] };
+      }>>("/integrations", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+  },
+
   debug: {
     /** List recent API request entries stored for debugging.
      *

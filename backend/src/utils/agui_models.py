@@ -14,6 +14,7 @@ class InteractionRequest(BaseModel):
     status: str = "pending"
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     assigned_role: str = "hr_manager"
+    session_id: str = ""
 
 
 class InteractionResponse(BaseModel):
@@ -32,3 +33,5 @@ class PendingRequest(BaseModel):
     query: str
     created_at: datetime
     status: str = "pending"
+    session_id: str = ""
+    assigned_role: str = "hr_manager"

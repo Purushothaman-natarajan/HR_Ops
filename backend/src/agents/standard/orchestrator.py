@@ -33,9 +33,9 @@ async def _triage_node(state: SharedState) -> dict:
     start = datetime.now(timezone.utc)
     prompt = (
         f"Classify the following HR query into one of:\n"
-        f"- policy (ask about HR policies)\n"
-        f"- action (modify a record)\n"
-        f"- anomaly (investigate data issue)\n"
+        f"- policy (ask about HR policies, rules, benefits, etc. from documents)\n"
+        f"- action (query, count, retrieve, or modify employee database records/details)\n"
+        f"- anomaly (investigate data issues, discrepancies, or outliers)\n"
         f"- compliance (check policy compliance)\n\n"
         f"Query: {state.query}\n\n"
         f"Reply with exactly one word: policy/action/anomaly/compliance."
@@ -179,13 +179,44 @@ async def _action_node(state: SharedState) -> dict:
     )
     response, cost = await llm_call("action", prompt, max_tokens=256, temperature=0)
     import json
+    import re
+
+    def _parse_tool_json(s: str) -> dict | None:
+        if not s or not s.strip():
+            return None
+        stripped = re.sub(r"```(?:json)?\s*", "", s, flags=re.IGNORECASE).strip().rstrip("`").strip()
+        try:
+            obj = json.loads(stripped)
+            if isinstance(obj, dict) and "name" in obj:
+                return obj
+        except json.JSONDecodeError:
+            pass
+        match = re.search(r'\{[^{}]*"name"[^{}]*\}', stripped, re.DOTALL)
+        if match:
+            try:
+                obj = json.loads(match.group())
+                if isinstance(obj, dict) and "name" in obj:
+                    return obj
+            except json.JSONDecodeError:
+                pass
+        return None
 
     try:
-        call = json.loads(response)
+        call = _parse_tool_json(response)
+        if call is None:
+            # Fallback: try name search
+            name_m = re.search(r"named?\s+['\"]?([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)['\"]?", state.query, re.IGNORECASE)
+            if name_m:
+                name = name_m.group(1).strip()
+                call = {"name": "execute_db_query", "args": {"sql_query": f"SELECT * FROM employees WHERE Employee_Name LIKE '%{name}%' LIMIT 10;"}}
+            else:
+                call = {"name": "get_database_schema", "args": {}}
+            logger.warning("_action_node: LLM returned non-JSON, using fallback tool: %s", call["name"])
         tool_name = call.get("name", "unknown")
         tool_args = call.get("args", {})
         tool_result = execute_tool(tool_name, **tool_args)
-        result_text = json.dumps(tool_result, indent=2)
+        from backend.src.utils.formatter import format_tool_result_to_markdown
+        result_text = format_tool_result_to_markdown(tool_result)
     except Exception as e:
         tool_name = "unknown"
         tool_args = {}
@@ -276,12 +307,12 @@ if __name__ == "__main__":
 
             # Heuristic mock: triage returns "action" if query mentions tool-like keywords
             def _mock_triage(query):
-                kw = {"lookup", "update", "modify", "employee", "salary", "EMP", "escalate"}
+                kw = {"lookup", "update", "modify", "employee", "salary", "EMP", "escalate", "find", "search", "who is"}
                 return ("action", 0.0) if kw & set(query.lower().split()) else ("policy", 0.0)
 
             _mock_responses = {
                 "action": (
-                    '{"name": "lookup_employee", "args": {"employee_id": "EMP0001"}}', 0.0,
+                    '{"name": "execute_db_query", "args": {"sql_query": "SELECT * FROM employees WHERE Employee_Name LIKE \'%John%\' LIMIT 10;"}}', 0.0,
                 ),
             }
 

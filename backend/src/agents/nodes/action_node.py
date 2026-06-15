@@ -2,6 +2,7 @@
 
 import json
 import logging
+import re
 from datetime import datetime, timezone
 
 from backend.src.agents.state import Activity, SharedState, TraceEntry
@@ -12,6 +13,74 @@ from backend.src.utils.model_router import llm_call
 logger = logging.getLogger("hr_ops.nodes.action")
 
 
+def _parse_tool_json(response: str) -> dict | None:
+    """Try to extract a valid JSON tool call from LLM response.
+    
+    Handles:
+    - Clean JSON: {"name": "...", "args": {...}}
+    - Markdown-fenced JSON: ```json {...} ```
+    - JSON embedded in text
+    """
+    if not response or not response.strip():
+        return None
+
+    # Strip markdown code fences
+    stripped = re.sub(r"```(?:json)?\s*", "", response, flags=re.IGNORECASE).strip()
+    stripped = stripped.rstrip("`").strip()
+
+    # Try to parse directly
+    try:
+        obj = json.loads(stripped)
+        if isinstance(obj, dict) and "name" in obj:
+            return obj
+    except json.JSONDecodeError:
+        pass
+
+    # Find first JSON object in the text
+    match = re.search(r'\{[^{}]*"name"[^{}]*\}', stripped, re.DOTALL)
+    if match:
+        try:
+            obj = json.loads(match.group())
+            if isinstance(obj, dict) and "name" in obj:
+                return obj
+        except json.JSONDecodeError:
+            pass
+
+    return None
+
+
+def _build_name_search_fallback(query: str, schema_tables: list[str]) -> dict:
+    """Build a fallback execute_db_query tool call when JSON parsing fails.
+    
+    Attempts to detect employee name searches and construct appropriate SQL.
+    """
+    # Check for common employee name lookup patterns
+    name_patterns = [
+        r"(?:find|search|look\s*up|who\s*is|employee\s+named?)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)",
+        r"named?\s+['\"]?([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)['\"]?",
+        r"([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s+(?:employee|record|profile)",
+    ]
+
+    emp_table = next((t for t in schema_tables if "employee" in t.lower()), "employees")
+    
+    for pattern in name_patterns:
+        match = re.search(pattern, query, re.IGNORECASE)
+        if match:
+            name = match.group(1).strip()
+            # Use LIKE for partial match
+            sql = f"SELECT * FROM {emp_table} WHERE Employee_Name LIKE '%{name}%' LIMIT 10;"
+            return {"name": "execute_db_query", "args": {"sql_query": sql}}
+
+    # Generic: try a broad search if keywords suggest a lookup
+    kw_select = any(kw in query.lower() for kw in ["how many", "count", "list all", "show all", "all employees"])
+    if kw_select:
+        sql = f"SELECT COUNT(*) as total_employees FROM {emp_table};"
+        return {"name": "execute_db_query", "args": {"sql_query": sql}}
+
+    # Last resort: schema inspection
+    return {"name": "get_database_schema", "args": {}}
+
+
 async def action_node(state: SharedState) -> dict:
     """Parse a tool call from the query, run it through guardrails, and execute it."""
     start = datetime.now(timezone.utc)
@@ -20,9 +89,11 @@ async def action_node(state: SharedState) -> dict:
     from backend.src.tools.api_mocks import get_database_schema
     schema_res = get_database_schema()
     schema_str = ""
+    schema_tables = []
     if schema_res.get("success"):
         schema_str = "\nActive Database Schema:\n"
         for table, cols in schema_res.get("schema", {}).items():
+            schema_tables.append(table)
             schema_str += f"- Table: {table}\n"
             for col in cols:
                 schema_str += f"  - {col['name']} ({col['type']}){ ' [PK]' if col['pk'] else '' }\n"
@@ -36,9 +107,11 @@ async def action_node(state: SharedState) -> dict:
         f"  modify_record(employee_id, field, value)\n"
         f"  escalate_to_human(employee_id, reason)\n\n"
         f"Use `execute_db_query` with standard SQLite queries to retrieve or modify records in the active database tables.\n"
+        f"For name searches use: SELECT * FROM employees WHERE Employee_Name LIKE '%name%' LIMIT 10;\n"
         f"{schema_str}\n"
         f"Query: {state.query}\n\n"
-        f"Reply with JSON: {{\"name\": \"tool_name\", \"args\": {{...}}}}"
+        f"IMPORTANT: Reply ONLY with valid JSON, no markdown, no explanation:\n"
+        f'{{\"name\": \"tool_name\", \"args\": {{...}}}}'
     )
     activities.append(Activity(
         type="llm_call", label="Parsing tool call from query",
@@ -47,12 +120,26 @@ async def action_node(state: SharedState) -> dict:
     ))
     response, cost = await llm_call("action", prompt, max_tokens=256, temperature=0)
     activities[-1].status = "completed"
+
     tool_call_info = {}
-    try:
-        call = json.loads(response)
-        tool_call_info = {"tool": call.get("name", ""), "args": call.get("args", {})}
+    call = _parse_tool_json(response)
+
+    if call is None:
+        # LLM didn't return valid JSON — use intelligent fallback
+        logger.warning("action_node: LLM returned non-JSON response, using fallback. Response: %r", response[:200])
+        call = _build_name_search_fallback(state.query, schema_tables)
+        activities[-1].detail = f"Fallback tool: {call['name']} (LLM returned non-JSON)"
+        activities.append(Activity(
+            type="decision", label="Fallback tool selection",
+            detail=f"LLM response was not valid JSON. Auto-selected: {call['name']}",
+            status="completed",
+        ))
+    else:
         activities[-1].detail = f"Parsed tool: {call.get('name', 'unknown')}({json.dumps(call.get('args', {}))})"
 
+    tool_call_info = {"tool": call.get("name", ""), "args": call.get("args", {})}
+
+    try:
         activities.append(Activity(
             type="guardrail", label="Running guardrail check",
             detail=f"Tool: {call.get('name', 'unknown')}",
@@ -72,13 +159,20 @@ async def action_node(state: SharedState) -> dict:
                 detail=f"Args: {json.dumps(call.get('args', {}))}",
                 status="running",
             ))
-            result = execute_tool(call["name"], **call["args"])
+            # Inject session_id into context for tools like escalate_to_human
+            tool_args_with_ctx = dict(call["args"])
+            if call["name"] == "escalate_to_human":
+                ctx = dict(tool_args_with_ctx.get("context") or {})
+                ctx["session_id"] = state.session_id
+                tool_args_with_ctx["context"] = ctx
+            result = execute_tool(call["name"], **tool_args_with_ctx)
             activities[-1].status = "completed"
             activities[-1].detail = f"Tool returned: {json.dumps(result)[:120]}"
-            result_text = json.dumps(result, indent=2)
-            tool_call_info["result"] = result
+            from backend.src.utils.formatter import format_tool_result_to_markdown
+            result_text = format_tool_result_to_markdown(result)
+            tool_call_info["result"] = result.get("result")
     except Exception as e:
-        result_text = f"Error: {e}"
+        result_text = f"Error executing tool `{call.get('name', 'unknown')}`: {e}"
         tool_call_info["error"] = str(e)
         if activities and activities[-1].status == "running":
             activities[-1].status = "failed"

@@ -199,9 +199,36 @@ class TestDatabaseAPI:
         assert res.get("success") is True
         assert res.get("rows")[0]["Employee_Name"] == "Test Upload"
 
-        # Re-seed the original database to keep it clean for subsequent tests
-        import subprocess
-        subprocess.run(["python", "backend/scripts/enhance_and_seed.py"], check=True)
+        # Re-seed the original database using load_csv with minimal test employees
+        import tempfile, csv
+        from pathlib import Path
+        from backend.scripts.load_db import load_csv
+        from backend.config.settings import settings
+
+        db_url = settings.database_url
+        target_db_path = Path("./backend/data/hr_ops.db")
+        if db_url.startswith("sqlite:///"):
+            target_db_path = Path(db_url.replace("sqlite:///", ""))
+
+        seed_rows = [
+            {"Employee_ID": "EMP0001", "Employee_Name": "Alice Chen", "Age": 30, "Country": "USA",
+             "Department": "Engineering", "Position": "Engineer", "Salary": 80000, "Joining_Date": "2020-01-01"},
+            {"Employee_ID": "EMP0002", "Employee_Name": "Bob Smith", "Age": 35, "Country": "UK",
+             "Department": "HR", "Position": "Manager", "Salary": 90000, "Joining_Date": "2019-06-01"},
+            {"Employee_ID": "EMP0003", "Employee_Name": "Carol Davis", "Age": 28, "Country": "USA",
+             "Department": "Finance", "Position": "Analyst", "Salary": 70000, "Joining_Date": "2021-03-15"},
+            {"Employee_ID": "EMP0004", "Employee_Name": "Dave Wilson", "Age": 42, "Country": "India",
+             "Department": "Operations", "Position": "Director", "Salary": 110000, "Joining_Date": "2017-01-10"},
+            {"Employee_ID": "EMP0005", "Employee_Name": "Eve Martinez", "Age": 31, "Country": "Spain",
+             "Department": "Marketing", "Position": "Specialist", "Salary": 65000, "Joining_Date": "2022-07-20"},
+        ]
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False, newline="") as tf:
+            writer = csv.DictWriter(tf, fieldnames=seed_rows[0].keys())
+            writer.writeheader()
+            writer.writerows(seed_rows)
+            tmp_path = tf.name
+        load_csv(Path(tmp_path), target_db_path)
+        Path(tmp_path).unlink(missing_ok=True)
 
     def test_database_upload_unsupported(self):
         r = client.post(
@@ -211,3 +238,38 @@ class TestDatabaseAPI:
         assert r.status_code == 400
         assert r.json()["success"] is False
 
+
+class TestIntegrationsAPI:
+    def test_get_integrations(self):
+        r = client.get("/integrations")
+        assert r.status_code == 200
+        body = r.json()
+        assert body["success"] is True
+        data = body["data"]
+        assert "database" in data
+        assert "chat_hook" in data
+        assert "connection_string" in data["database"]
+
+    def test_update_integrations(self):
+        payload = {
+            "database": {
+                "type": "sqlite",
+                "connection_string": "sqlite:///./backend/data/hr_ops.db",
+            },
+            "chat_hook": {
+                "enabled": False,
+                "webhook_url": "",
+                "events": ["leave_request"],
+            },
+        }
+        r = client.post("/integrations", json=payload)
+        assert r.status_code == 200
+        body = r.json()
+        assert body["success"] is True
+        assert body["data"]["database"]["type"] == "sqlite"
+        assert body["data"]["chat_hook"]["enabled"] is False
+
+    def test_update_integrations_missing_fields(self):
+        r = client.post("/integrations", json={"database": {}, "chat_hook": {}})
+        assert r.status_code == 400
+        assert r.json()["success"] is False

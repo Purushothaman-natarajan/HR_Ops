@@ -45,6 +45,8 @@ class AGUIStore:
                                 query=req.query,
                                 created_at=req.created_at,
                                 status=req.status,
+                                session_id=req.session_id,
+                                assigned_role=req.assigned_role,
                             )
                         )
             return pending

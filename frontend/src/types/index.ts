@@ -188,6 +188,7 @@ export interface PendingItem {
   created_at: string;
   status: string;
   assigned_role?: string;
+  session_id?: string;
 }
 
 /** Standard API response envelope wrapping all backend responses.

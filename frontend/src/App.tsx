@@ -13,13 +13,14 @@ import { RLDashboard } from "./components/RLDashboard";
 import { CostDashboard } from "./components/CostDashboard";
 import { PerformanceDashboard } from "./components/PerformanceDashboard";
 import { PolicyManager } from "./components/PolicyManager";
+import { IntegrationsManager } from "./components/IntegrationsManager";
 import { LoginPage } from "./components/LoginPage";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
 import type { AppRole } from "./types";
 
-type Page = "dashboard" | "query" | "hitl" | "trace" | "tracequery" | "rl" | "cost" | "policies" | "performance";
+type Page = "dashboard" | "query" | "hitl" | "trace" | "tracequery" | "rl" | "cost" | "policies" | "performance" | "settings";
 
-const ADMIN_PAGES: Page[] = ["dashboard", "query", "hitl", "trace", "tracequery", "rl", "cost", "policies", "performance"];
+const ADMIN_PAGES: Page[] = ["dashboard", "query", "hitl", "trace", "tracequery", "rl", "cost", "policies", "performance", "settings"];
 const HR_PAGES: Page[] = ["dashboard", "query", "hitl", "policies", "cost"];
 const EMPLOYEE_PAGES: Page[] = ["dashboard", "query", "policies"];
 
@@ -48,6 +49,13 @@ function AppInner() {
   const { role, employeeId, isAuthenticated, logout } = useAuth();
   const [activePage, setActivePage] = useState<Page>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [resumeSession, setResumeSession] = useState<{ sessionId: string; mode: "standard" | "advanced" } | null>(null);
+
+  const handleContinueSession = (sessionId: string, mode: "standard" | "advanced" = "advanced") => {
+    setResumeSession({ sessionId, mode });
+    setActivePage("query");
+    setSidebarOpen(false);
+  };
 
   if (!isAuthenticated || !role) {
     return <LoginPage />;
@@ -81,10 +89,22 @@ function AppInner() {
               switch (activePage) {
                 case "dashboard":
                   return <Dashboard onNavigate={setActivePage} role={role} />;
-                case "query":
-                  return <ChatInterface employeeId={role === "employee" ? employeeId : ""} />;
+                case "query": {
+                  const rs = resumeSession;
+                  // Clear resumeSession after mounting so re-renders don't re-apply
+                  const onMount = rs ? () => setResumeSession(null) : undefined;
+                  return (
+                    <ChatInterface
+                      key={rs?.sessionId || "new"}
+                      employeeId={role === "employee" ? employeeId : ""}
+                      resumeSessionId={rs?.sessionId}
+                      resumeMode={rs?.mode}
+                      onMounted={onMount}
+                    />
+                  );
+                }
                 case "hitl":
-                  return <HITLPanel />;
+                  return <HITLPanel onContinueSession={handleContinueSession} />;
                 case "trace":
                   return <TraceList />;
                 case "tracequery":
@@ -97,6 +117,8 @@ function AppInner() {
                   return <PerformanceDashboard />;
                 case "policies":
                   return <PolicyManager role={role} />;
+                case "settings":
+                  return <IntegrationsManager />;
               }
             })()}
           </div>

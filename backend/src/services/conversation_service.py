@@ -208,7 +208,7 @@ class SessionStore:
             final_result = {}
             async for step in graph.astream(state):
                 for node_name, node_state in step.items():
-                    final_result = node_state
+                    final_result.update(node_state)
                     trace_log = node_state.get("trace_log", [])
                     for t in trace_log[prev_trace_len:]:
                         activities_data = []

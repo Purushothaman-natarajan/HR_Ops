@@ -110,9 +110,13 @@ async def supervisor_decision(state: SharedState) -> dict:
             prompt = (
                 f"{history_context}"
                 f"Given the HR query below, decide which agent should handle it.\n"
-                f"Options: policy, action, anomaly, compliance.\n\n"
+                f"Options:\n"
+                f"- policy: questions about HR policies, rules, benefits, guidelines, or general documentation.\n"
+                f"- action: queries seeking to retrieve, count, search, or modify employee details, databases, or records.\n"
+                f"- anomaly: tasks investigating data discrepancies, outliers, errors, or anomalies.\n"
+                f"- compliance: tasks checking if actions or queries comply with rules/regulations.\n\n"
                 f"Query: {state.query}\n"
-                f"Reply with one word."
+                f"Reply with exactly one word from the options."
             )
             activities.append(Activity(
                 type="llm_call", label="Classifying query with LLM",

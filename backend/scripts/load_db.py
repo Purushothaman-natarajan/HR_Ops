@@ -62,6 +62,12 @@ def load_csv(csv_path: Path, db_path: Path):
         logger.info("Columns 'Performance_Rating' missing, generating random ratings...")
         df['Performance_Rating'] = [float(random.choice([3, 4, 5])) for _ in range(len(df))]
         
+    if "Manager_ID" not in df.columns:
+        logger.info("Column 'Manager_ID' missing, generating manager assignments...")
+        emp_ids = df["Employee_ID"].tolist() if "Employee_ID" in df.columns else [str(i) for i in range(len(df))]
+        manager_pool = emp_ids[:min(5, len(emp_ids))]
+        df['Manager_ID'] = [random.choice(manager_pool) if eid not in manager_pool else "CEO" for eid in emp_ids]
+        
     # Seed into SQL database
     db_path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(db_path))

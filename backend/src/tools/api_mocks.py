@@ -113,9 +113,23 @@ def modify_record(employee_id: str, field: str, value: Any) -> dict:
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=10))
 def escalate_to_human(employee_id: str, reason: str, context: dict | None = None) -> dict:
-    """Create an escalation ticket for human review and return the ticket ID and status."""
+    """Create an escalation ticket for human review, register in AGUI store, and return the ticket ID and status."""
+    from backend.src.utils.agui_models import InteractionRequest
+    from backend.src.utils.agui_store import agui_store
+
     ticket_id = f"TKT-{uuid.uuid4().hex[:8].upper()}"
-    logger.info("escalate_to_human: ticket=%s emp=%s reason=%s", ticket_id, employee_id, reason)
+    session_id = (context or {}).get("session_id", "")
+    logger.info("escalate_to_human: ticket=%s emp=%s reason=%s session=%s", ticket_id, employee_id, reason, session_id)
+
+    req = InteractionRequest(
+        interaction_id=ticket_id,
+        query=f"[Employee: {employee_id}] {reason}",
+        context=context or {},
+        assigned_role="hr_manager",
+        session_id=session_id,
+    )
+    agui_store.add_request(req)
+
     return {"ticket_id": ticket_id, "status": "escalated", "timestamp": datetime.now(timezone.utc).isoformat()}
 
 

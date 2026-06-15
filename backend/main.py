@@ -26,6 +26,7 @@ from backend.src.api.database_routes import router as database_router
 from backend.src.api.debug_routes import router as debug_router
 from backend.src.api.feedback_routes import router as feedback_router
 from backend.src.api.graph_routes import router as graph_router
+from backend.src.api.integration_routes import router as integration_router
 from backend.src.api.policy_routes import router as policy_router
 from backend.src.api.trace_routes import router as trace_router
 from backend.src.api.vector_routes import router as vector_router
@@ -129,6 +130,7 @@ app.include_router(feedback_router)
 app.include_router(vector_router)
 app.include_router(database_router)
 app.include_router(auth_router)
+app.include_router(integration_router)
 
 
 @app.exception_handler(HROpsBaseError)

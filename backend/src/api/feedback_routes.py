@@ -49,17 +49,26 @@ async def api_submit_feedback(body: dict, request: Request):
     correlation_id = get_correlation_id(request)
     session_id = body.get("session_id", "")
     action = body.get("action", "")
-    rating = body.get("rating", 0)
+    rating = body.get("rating")
 
-    if not action or rating not in (-1, 1):
+    try:
+        rating_val = float(rating) if rating is not None else None
+    except (ValueError, TypeError):
         return error_response(
-            message="action (str) and rating (1 or -1) are required",
+            message="rating must be a numeric value",
+            correlation_id=correlation_id,
+            status_code=400,
+        )
+
+    if not action or rating_val is None or not (-1.0 <= rating_val <= 1.0):
+        return error_response(
+            message="action (str) and rating (numeric between -1 and 1) are required",
             correlation_id=correlation_id,
             status_code=400,
         )
 
     context = body.get("context", {})
-    entry = feedback_store.record_feedback(session_id, action, float(rating), context)
+    entry = feedback_store.record_feedback(session_id, action, rating_val, context)
     return success_response(
         data={
             "recorded": entry["id"],

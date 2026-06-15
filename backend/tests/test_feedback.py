@@ -30,6 +30,16 @@ class TestFeedbackDirect:
         r = client.post("/feedback", json={"session_id": "test", "rating": 1})
         assert r.status_code == 400
 
+    def test_submit_neutral_shrug(self):
+        """Test that a neutral (shrug) rating of 0 is accepted and recorded correctly."""
+        r = client.post("/feedback", json={
+            "session_id": "shrug_test", "action": "policy", "rating": 0, "context": {"ui_action": "shrug"}
+        })
+        assert r.status_code == 200
+        body = r.json()
+        assert body["success"] is True
+        assert body["data"]["recorded"]
+
     def test_submit_invalid_rating(self):
         r = client.post("/feedback", json={"session_id": "test", "action": "policy", "rating": 99})
         assert r.status_code == 400
