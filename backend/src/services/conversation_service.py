@@ -255,22 +255,27 @@ class SessionStore:
         final_response = result.get("final_response", "")
         trace_log = result.get("trace_log", [])
 
+        feedback_store.record_auto_rewards(result, session_id=session_id)
+
+        trace_events = serialize_trace_events(trace_log)
+        total_cost = result.get("total_cost_usd", 0.0)
+
         user_msg = {"role": "user", "content": query}
-        assistant_msg = {"role": "assistant", "content": final_response, "node": result.get("current_agent", "")}
+        assistant_msg = {
+            "role": "assistant",
+            "content": final_response,
+            "node": result.get("current_agent", ""),
+            "cost": total_cost,
+            "liveEvents": trace_events
+        }
 
         with self._lock:
             s = self._sessions.get(session_id)
             if s:
                 s["messages"].append(user_msg)
                 s["messages"].append(assistant_msg)
-                s["total_cost"] += result.get("total_cost_usd", 0.0)
+                s["total_cost"] += total_cost
                 s["updated_at"] = datetime.now(timezone.utc).isoformat()
-
-        feedback_store.record_auto_rewards(result, session_id=session_id)
-
-        trace_events = serialize_trace_events(trace_log)
-
-        total_cost = result.get("total_cost_usd", 0.0)
 
         trace_store.save_run({
             "run_id": f"conv_{session_id}_turn_{turn}",
