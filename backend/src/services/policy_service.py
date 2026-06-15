@@ -7,6 +7,8 @@ extraction for .md / .pdf / .txt files, and automatic re-indexing into
 the vector store whenever policies are created, updated, or deleted.
 """
 
+import hashlib
+import json
 import logging
 import mimetypes
 import re
@@ -26,6 +28,7 @@ from backend.src.memory.vector_store import (
 logger = logging.getLogger("hr_ops.policy_service")
 
 POLICIES_DIR = Path(__file__).parent.parent.parent / "data" / "policies"
+POLICY_METADATA_FILE = Path(__file__).parent.parent.parent / "data" / ".policy_metadata.json"
 ALLOWED_EXTENSIONS = {".md", ".pdf", ".txt"}
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
@@ -35,6 +38,66 @@ def _slugify(name: str) -> str:
     name = Path(name).stem
     name = re.sub(r"[^a-zA-Z0-9_-]", "_", name).lower()
     return name.strip("_") or "untitled"
+
+
+def _compute_file_hash(path: Path, algorithm: str = "sha256") -> str:
+    """Compute a hash digest of file contents (used to detect if file has changed).
+    
+    Args:
+        path: Path to the file.
+        algorithm: Hash algorithm to use (default: sha256).
+    
+    Returns:
+        Hex digest of the file's hash.
+    """
+    hasher = hashlib.new(algorithm)
+    with open(path, "rb") as f:
+        while chunk := f.read(8192):
+            hasher.update(chunk)
+    return hasher.hexdigest()
+
+
+def _get_file_metadata(path: Path) -> dict:
+    """Extract metadata about a policy file: size, mtime, and content hash.
+    
+    Returns a dict with keys: mtime, size, hash
+    """
+    stat = path.stat()
+    return {
+        "mtime": stat.st_mtime,
+        "size": stat.st_size,
+        "hash": _compute_file_hash(path),
+    }
+
+
+def _load_policy_metadata() -> dict:
+    """Load the stored metadata about which policy files have been indexed.
+    
+    Returns a dict mapping relative file paths to metadata dicts (mtime, size, hash).
+    Empty dict if the metadata file doesn't exist.
+    """
+    if not POLICY_METADATA_FILE.exists():
+        return {}
+    try:
+        with open(POLICY_METADATA_FILE, "r") as f:
+            return json.load(f)
+    except Exception as e:
+        logger.warning("Failed to load policy metadata: %s", e)
+        return {}
+
+
+def _save_policy_metadata(metadata: dict):
+    """Save the metadata about which policy files have been indexed.
+    
+    Args:
+        metadata: Dict mapping relative file paths to metadata dicts.
+    """
+    try:
+        POLICY_METADATA_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with open(POLICY_METADATA_FILE, "w") as f:
+            json.dump(metadata, f, indent=2)
+    except Exception as e:
+        logger.warning("Failed to save policy metadata: %s", e)
 
 
 def _content_type(ext: str) -> str:
@@ -169,45 +232,100 @@ def _migrate_if_needed():
 
 
 def _reindex_all():
-    """Rebuild the entire ChromaDB collection for hr_policies from scratch.
+    """Rebuild the ChromaDB collection for hr_policies incrementally.
 
-    Reads all supported files from POLICIES_DIR, chunks them into embedding-sized
-    pieces, deletes the existing collection contents, and re-indexes with explicit
-    slug-based chunk IDs to prevent UUID/slug mismatch on next startup.
+    Reads all supported files from POLICIES_DIR, tracks file metadata (mtime, size, hash),
+    and only re-chunks/re-indexes files that are new or have changed since the last run.
+    Deletes vectors for files that have been removed from disk.
     """
     from backend.src.memory.chunking.recursive import RecursiveChunking
 
     chunker = RecursiveChunking(chunk_size=800, chunk_overlap=150)
-    docs = []
-    ids = []
+
+    # Load previously stored file metadata
+    stored_metadata = _load_policy_metadata()
+    new_metadata = {}
+
+    # Build the full list of current on-disk chunk ids and corresponding docs
+    docs_by_id: dict[str, Document] = {}
+    changed_files = []  # Track which files were changed/new for logging
+
     for path in sorted(POLICIES_DIR.iterdir()):
         if path.suffix.lower() in ALLOWED_EXTENSIONS and path.is_file():
-            text = extract_text(path)
-            slug = _slugify(path)
-            import asyncio
-            chunks = asyncio.run(chunker.chunk(text))
-            for chunk in chunks:
-                if chunk.text.strip():
-                    doc = Document(
-                        page_content=chunk.text,
-                        metadata={"source": path.name, "policy": slug, "chunk_index": chunk.index},
-                    )
-                    docs.append(doc)
-                    ids.append(f"{slug}__chunk_{chunk.index:03d}")
+            rel_path = path.relative_to(POLICIES_DIR).as_posix()
+            current_meta = _get_file_metadata(path)
+            new_metadata[rel_path] = current_meta
+
+            # Check if file is new or has changed
+            stored_meta = stored_metadata.get(rel_path)
+            is_new_or_changed = (
+                stored_meta is None
+                or stored_meta.get("mtime") != current_meta["mtime"]
+                or stored_meta.get("size") != current_meta["size"]
+                or stored_meta.get("hash") != current_meta["hash"]
+            )
+
+            if is_new_or_changed:
+                changed_files.append(rel_path)
+                text = extract_text(path)
+                slug = _slugify(path)
+                import asyncio
+                chunks = asyncio.run(chunker.chunk(text))
+                for chunk in chunks:
+                    if chunk.text.strip():
+                        doc_id = f"{slug}__chunk_{chunk.index:03d}"
+                        docs_by_id[doc_id] = Document(
+                            page_content=chunk.text,
+                            metadata={"source": path.name, "policy": slug, "chunk_index": chunk.index},
+                        )
+
     store = get_vector_store("hr_policies")
     existing = store.get()
-    if existing and existing.get("ids"):
-        store.delete(existing["ids"])  # clear stale vectors before re-import
-    if docs:
-        # Index in small batches to avoid API overload
+    existing_ids = set(existing.get("ids", [])) if existing else set()
+
+    current_ids = set(docs_by_id.keys())
+
+    # Delete stale vectors that correspond to files removed from disk
+    stale_ids = list(existing_ids - current_ids)
+    if stale_ids:
+        try:
+            store.delete(stale_ids)
+            logger.info("Deleted %d stale vectors (from removed files)", len(stale_ids))
+        except Exception:
+            logger.exception("Failed to delete stale vectors")
+
+    # Index only the missing/new documents (avoid re-indexing unchanged chunks)
+    missing_ids = list(current_ids - existing_ids)
+    if missing_ids:
+        # Prepare documents in the same order as missing_ids
+        missing_docs = [docs_by_id[i] for i in missing_ids]
         batch_size = 8
-        for i in range(0, len(docs), batch_size):
-            store.add_documents(docs[i:i + batch_size], ids=ids[i:i + batch_size])
-    logger.info("Re-indexed %d policy chunks from %d files", len(docs), len(set(d.metadata["policy"] for d in docs)))
+        for i in range(0, len(missing_docs), batch_size):
+            batch_docs = missing_docs[i : i + batch_size]
+            batch_ids = missing_ids[i : i + batch_size]
+            store.add_documents(batch_docs, ids=batch_ids)
+        logger.info(
+            "Indexed %d new policy chunks from %d files (%d changed, %d unchanged)",
+            len(missing_ids),
+            len(set(d.metadata["policy"] for d in missing_docs)),
+            len(changed_files),
+            len(new_metadata) - len(changed_files),
+        )
+    else:
+        if changed_files:
+            logger.info("No new chunks to index (detected %d file changes but all chunks already indexed)", len(changed_files))
+        else:
+            logger.info("No new policy chunks to index (all files unchanged)")
+
+    # Save updated metadata for next run
+    _save_policy_metadata(new_metadata)
 
 
-# One-time migration on import
-_migrate_if_needed()
+# NOTE: Migration should not run at import time because it may perform
+# asynchronous work (embedding/chunking) which can conflict with the
+# ASGI server's event loop during startup. The migration is intentionally
+# deferred and scheduled by the application lifespan handler in
+# backend.main so it runs in a background thread after the app starts.
 
 
 def create_policy(filename: str, content: bytes, title: str | None = None) -> dict:

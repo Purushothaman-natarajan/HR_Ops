@@ -301,7 +301,7 @@ export const api = {
      * const res = await api.policies.list();
      * // res.data.policies[0].title
      */
-    list: () => request<APIResponse<{ policies: PolicyDocument[] }>>("/policies"),
+    list: () => request<APIResponse<{ policies: PolicyDocument[]; embedded_count?: number }>>("/policies"),
 
     /** Retrieve a single policy's metadata and full text content.
      *

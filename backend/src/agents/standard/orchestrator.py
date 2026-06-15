@@ -20,7 +20,7 @@ from langgraph.graph import END, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
 from backend.config.settings import settings
-from backend.src.agents.state import AgentRole, SharedState, TraceEntry
+from backend.src.agents.state import AgentRole, SharedState, TraceEntry, Activity
 from backend.src.guardrails.registry import guardrail_registry
 from backend.src.tools.api_mocks import execute_tool
 from backend.src.utils.model_router import llm_call
@@ -61,6 +61,15 @@ async def _triage_node(state: SharedState) -> dict:
     if classification not in ("policy", "action", "anomaly", "compliance"):
         classification = "policy"
     elapsed = (datetime.now(timezone.utc) - start).total_seconds() * 1000
+    activities = [
+        Activity(
+            type="llm_call",
+            label="Classifying query with LLM",
+            detail=f"Classified query as '{classification}'",
+            status="completed",
+            duration_ms=elapsed,
+        )
+    ]
     return {
         "rl_context": {"classification": classification, "query": state.query},
         "rl_selected_action": classification,
@@ -70,6 +79,7 @@ async def _triage_node(state: SharedState) -> dict:
                 node="triage", agent_role=AgentRole.SUPERVISOR,
                 input_text=state.query, output_text=f"Classified as {classification}",
                 timestamp=start, duration_ms=elapsed, cost_usd=cost, model_used="model_router",
+                activities=activities,
             )
         ],
     }
@@ -81,6 +91,31 @@ async def _policy_node(state: SharedState) -> dict:
     from backend.src.memory.vector_store import similarity_search
 
     docs = similarity_search(state.query, k=3)
+    retrieval_docs = []
+    for d in (docs or []):
+        retrieval_docs.append({
+            "source": getattr(d, "metadata", {}).get("source", "unknown"),
+            "score": getattr(d, "metadata", {}).get("score", 0.0),
+            "chunk": d.page_content[:200],
+        })
+
+    activities = [
+        Activity(
+            type="search",
+            label="Searching vector DB for relevant policies",
+            detail=f"Found {len(docs) if docs else 0} documents",
+            status="completed",
+            duration_ms=0.0,
+        ),
+        Activity(
+            type="llm_call",
+            label="Generating answer with LLM",
+            detail=f"Context: {len(docs) if docs else 0} policy chunks, max_tokens=512",
+            status="completed",
+            duration_ms=0.0,
+        )
+    ]
+
     context = "\n\n".join(d.page_content for d in docs) if docs else "No policies found."
     prompt = (
         f"Answer the HR question based on the retrieved policies.\n\n"
@@ -99,6 +134,8 @@ async def _policy_node(state: SharedState) -> dict:
     )
     answer, cost = await llm_call("rag", prompt, max_tokens=512)
     elapsed = (datetime.now(timezone.utc) - start).total_seconds() * 1000
+    activities[1].duration_ms = elapsed
+
     return {
         "final_response": answer,
         "retrieved_policies": [d.page_content[:200] for d in (docs or [])],
@@ -107,6 +144,8 @@ async def _policy_node(state: SharedState) -> dict:
                 node="policy", agent_role=AgentRole.POLICY,
                 input_text=state.query, output_text=answer,
                 timestamp=start, duration_ms=elapsed, cost_usd=cost, model_used="model_router",
+                retrieved_docs=retrieval_docs,
+                activities=activities,
             )
         ],
     }
@@ -128,11 +167,34 @@ async def _action_node(state: SharedState) -> dict:
 
     try:
         call = json.loads(response)
-        tool_result = execute_tool(call["name"], **call["args"])
+        tool_name = call.get("name", "unknown")
+        tool_args = call.get("args", {})
+        tool_result = execute_tool(tool_name, **tool_args)
         result_text = json.dumps(tool_result, indent=2)
     except Exception as e:
+        tool_name = "unknown"
+        tool_args = {}
         result_text = f"Error: {e}"
     elapsed = (datetime.now(timezone.utc) - start).total_seconds() * 1000
+
+    activities = [
+        Activity(
+            type="llm_call",
+            label="Parsing tool call with LLM",
+            detail=f"Parsed tool call: {response[:100]}",
+            status="completed",
+            duration_ms=elapsed,
+        ),
+        Activity(
+            type="tool_call",
+            label=f"Executing tool: {tool_name}",
+            detail=f"Args: {json.dumps(tool_args)}",
+            status="completed",
+            duration_ms=0.0,
+            metadata={"tool_name": tool_name, "args": tool_args},
+        )
+    ]
+
     return {
         "executed_actions": [result_text],
         "final_response": f"Tool result: {result_text}",
@@ -141,6 +203,8 @@ async def _action_node(state: SharedState) -> dict:
                 node="action", agent_role=AgentRole.ACTION,
                 input_text=state.query, output_text=result_text,
                 timestamp=start, duration_ms=elapsed, cost_usd=cost, model_used="model_router",
+                activities=activities,
+                tool_call={"tool": tool_name, "args": tool_args, "result": result_text},
             )
         ],
     }

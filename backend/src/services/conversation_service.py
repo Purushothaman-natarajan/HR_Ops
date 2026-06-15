@@ -14,6 +14,7 @@ from threading import Lock
 
 from backend.src.agents.standard.orchestrator import build_standard_graph
 from backend.src.agents.state import SharedState, TriggerType
+from backend.src.api.serializers import serialize_trace_events
 from backend.src.core.exceptions import GraphExecutionError, ModelNotAvailableError
 from backend.src.graph import build_full_graph
 from backend.src.services.feedback_service import feedback_store
@@ -267,18 +268,7 @@ class SessionStore:
 
         feedback_store.record_auto_rewards(result, session_id=session_id)
 
-        trace_events = []
-        for t in trace_log:
-            trace_events.append({
-                "node": getattr(t, "node", ""),
-                "agent_role": str(getattr(t, "agent_role", "")),
-                "input_text": getattr(t, "input_text", "")[:300],
-                "output_text": getattr(t, "output_text", "")[:300],
-                "duration_ms": getattr(t, "duration_ms", 0),
-                "cost_usd": getattr(t, "cost_usd", 0),
-                "cache_hit": getattr(t, "cache_hit", False),
-                "model_used": getattr(t, "model_used", ""),
-            })
+        trace_events = serialize_trace_events(trace_log)
 
         total_cost = result.get("total_cost_usd", 0.0)
 

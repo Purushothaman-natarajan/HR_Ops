@@ -1,0 +1,22 @@
+{
+  "attendance_policy.md": {
+    "mtime": 1781538745.103555,
+    "size": 12810,
+    "hash": "da1f1b045c107e29026c0541b5c953d5eb7c8ea1d937856885c0845bc925980d"
+  },
+  "compensation_policy.md": {
+    "mtime": 1781534204.5631628,
+    "size": 11408,
+    "hash": "ec89dee264d03879dd56983abd709f6148fa9bd74c131f1f88da11657c74a050"
+  },
+  "compliance_policy.md": {
+    "mtime": 1781534168.679597,
+    "size": 13305,
+    "hash": "515654dab118a90f4270c058187353c0afd9dc01dae48c83881f6d3798202c6e"
+  },
+  "leave_policy.md": {
+    "mtime": 1781539831.6278424,
+    "size": 11244,
+    "hash": "f3d5247822587369bda6021315862f7c943ad27834c2aeb02d3653e4c1c390c5"
+  }
+}

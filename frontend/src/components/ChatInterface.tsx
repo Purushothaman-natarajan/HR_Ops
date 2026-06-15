@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import ReactMarkdown from "react-markdown";
+import rehypeSanitize from "rehype-sanitize";
 import { api } from "../api/client";
 import { TraceViewer } from "./TraceViewer";
 import { ActivityPanel, LiveActivityPanel } from "./ActivityPanel";
 import { Icon } from "./Icons";
-import type { IconName } from "./Icons";
-import type { ConversationMessage, TraceEvent, ConversationSession } from "../types";
+import type { ConversationMessage, TraceEvent, ActivityEvent } from "../types";
 
 type Mode = "standard" | "advanced";
 
@@ -50,33 +51,10 @@ interface NodeEvent {
   input_text: string;
   cost_usd: number;
   model_used: string;
-  activities?: Array<{
-    type: string;
-    label: string;
-    detail: string;
-    status: string;
-    duration_ms?: number;
-    metadata?: Record<string, unknown>;
-  }>;
+  activities?: ActivityEvent[];
   reasoning?: string;
   retrieved_docs?: Array<{ source: string; score: number; chunk: string }>;
   tool_call?: Record<string, unknown>;
-}
-
-const NODE_ICONS: Record<string, IconName> = {
-  supervisor: "supervisor",
-  triage: "triage",
-  policy: "policy",
-  action: "action",
-  anomaly: "anomaly",
-  compliance: "compliance",
-  parallel_check: "parallel",
-  hitl: "hitl",
-};
-
-function formatDuration(ms: number): string {
-  if (ms < 1000) return `${Math.round(ms)}ms`;
-  return `${(ms / 1000).toFixed(1)}s`;
 }
 
 export function ChatInterface({ employeeId = "" }: ChatInterfaceProps) {
@@ -300,7 +278,13 @@ export function ChatInterface({ employeeId = "" }: ChatInterfaceProps) {
                   compact
                 />
               )}
-              <div className="chat-bubble-content">{msg.content}</div>
+              <div className={`chat-bubble-content${msg.role === "assistant" ? " markdown" : ""}`}>
+                {msg.role === "assistant" ? (
+                  <ReactMarkdown rehypePlugins={[rehypeSanitize]}>{msg.content}</ReactMarkdown>
+                ) : (
+                  msg.content
+                )}
+              </div>
               {msg.role === "assistant" && (
                 <div className="chat-bubble-actions">
                   <button

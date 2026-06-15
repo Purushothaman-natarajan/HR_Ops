@@ -1434,6 +1434,46 @@
   word-break: break-word;
 }
 
+.chat-bubble-content.markdown {
+  white-space: normal;
+}
+
+.chat-bubble-content.markdown p {
+  margin-bottom: 8px;
+}
+
+.chat-bubble-content.markdown p:last-child {
+  margin-bottom: 0;
+}
+
+.chat-bubble-content.markdown ul,
+.chat-bubble-content.markdown ol {
+  padding-left: 20px;
+  margin-bottom: 8px;
+}
+
+.chat-bubble-content.markdown li {
+  margin-bottom: 2px;
+}
+
+.chat-bubble-content.markdown h1,
+.chat-bubble-content.markdown h2,
+.chat-bubble-content.markdown h3,
+.chat-bubble-content.markdown h4 {
+  color: var(--color-text);
+  margin-top: 12px;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.chat-bubble-content.markdown h1 { font-size: 15px; }
+.chat-bubble-content.markdown h2 { font-size: 14px; }
+.chat-bubble-content.markdown h3 { font-size: 13px; }
+
+.chat-bubble-content.markdown strong {
+  color: var(--color-text);
+}
+
 .chat-bubble-actions {
   display: flex;
   align-items: center;

@@ -144,7 +144,7 @@ async def test_generation(mode: str, queries: list[str]):
 
             # Show trace nodes
             trace_nodes = [t.get("node", "?") for t in result.get("trace_events", [])]
-            print(f"         Trace path: {' → '.join(trace_nodes)}")
+            print(f"         Trace path: {' -> '.join(trace_nodes)}")
 
             results.append({
                 "query": query,

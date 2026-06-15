@@ -40,6 +40,7 @@ from backend.src.utils.api_logger import RequestLog
 from backend.src.utils.docs_page import get_redoc_html
 from backend.src.utils.logger import get_logger
 from backend.src.utils.model_router import close_nvidia_http_client
+from backend.src.services import policy_service
 
 logger = get_logger("hr_ops")
 
@@ -57,14 +58,24 @@ for name in [
     l.setLevel(logging.DEBUG)
 
 
-async def _warmup_embeddings():
-    """Pre-warm the NVIDIA embedding model on startup to avoid cold-start latency on first request."""
+def _warmup_embeddings():
+    """Pre-warm the NVIDIA embedding model on startup to avoid cold-start latency on first request.
+
+    This helper is synchronous by design and is executed in a thread from the async lifespan
+    to avoid blocking or conflicting with the ASGI event loop.
+    """
     try:
+        # Skip warmup if no NVIDIA API key configured — avoids blocking startup
+        if not settings.nvidia_api_key:
+            logger.info("NVIDIA API key not configured, skipping embedding warmup")
+            return
+
         from backend.src.utils.nvidia_embeddings import NVIDIAEmbeddings
         cfg = settings.embed_config.get("embedding", {})
         model_name = cfg.get("model_name", "nvidia/nv-embed-v1")
         logger.info("Warming up NVIDIA embedding model: %s", model_name)
         embedder = NVIDIAEmbeddings(model=model_name)
+        # run a quick synchronous warmup call
         embedder.embed_query("warmup")
         logger.info("NVIDIA embedding model warmup complete: %s", model_name)
     except Exception as e:
@@ -75,7 +86,14 @@ async def _warmup_embeddings():
 async def lifespan(app: FastAPI):
     """Application lifespan: warmup models on startup, clean up clients on shutdown."""
     logger.info("Starting HR Ops Platform")
-    await _warmup_embeddings()
+    # Schedule long-running startup tasks (warmup, migration) in background
+    # threads so the application can become responsive quickly.
+    loop = asyncio.get_running_loop()
+    loop.create_task(asyncio.to_thread(_warmup_embeddings))
+    if settings.startup_reindex:
+        loop.create_task(asyncio.to_thread(policy_service._migrate_if_needed))
+    else:
+        logger.info("Skipping policy reindex on startup (STARTUP_REINDEX=false)")
     logger.info("HR Ops Platform started successfully")
     yield
     await close_nvidia_http_client()

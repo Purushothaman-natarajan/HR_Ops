@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     log_file: str = "./backend/data/hr_ops.log"
     agui_timeout_seconds: int = 300
     app_role: str = "admin"
+    startup_reindex: bool = True
 
     langfuse_public_key: str = ""
     langfuse_secret_key: str = ""

@@ -11,7 +11,7 @@ from typing import Any
 from backend.src.agents.state import AnomalyResult, TraceEntry
 
 
-def _serialize_trace_events(trace_log: Any) -> list[dict]:
+def serialize_trace_events(trace_log: Any) -> list[dict]:
     if not isinstance(trace_log, list):
         return []
     return [
@@ -29,6 +29,17 @@ def _serialize_trace_events(trace_log: Any) -> list[dict]:
             "alternatives": t.alternatives,
             "retrieved_docs": t.retrieved_docs[:3],
             "tool_call": t.tool_call,
+            "activities": [
+                {
+                    "type": getattr(a, "type", ""),
+                    "label": getattr(a, "label", ""),
+                    "detail": getattr(a, "detail", ""),
+                    "status": getattr(a, "status", "completed"),
+                    "duration_ms": getattr(a, "duration_ms", 0.0),
+                    "metadata": getattr(a, "metadata", {}),
+                }
+                for a in getattr(t, "activities", [])
+            ] if hasattr(t, "activities") else [],
         }
         for t in trace_log
         if isinstance(t, TraceEntry)
@@ -71,7 +82,7 @@ def serialize_graph_result(
     """
     trace_log = result.get("trace_log", [])
     anomalies = result.get("anomaly_results", [])
-    events = _serialize_trace_events(trace_log)
+    events = serialize_trace_events(trace_log)
     total_cost = result.get("total_cost_usd", 0.0)
 
     return {

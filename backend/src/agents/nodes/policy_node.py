@@ -4,7 +4,7 @@ import logging
 from datetime import datetime, timezone
 
 from backend.config.settings import settings
-from backend.src.agents.state import SharedState, TraceEntry
+from backend.src.agents.state import Activity, SharedState, TraceEntry
 from backend.src.guardrails.registry import guardrail_registry
 from backend.src.memory.cache import semantic_cache
 from backend.src.memory.vector_store import similarity_search
