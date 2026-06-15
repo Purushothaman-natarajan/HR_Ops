@@ -1,8 +1,6 @@
-import os
 import sqlite3
 import pytest
 from pathlib import Path
-import pandas as pd
 
 from backend.config.settings import settings
 from backend.src.tools.api_mocks import get_database_schema, execute_db_query
