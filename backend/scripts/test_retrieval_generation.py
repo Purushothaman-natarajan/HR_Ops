@@ -1,7 +1,6 @@
 """End-to-end test: generate queries per policy, test retrieval + generation for both modes."""
 
 import asyncio
-import json
 import sys
 import time
 from pathlib import Path
