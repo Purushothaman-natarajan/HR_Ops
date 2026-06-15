@@ -21,3 +21,4 @@ openai>=1.30.0
 sentence-transformers>=2.7.0
 pandas>=2.2.2
 python-dotenv>=1.0.1
+sqlalchemy>=2.0

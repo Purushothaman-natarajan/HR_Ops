@@ -1,3 +1,5 @@
+"""DSPy optimizer: compiles and loads optimized prompts for triage, RAG, and narrative."""
+
 import json
 import logging
 from pathlib import Path
@@ -6,6 +8,7 @@ from typing import Any
 import dspy
 from dspy.teleprompt import MIPROv2
 
+from backend.src.core.exceptions import ConfigurationError
 from backend.src.intelligence.signatures.triage_signature import TriageSignature
 from backend.src.intelligence.signatures.rag_signature import RAGSignature
 from backend.src.intelligence.signatures.narrative_signature import NarrativeSignature
@@ -17,21 +20,20 @@ _OPTIMIZED_DIR = Path("dspy_optimized")
 
 
 def _ensure_llm():
-    try:
-        from backend.config.settings import settings
+    """Configure the DSPy language model using available API keys."""
+    from backend.config.settings import settings
 
-        if settings.openai_api_key:
-            lm = dspy.LM("openai/gpt-4o-mini", api_key=settings.openai_api_key)
-        elif settings.groq_api_key:
-            lm = dspy.LM("groq/llama-3.1-8b-instant", api_key=settings.groq_api_key)
-        else:
-            lm = dspy.LM("openai/gpt-4o-mini")
-        dspy.configure(lm=lm)
-    except Exception:
-        dspy.configure(lm=dspy.LM("openai/gpt-4o-mini"))
+    if settings.openai_api_key:
+        lm = dspy.LM("openai/gpt-4o-mini", api_key=settings.openai_api_key)
+    elif settings.groq_api_key:
+        lm = dspy.LM("groq/llama-3.1-8b-instant", api_key=settings.groq_api_key)
+    else:
+        raise ConfigurationError("No API key configured for DSPy — set OPENAI_API_KEY or GROQ_API_KEY")
+    dspy.configure(lm=lm)
 
 
 def build_training_data() -> list[dspy.Example]:
+    """Return a small set of labelled HR query examples for DSPy optimization."""
     return [
         dspy.Example(query="What is the leave policy?", classification="policy").with_inputs("query"),
         dspy.Example(query="Update salary for EMP0001 to 75000", classification="action").with_inputs("query"),
@@ -45,6 +47,7 @@ def build_training_data() -> list[dspy.Example]:
 
 
 def optimize_triage(minibatch: bool = True) -> dspy.Module:
+    """Compile the TriageSignature using MIPROv2 and save the optimized module."""
     _ensure_llm()
     trainset = build_training_data()
     if minibatch and len(trainset) > 4:
@@ -58,6 +61,7 @@ def optimize_triage(minibatch: bool = True) -> dspy.Module:
 
 
 def load_optimized_module(name: str = "triage") -> dspy.Module | None:
+    """Load a previously optimized DSPy module from disk, or return None."""
     path = _OPTIMIZED_DIR / f"{name}_signature.json"
     if path.exists():
         try:

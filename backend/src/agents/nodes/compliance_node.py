@@ -1,6 +1,8 @@
+"""Compliance node: checks HR queries against policy rules and hard veto conditions."""
+
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 from backend.src.agents.state import SharedState, TraceEntry
 from backend.src.utils.model_router import llm_call
@@ -10,7 +12,8 @@ logger = logging.getLogger("hr_ops.nodes.compliance")
 
 
 def compliance_node(state: SharedState) -> dict:
-    start = datetime.utcnow()
+    """Evaluate the query for compliance via LLM and check hard veto rules."""
+    start = datetime.now(timezone.utc)
     prompt = (
         f"Check if the following HR query complies with company policies.\n"
         f"Query: {state.query}\n\n"
@@ -24,7 +27,7 @@ def compliance_node(state: SharedState) -> dict:
             result = {"compliant": False, "reason": veto[1]}
     except Exception as e:
         result = {"compliant": False, "reason": str(e)}
-    elapsed = (datetime.utcnow() - start).total_seconds() * 1000
+    elapsed = (datetime.now(timezone.utc) - start).total_seconds() * 1000
     return {
         "compliance_veto": not result.get("compliant", True),
         "compliance_reason": result.get("reason", ""),

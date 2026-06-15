@@ -1,16 +1,20 @@
+"""HITL escalation node: creates a human-in-the-loop request and stores it for review."""
+
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 from backend.src.agents.state import SharedState, HITLRequest, TraceEntry, AgentRole
+from backend.src.utils.agui_models import InteractionRequest
 
 logger = logging.getLogger("hr_ops.nodes.hitl")
 
 
 def hitl_escalation_node(state: SharedState) -> dict:
+    """Create a HITL request and store it in the AGUI store if escalation is needed."""
     if not state.hitl_needed:
         return {}
-    request = HITLRequest(
-        interaction_id=f"HITL-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
+    request = InteractionRequest(
+        interaction_id=f"HITL-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}",
         query=state.query,
         context={
             "current_agent": state.current_agent,
@@ -29,7 +33,7 @@ def hitl_escalation_node(state: SharedState) -> dict:
                 node="hitl_escalation", agent_role=AgentRole.SUPERVISOR,
                 input_text=state.query,
                 output_text=f"Escalated: {request.interaction_id}",
-                timestamp=datetime.utcnow(), duration_ms=0,
+                timestamp=datetime.now(timezone.utc), duration_ms=0,
             )
         ],
     }

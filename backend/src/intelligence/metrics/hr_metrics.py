@@ -1,3 +1,5 @@
+"""DSPy metric for evaluating HR answer accuracy and policy compliance."""
+
 import dspy
 
 

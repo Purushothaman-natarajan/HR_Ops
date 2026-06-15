@@ -1,8 +1,12 @@
+"""Parent-document chunking: large parent chunks split into smaller child chunks."""
+
 from backend.src.memory.chunking.base import Chunk, ChunkingStrategy
 from backend.src.memory.chunking.recursive import RecursiveChunking
 
 
 class ParentDocumentChunking(ChunkingStrategy):
+    """Creates large parent chunks, then splits each into smaller child chunks with metadata links."""
+
     def __init__(
         self,
         parent_chunk_size: int = 1000,
@@ -20,6 +24,7 @@ class ParentDocumentChunking(ChunkingStrategy):
         )
 
     def chunk(self, text: str, **kwargs) -> list[Chunk]:
+        """Split text into parent chunks, then each parent into child chunks with back-references."""
         parents = self._parent_strategy.chunk(text)
         all_chunks = []
         child_idx = 0

@@ -1,3 +1,5 @@
+"""DSPy signature for answering HR policy questions using retrieved context."""
+
 import dspy
 
 

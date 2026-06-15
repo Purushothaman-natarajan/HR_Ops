@@ -1,27 +1,38 @@
+# Guardrails configuration for input, output, tool, and model validation.
+# Each section can be independently toggled via feature_flags.yaml.
+
+# --- Input Guardrails ---
+# Validates user queries before they reach the agent graph.
 input:
-  pii_detection: true
-  injection_detection: true
-  topic_restriction: true
-  max_input_length: 4096
+  pii_detection: true        # Scans for SSN, credit card numbers, email addresses (regex)
+  injection_detection: true  # Detects prompt injection patterns
+  topic_restriction: true    # Blocks queries matching blocked_topics list
+  max_input_length: 4096     # Maximum character length; queries exceeding this are rejected
   blocked_topics:
     - violence
     - illegal_activity
     - discrimination
 
+# --- Output Guardrails ---
+# Validates agent responses before returning them to the user.
 output:
-  pii_redaction: true
-  hallucination_check: true
-  tone_validation: true
+  pii_redaction: true        # Redacts PII that might leak in LLM responses
+  hallucination_check: true  # Detects hedging/uncertainty language patterns
+  tone_validation: true      # Ensures response matches one of the allowed_tones
   allowed_tones:
     - professional
     - empathetic
     - informative
 
+# --- Tool Guardrails ---
+# Validates tool calls before execution against mock APIs.
 tool:
-  validate_args: true
-  validate_output_schema: true
+  validate_args: true          # Checks argument types and max length (2000 chars)
+  validate_output_schema: true # Ensures tool output matches expected schema
 
+# --- Model Guardrails ---
+# Enforces cost and latency limits per LLM call.
 model:
-  max_retries: 3
-  timeout_seconds: 30
-  cost_threshold_usd: 0.50
+  max_retries: 3               # Number of retries on failure (exponential backoff via tenacity)
+  timeout_seconds: 30          # Max wait time per LLM call; exceeded calls are aborted
+  cost_threshold_usd: 0.50     # Max cost per call; exceeded calls fall back to cheaper model

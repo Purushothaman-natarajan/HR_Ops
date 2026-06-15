@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { StatusIndicator } from "./components/StatusIndicator";
 import { VectorDBStatus } from "./components/VectorDBStatus";
@@ -6,8 +6,8 @@ import { DatabaseStatus } from "./components/DatabaseStatus";
 import { Dashboard } from "./components/Dashboard";
 import { ChatInterface } from "./components/ChatInterface";
 import { HITLPanel } from "./components/HITLPanel";
-import { TraceViewer } from "./components/TraceViewer";
 import { TraceQueryPanel } from "./components/TraceQueryPanel";
+import { TraceList } from "./components/TraceList";
 import { RLDashboard } from "./components/RLDashboard";
 import { CostDashboard } from "./components/CostDashboard";
 import { PolicyManager } from "./components/PolicyManager";
@@ -74,14 +74,7 @@ function AppInner() {
                 case "hitl":
                   return <HITLPanel />;
                 case "trace":
-                  return (
-                    <div>
-                      <div className="page-header">
-                        <h1 className="page-title">Trace Events</h1>
-                        <p className="page-desc">View execution traces from the system</p>
-                      </div>
-                    </div>
-                  );
+                  return <TraceList />;
                 case "tracequery":
                   return <TraceQueryPanel />;
                 case "rl":

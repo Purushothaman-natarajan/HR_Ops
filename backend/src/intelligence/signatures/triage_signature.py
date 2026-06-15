@@ -1,3 +1,5 @@
+"""DSPy signature for classifying HR queries into policy, action, anomaly, or compliance."""
+
 import dspy
 
 

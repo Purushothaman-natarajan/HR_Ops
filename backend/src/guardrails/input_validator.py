@@ -1,27 +1,20 @@
-import re
+"""Validates LLM input for PII, prompt injection, blocked topics, and length."""
+
+from __future__ import annotations
+
 from typing import Any
 
+from backend.src.guardrails.patterns import PII_PATTERNS, INJECTION_PATTERNS
 from backend.src.guardrails.registry import guardrail_registry
-
-PII_PATTERNS = [
-    re.compile(r"\b\d{3}-\d{2}-\d{4}\b"),            # SSN
-    re.compile(r"\b\d{16}\b"),                         # credit card (basic)
-    re.compile(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"),  # email
-]
-
-INJECTION_PATTERNS = [
-    re.compile(r"ignore\s+(all\s+)?(previous|above)", re.IGNORECASE),
-    re.compile(r"system\s*(prompt|message|instruction)", re.IGNORECASE),
-    re.compile(r"forget\s+(everything|all)", re.IGNORECASE),
-    re.compile(r"you\s+are\s+(now|not)\s+", re.IGNORECASE),
-]
 
 BLOCKED_TOPICS: list[str] = []
 
 
 def _load_blocked_topics() -> list[str]:
+    """Load blocked topics from settings, falling back to defaults."""
     try:
         from backend.config.settings import settings
+
         gc = settings.guardrails_config
         return gc.get("input", {}).get("blocked_topics", [])
     except Exception:
@@ -29,6 +22,7 @@ def _load_blocked_topics() -> list[str]:
 
 
 def _check_pii(text: str) -> tuple[bool, str]:
+    """Check if input contains PII patterns (SSN, credit card, email)."""
     for pat in PII_PATTERNS:
         if pat.search(text):
             return False, "Input contains PII"
@@ -36,6 +30,7 @@ def _check_pii(text: str) -> tuple[bool, str]:
 
 
 def _check_injection(text: str) -> tuple[bool, str]:
+    """Check if input contains prompt injection patterns."""
     for pat in INJECTION_PATTERNS:
         if pat.search(text):
             return False, "Input appears to contain prompt injection"
@@ -43,6 +38,7 @@ def _check_injection(text: str) -> tuple[bool, str]:
 
 
 def _check_topic(text: str) -> tuple[bool, str]:
+    """Check if input references any blocked topic."""
     global BLOCKED_TOPICS
     if not BLOCKED_TOPICS:
         BLOCKED_TOPICS.extend(_load_blocked_topics())
@@ -54,9 +50,11 @@ def _check_topic(text: str) -> tuple[bool, str]:
 
 
 def _check_length(text: str) -> tuple[bool, str]:
+    """Check if input exceeds the maximum allowed length."""
     max_len = 4096
     try:
         from backend.config.settings import settings
+
         gc = settings.guardrails_config
         max_len = gc.get("input", {}).get("max_input_length", 4096)
     except Exception:
@@ -67,6 +65,7 @@ def _check_length(text: str) -> tuple[bool, str]:
 
 
 def input_guardrail(context: dict) -> tuple[bool, str]:
+    """Entry-point guardrail: runs PII, injection, topic, and length checks on input."""
     text = _get_text(context)
     if not text:
         return True, ""
@@ -78,6 +77,7 @@ def input_guardrail(context: dict) -> tuple[bool, str]:
 
 
 def _get_text(context: dict) -> str:
+    """Extract text from context dict, supporting 'text' or 'messages' keys."""
     if "text" in context:
         return str(context["text"])
     if "messages" in context:

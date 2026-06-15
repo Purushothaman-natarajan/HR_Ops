@@ -1,7 +1,13 @@
-import logging
-from datetime import datetime
+"""Standard single-pass orchestrator for the HR agent graph.
 
-from langgraph.graph import StateGraph, END
+Builds a linear LangGraph with triage, policy, and action nodes.
+"""
+
+import logging
+from datetime import datetime, timezone
+
+from langgraph.graph import StateGraph, END, CompiledStateGraph
+from backend.config.settings import settings
 from backend.src.agents.state import SharedState, AgentRole, TraceEntry
 from backend.src.utils.model_router import llm_call
 from backend.src.guardrails.registry import guardrail_registry
@@ -11,7 +17,8 @@ logger = logging.getLogger("hr_ops.standard_orchestrator")
 
 
 def _triage_node(state: SharedState) -> dict:
-    start = datetime.utcnow()
+    """Classify the incoming HR query into policy, action, anomaly, or compliance."""
+    start = datetime.now(timezone.utc)
     prompt = (
         f"Classify the following HR query into one of:\n"
         f"- policy (ask about HR policies)\n"
@@ -21,26 +28,27 @@ def _triage_node(state: SharedState) -> dict:
         f"Query: {state.query}\n\n"
         f"Reply with exactly one word: policy/action/anomaly/compliance."
     )
-    gr = guardrail_registry.check_input({"text": state.query, "messages": state.messages})
-    if not gr.passed:
-        elapsed = (datetime.utcnow() - start).total_seconds() * 1000
-        return {
-            "final_response": f"Input guardrail blocked: {gr.message}",
-            "current_agent": AgentRole.SUPERVISOR,
-            "trace_log": [
-                TraceEntry(
-                    node="triage", agent_role=AgentRole.SUPERVISOR,
-                    input_text=state.query, output_text=gr.message,
-                    timestamp=start, duration_ms=elapsed,
-                    guardrail_result={"guardrail_type": "input", "passed": False, "message": gr.message},
-                )
-            ],
-        }
+    if settings.feature_flags.get("guardrails", {}).get("input_enabled", True):
+        gr = guardrail_registry.check_input({"text": state.query, "messages": state.messages})
+        if not gr.passed:
+            elapsed = (datetime.now(timezone.utc) - start).total_seconds() * 1000
+            return {
+                "final_response": f"Input guardrail blocked: {gr.message}",
+                "current_agent": AgentRole.SUPERVISOR,
+                "trace_log": [
+                    TraceEntry(
+                        node="triage", agent_role=AgentRole.SUPERVISOR,
+                        input_text=state.query, output_text=gr.message,
+                        timestamp=start, duration_ms=elapsed,
+                        guardrail_result=gr,
+                    )
+                ],
+            }
     classification, cost = llm_call("triage", prompt, max_tokens=20, temperature=0)
     classification = classification.strip().lower()
     if classification not in ("policy", "action", "anomaly", "compliance"):
         classification = "policy"
-    elapsed = (datetime.utcnow() - start).total_seconds() * 1000
+    elapsed = (datetime.now(timezone.utc) - start).total_seconds() * 1000
     return {
         "rl_context": {"classification": classification, "query": state.query},
         "rl_selected_action": classification,
@@ -56,7 +64,8 @@ def _triage_node(state: SharedState) -> dict:
 
 
 def _policy_node(state: SharedState) -> dict:
-    start = datetime.utcnow()
+    """Answer an HR policy question by retrieving relevant policies and generating a response."""
+    start = datetime.now(timezone.utc)
     from backend.src.memory.vector_store import similarity_search
 
     docs = similarity_search(state.query, k=3)
@@ -68,7 +77,7 @@ def _policy_node(state: SharedState) -> dict:
         f"Provide a clear, actionable answer."
     )
     answer, cost = llm_call("rag", prompt, max_tokens=512)
-    elapsed = (datetime.utcnow() - start).total_seconds() * 1000
+    elapsed = (datetime.now(timezone.utc) - start).total_seconds() * 1000
     return {
         "final_response": answer,
         "retrieved_policies": [d.page_content[:200] for d in (docs or [])],
@@ -83,7 +92,8 @@ def _policy_node(state: SharedState) -> dict:
 
 
 def _action_node(state: SharedState) -> dict:
-    start = datetime.utcnow()
+    """Parse a tool call from the query and execute it (lookup, modify, or escalate)."""
+    start = datetime.now(timezone.utc)
     prompt = (
         f"Extract the tool call from the query. Valid tools:\n"
         f"- lookup_employee(employee_id: str)\n"
@@ -101,7 +111,7 @@ def _action_node(state: SharedState) -> dict:
         result_text = json.dumps(tool_result, indent=2)
     except Exception as e:
         result_text = f"Error: {e}"
-    elapsed = (datetime.utcnow() - start).total_seconds() * 1000
+    elapsed = (datetime.now(timezone.utc) - start).total_seconds() * 1000
     return {
         "executed_actions": [result_text],
         "final_response": f"Tool result: {result_text}",
@@ -116,10 +126,12 @@ def _action_node(state: SharedState) -> dict:
 
 
 def _route_after_triage(state: SharedState) -> str:
+    """Return the agent name to route to after triage based on classification."""
     return state.current_agent or "policy"
 
 
 def build_standard_graph() -> StateGraph:
+    """Build and compile the standard LangGraph with triage, policy, and action nodes."""
     graph = StateGraph(SharedState)
     graph.add_node("triage", _triage_node)
     graph.add_node("policy", _policy_node)

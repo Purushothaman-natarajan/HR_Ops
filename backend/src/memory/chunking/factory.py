@@ -1,3 +1,5 @@
+"""Factory for instantiating chunking strategies by name with config overrides."""
+
 from backend.src.memory.chunking.base import ChunkingStrategy
 from backend.src.memory.chunking.recursive import RecursiveChunking
 from backend.src.memory.chunking.fixed_size import FixedSizeChunking
@@ -19,6 +21,7 @@ _strategies: dict[str, type[ChunkingStrategy]] = {
 
 
 def get_strategy(name: str | None = None) -> ChunkingStrategy:
+    """Return a chunking strategy instance by name, using config defaults."""
     cfg = settings.chunking_config
     default_name = cfg.get("default_strategy", "recursive")
     strategy_name = name or default_name

@@ -1,11 +1,20 @@
+# Compliance rules engine configuration.
+# Hard veto rules are checked after every sub-agent execution.
+# A veto overrides all other agent recommendations and blocks the action.
+
 hard_veto_rules:
+  # Prevents termination actions that lack documented HR approval
   - cannot_approve_termination_without_approval
+  # Prevents salary modifications that would fall below legal minimum wage
   - cannot_modify_salary_below_minimum_wage
+  # Prevents leave grants that exceed the employee's accrued balance
   - cannot_grant_leave_exceeding_accrued_balance
+  # Prevents compliance status changes without supporting evidence
   - cannot_change_compliance_status_without_evidence
 
-policy_reference_required: true
+policy_reference_required: true   # Whether all actions must cite a relevant policy document
 
 escalation_roles:
+  # Roles that can be assigned when a HITL escalation is triggered
   - hr_manager
   - compliance_officer

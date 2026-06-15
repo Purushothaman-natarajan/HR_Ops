@@ -1,7 +1,10 @@
+"""Guardrails for model cost and timeout thresholds."""
+
 from backend.src.guardrails.registry import guardrail_registry
 
 
 def model_cost_guardrail(context: dict) -> tuple[bool, str]:
+    """Reject inference if estimated cost exceeds the configured threshold."""
     cost = context.get("estimated_cost_usd", 0)
     threshold = 0.50
     if cost > threshold:
@@ -10,6 +13,7 @@ def model_cost_guardrail(context: dict) -> tuple[bool, str]:
 
 
 def model_timeout_guardrail(context: dict) -> tuple[bool, str]:
+    """Reject inference if timeout exceeds the configured threshold."""
     timeout = context.get("timeout_seconds", 0)
     threshold = 30
     if timeout > threshold:

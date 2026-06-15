@@ -1,6 +1,8 @@
+"""Anomaly node: runs automated anomaly detection on employee data and generates a narrative."""
+
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 from backend.src.agents.state import SharedState, TraceEntry
 from backend.src.utils.model_router import llm_call
@@ -11,6 +13,7 @@ logger = logging.getLogger("hr_ops.nodes.anomaly")
 
 
 def _generate_narrative(anomalies: list) -> str:
+    """Produce a human-readable narrative summary from a list of anomaly results."""
     if not anomalies:
         return "No anomalies detected."
     prompt = (
@@ -23,11 +26,12 @@ def _generate_narrative(anomalies: list) -> str:
 
 
 def anomaly_node(state: SharedState) -> dict:
-    start = datetime.utcnow()
+    """Run anomaly detection on employee data and return a narrative summary."""
+    start = datetime.now(timezone.utc)
     employees = list(_EMPLOYEES.values()) if _EMPLOYEES else []
     results = run_anomaly_detection(employees)
     narrative = _generate_narrative(results)
-    elapsed = (datetime.utcnow() - start).total_seconds() * 1000
+    elapsed = (datetime.now(timezone.utc) - start).total_seconds() * 1000
     return {
         "anomaly_results": results,
         "final_response": narrative,

@@ -1,0 +1,1 @@
+"""Tool schemas and mock API implementations for HR operations (lookup, modify, escalate)."""

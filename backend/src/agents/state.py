@@ -1,11 +1,15 @@
+"""Shared state definitions and data types for the HR agent workflow."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, List, Optional
+from typing import Any, Optional
+
 
 class AgentRole(str, Enum):
+    """Roles an agent node can assume within the HR pipeline."""
     SUPERVISOR = "supervisor"
     POLICY = "policy"
     ACTION = "action"
@@ -14,6 +18,7 @@ class AgentRole(str, Enum):
 
 
 class TriggerType(str, Enum):
+    """Types of triggers that initiate an agent workflow."""
     REACTIVE = "reactive"
     SCHEDULED = "scheduled"
     SYSTEM = "system"
@@ -21,6 +26,8 @@ class TriggerType(str, Enum):
 
 @dataclass
 class GuardrailResult:
+    """Result of a guardrail check, capturing whether it passed or failed."""
+
     guardrail_type: str
     passed: bool
     message: str = ""
@@ -29,8 +36,10 @@ class GuardrailResult:
 
 @dataclass
 class AnomalyResult:
+    """Result of an anomaly detection check on HR data."""
+
     detected: bool
-    severity: float  # 0.0 – 1.0
+    severity: float
     description: str = ""
     anomaly_field: str = ""
     suggested_action: str = ""
@@ -39,6 +48,8 @@ class AnomalyResult:
 
 @dataclass
 class TraceEntry:
+    """A single trace log entry recording a node execution in the agent graph."""
+
     node: str
     agent_role: AgentRole | str
     input_text: str
@@ -54,11 +65,13 @@ class TraceEntry:
 
 @dataclass
 class HITLRequest:
+    """A human-in-the-loop escalation request awaiting manual review."""
+
     interaction_id: str
     query: str
     context: dict
     status: str = "pending"
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     resolved_at: Optional[datetime] = None
     response: str = ""
     assigned_role: str = "hr_manager"
@@ -66,28 +79,26 @@ class HITLRequest:
 
 @dataclass
 class SharedState:
+    """Shared state propagated through the LangGraph agent workflow."""
+
     messages: list[dict] = field(default_factory=list)
     query: str = ""
+    session_id: str = ""
+    turn_number: int = 0
     trigger_type: TriggerType = TriggerType.REACTIVE
     current_agent: AgentRole | str = ""
-
     trace_log: list[TraceEntry] = field(default_factory=list)
     langfuse_trace_id: str = ""
-
     hitl_request: Optional[HITLRequest] = None
     hitl_needed: bool = False
     hitl_resolved: bool = False
-
     anomaly_results: list[AnomalyResult] = field(default_factory=list)
     compliance_veto: bool = False
     compliance_reason: str = ""
-
     retrieved_policies: list[str] = field(default_factory=list)
     executed_actions: list[str] = field(default_factory=list)
     final_response: str = ""
-
     rl_context: dict = field(default_factory=dict)
     rl_selected_action: str = ""
-
     total_cost_usd: float = 0.0
     errors: list[str] = field(default_factory=list)

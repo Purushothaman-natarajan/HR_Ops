@@ -1,8 +1,11 @@
+"""Top-level LangGraph assembly for the full HR agent workflow with supervisor routing."""
+
 import logging
 from typing import Literal
 
-from langgraph.graph import StateGraph, END
+from langgraph.graph import StateGraph, END, CompiledStateGraph
 
+from backend.config.settings import settings
 from backend.src.agents.state import SharedState
 from backend.src.agents.advanced.supervisor import supervisor_decision
 from backend.src.agents.nodes.policy_node import policy_node
@@ -15,20 +18,25 @@ logger = logging.getLogger("hr_ops.graph")
 
 
 def _should_continue(state: SharedState) -> str:
-    if state.hitl_needed:
+    """Return 'hitl' if HITL escalation is needed and feature is enabled, otherwise END."""
+    if state.hitl_needed and settings.feature_flags.get("hitl", {}).get("enabled", True):
         return "hitl"
-    if state.compliance_veto:
-        return END
-    if state.final_response:
-        return END
     return END
 
 
 def _route_from_supervisor(state: SharedState) -> str:
-    return state.current_agent or "policy"
+    """Return the agent route chosen by the supervisor, respecting feature flags."""
+    route = state.current_agent or "policy"
+    flags = settings.feature_flags
+    if route == "anomaly" and not flags.get("rl", {}).get("enabled", True):
+        route = "policy"
+    if route == "compliance" and not flags.get("dspy", {}).get("enabled", True):
+        route = "policy"
+    return route
 
 
-def build_full_graph() -> StateGraph:
+def build_full_graph() -> CompiledStateGraph:
+    """Build and compile the full LangGraph with supervisor, agent nodes, and HITL escalation."""
     graph = StateGraph(SharedState)
 
     graph.add_node("supervisor", supervisor_decision)

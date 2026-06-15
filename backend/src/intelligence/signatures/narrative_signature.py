@@ -1,3 +1,5 @@
+"""DSPy signature for generating narrative summaries of anomaly detection results."""
+
 import dspy
 
 

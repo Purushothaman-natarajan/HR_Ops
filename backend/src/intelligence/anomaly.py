@@ -1,3 +1,5 @@
+"""Anomaly detection routines for HR employee data (salary, leave, compliance)."""
+
 import logging
 import statistics
 from typing import Any
@@ -8,6 +10,7 @@ logger = logging.getLogger("hr_ops.anomaly")
 
 
 def _z_score_outliers(values: list[float], threshold: float = 2.0) -> list[int]:
+    """Return indices of values whose Z-score exceeds the threshold (min 3 values required)."""
     if len(values) < 3:
         return []
     mean = statistics.mean(values)
@@ -16,6 +19,7 @@ def _z_score_outliers(values: list[float], threshold: float = 2.0) -> list[int]:
 
 
 def _iqr_outliers(values: list[float]) -> list[int]:
+    """Return indices of values outside the 1.5x IQR range (min 4 values required)."""
     if len(values) < 4:
         return []
     sorted_v = sorted(values)
@@ -28,6 +32,7 @@ def _iqr_outliers(values: list[float]) -> list[int]:
 
 
 def detect_salary_anomalies(employees: list[dict]) -> list[AnomalyResult]:
+    """Detect salary outliers using the IQR method and return AnomalyResults."""
     salaries = [e["salary"] for e in employees if e.get("salary")]
     outlier_indices = _iqr_outliers(salaries)
     results: list[AnomalyResult] = []
@@ -47,6 +52,7 @@ def detect_salary_anomalies(employees: list[dict]) -> list[AnomalyResult]:
 
 
 def detect_leave_anomalies(employees: list[dict]) -> list[AnomalyResult]:
+    """Detect leave balance outliers using Z-score method and return AnomalyResults."""
     balances = [e["leave_balance"] for e in employees if e.get("leave_balance") is not None]
     outlier_indices = _z_score_outliers(balances)
     results: list[AnomalyResult] = []
@@ -66,6 +72,7 @@ def detect_leave_anomalies(employees: list[dict]) -> list[AnomalyResult]:
 
 
 def detect_compliance_anomalies(employees: list[dict]) -> list[AnomalyResult]:
+    """Flag employees whose compliance_status is 'flagged' as high-severity anomalies."""
     results: list[AnomalyResult] = []
     for emp in employees:
         if emp.get("compliance_status") == "flagged":
@@ -83,6 +90,7 @@ def detect_compliance_anomalies(employees: list[dict]) -> list[AnomalyResult]:
 
 
 def run_anomaly_detection(employees: list[dict]) -> list[AnomalyResult]:
+    """Run all anomaly detectors (salary, leave, compliance) and return combined results."""
     results: list[AnomalyResult] = []
     results.extend(detect_salary_anomalies(employees))
     results.extend(detect_leave_anomalies(employees))

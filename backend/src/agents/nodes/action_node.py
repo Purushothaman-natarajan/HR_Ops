@@ -1,6 +1,8 @@
+"""Action node: parses HR tool calls from queries and executes them with guardrail checks."""
+
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 from backend.src.agents.state import SharedState, TraceEntry
 from backend.src.utils.model_router import llm_call
@@ -11,7 +13,8 @@ logger = logging.getLogger("hr_ops.nodes.action")
 
 
 def action_node(state: SharedState) -> dict:
-    start = datetime.utcnow()
+    """Parse a tool call from the query, run it through guardrails, and execute it."""
+    start = datetime.now(timezone.utc)
     prompt = (
         f"Extract a tool call from the HR query.\n"
         f"Available tools:\n"
@@ -32,10 +35,14 @@ def action_node(state: SharedState) -> dict:
             result_text = json.dumps(result, indent=2)
     except Exception as e:
         result_text = f"Error: {e}"
-    elapsed = (datetime.utcnow() - start).total_seconds() * 1000
+    elapsed = (datetime.now(timezone.utc) - start).total_seconds() * 1000
     return {
         "executed_actions": [result_text],
         "final_response": result_text,
+        "messages": state.messages + [
+            {"role": "user", "content": state.query},
+            {"role": "assistant", "content": result_text, "node": "action"},
+        ],
         "trace_log": [
             TraceEntry(
                 node="action_node", agent_role="action",

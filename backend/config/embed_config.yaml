@@ -49,6 +49,6 @@ semantic_cache:
   ttl_seconds: 86400                   # 24 hours
 
 reranker:
-  enabled: true                        # false to skip re-ranking and use raw cosine similarity
+  enabled: false                       # false to skip re-ranking and use raw cosine similarity
   model: nvidia/rerank-qa-mistral-4b   # NVIDIA cross-encoder for second-pass re-ranking
   top_k: 4                             # docs to return after re-ranking

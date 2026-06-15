@@ -13,9 +13,8 @@ env/
 .env.local
 
 # Data
-data/chroma_db/
-data/employee_records/*.csv
-!data/employee_records/*.md
+backend/data/chroma_db/
+!backend/data/policies/*.md
 
 # DSPy
 dspy_optimized/*
@@ -38,3 +37,12 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Linting
+.mypy_cache/
+.ruff_cache/

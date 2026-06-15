@@ -1,40 +1,69 @@
 import { useState } from "react";
 import { api } from "../api/client";
+import { TraceViewer } from "./TraceViewer";
+import type { TraceEvent } from "../types";
 
+/** Trace query panel for looking up a single run by ID and viewing its events.
+ *
+ * Fetches a trace via api.trace.get(runId) and renders
+ * events inside a TraceViewer component.
+ *
+ * @example
+ * <TraceQueryPanel />
+ */
 export function TraceQueryPanel() {
-  const [traceIds, setTraceIds] = useState("");
-  const [result, setResult] = useState<unknown>(null);
+  const [runIdInput, setRunIdInput] = useState("");
+  const [events, setEvents] = useState<TraceEvent[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleCompare = async () => {
-    const ids = traceIds.split(",").map((s) => s.trim()).filter(Boolean);
-    if (ids.length < 2) return;
-    const data = await api.trace.compare(ids);
-    setResult(data);
+  const handleFetch = async () => {
+    if (!runIdInput.trim()) return;
+    setLoading(true);
+    setError("");
+      try {
+        const res = await api.trace.get(runIdInput.trim());
+        setEvents((res.data.trace_events || []) as TraceEvent[]);
+    } catch (e) {
+      setError(String(e));
+      setEvents([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div style={{ padding: 16 }}>
-      <h3>Trace Query & Comparison</h3>
-      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-        <input
-          type="text"
-          value={traceIds}
-          onChange={(e) => setTraceIds(e.target.value)}
-          placeholder="trace_id_1,trace_id_2"
-          style={{ flex: 1, padding: "8px 12px", borderRadius: 6, border: "1px solid #ccc" }}
-        />
-        <button
-          onClick={handleCompare}
-          style={{ padding: "8px 20px", background: "#6366f1", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer" }}
-        >
-          Compare
-        </button>
+    <div>
+      <div className="page-header">
+        <h1 className="page-title">Trace Query</h1>
+        <p className="page-desc">Fetch execution traces by run ID for analysis and debugging</p>
       </div>
-      {result && (
-        <pre style={{ background: "#f9fafb", padding: 12, borderRadius: 6, fontSize: 12, overflow: "auto" }}>
-          {JSON.stringify(result, null, 2)}
-        </pre>
+
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card-body">
+          <div className="query-input-row">
+            <input
+              type="text"
+              className="input"
+              value={runIdInput}
+              onChange={(e) => setRunIdInput(e.target.value)}
+              placeholder="Enter run ID (e.g. run_abc123)"
+              disabled={loading}
+            />
+            <button className="btn btn-primary" onClick={handleFetch} disabled={loading || !runIdInput.trim()}>
+              {loading ? "Fetching..." : "Fetch"}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {error && (
+        <div className="alert alert-error" style={{ marginBottom: 16 }}>
+          <span>{error}</span>
+        </div>
       )}
+
+      <TraceViewer events={events} />
     </div>
   );
 }

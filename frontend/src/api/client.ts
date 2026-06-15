@@ -1,4 +1,4 @@
-import type { APIResponse, GraphRunResponse, PendingItem, PolicyDocument, ConversationSession, FeedbackEntry } from "../types";
+import type { APIResponse, GraphRunResponse, PendingItem, PolicyDocument, ConversationSession, FeedbackEntry, TraceRunSummary, TraceRunDetail } from "../types";
 
 const BASE_URL = import.meta.env.VITE_API_URL || "";
 
@@ -101,7 +101,7 @@ export const api = {
      * const res = await api.trace.runs();
      * // res.data.runs[0].run_id
      */
-    runs: () => request<APIResponse<{ runs: unknown[] }>>("/trace/runs"),
+    runs: () => request<APIResponse<{ runs: TraceRunSummary[] }>>("/trace/runs"),
 
     /** Get full detail for a single trace run by ID.
      *
@@ -109,7 +109,7 @@ export const api = {
      * const res = await api.trace.get("run_abc123");
      * // res.data.run_id
      */
-    get: (id: string) => request<APIResponse<{ run_id: string; trace_events: unknown[] }>>(`/trace/runs/${id}`),
+    get: (id: string) => request<APIResponse<TraceRunDetail>>(`/trace/runs/${id}`),
 
     /** Compare two or more trace runs side-by-side.
      *
@@ -329,11 +329,13 @@ export const api = {
      */
     status: () =>
       request<APIResponse<{
+        available: boolean;
         collection: string;
         document_count: number;
         embedding_model: string;
         dimension: number;
         persist_dir: string;
+        error?: string;
       }>>("/vector-store/status"),
   },
 
@@ -343,16 +345,18 @@ export const api = {
      * @example
      * const res = await api.database.status();
      * // res.data.connected === true
-     * // res.data.employee_count === 30000
+     * // res.data.employees_count === 30000
      */
     status: () =>
       request<APIResponse<{
         connected: boolean;
-        employee_count: number;
-        attendance_records?: number;
-        payroll_records?: number;
-        leave_records?: number;
-        performance_records?: number;
+        database_url?: string;
+        employees_count: number;
+        attendance_count: number;
+        payroll_count: number;
+        leaves_count: number;
+        performance_count: number;
+        error?: string;
       }>>("/database/status"),
   },
 

@@ -1,8 +1,12 @@
+"""Late chunking that enriches each chunk with surrounding context."""
+
 from backend.src.memory.chunking.base import Chunk, ChunkingStrategy
 from backend.src.memory.chunking.recursive import RecursiveChunking
 
 
 class LateChunking(ChunkingStrategy):
+    """Produces chunks enriched with surrounding context from neighboring chunks."""
+
     def __init__(self, base_chunk_size: int = 400, overlap: int = 80):
         self.base_chunk_size = base_chunk_size
         self.overlap = overlap
@@ -11,6 +15,7 @@ class LateChunking(ChunkingStrategy):
         )
 
     def chunk(self, text: str, **kwargs) -> list[Chunk]:
+        """Split text and augment each chunk with boundary context from neighbors."""
         base = self._base.chunk(text)
         merged = []
         i = 0

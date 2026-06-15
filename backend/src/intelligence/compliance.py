@@ -1,3 +1,5 @@
+"""Compliance checking utilities: hard veto rules and policy reference validation."""
+
 import logging
 from typing import Any
 
@@ -9,6 +11,7 @@ HARD_VETO_RULES: list[str] = []
 
 
 def _load_veto_rules() -> list[str]:
+    """Load hard veto rules from settings compliance config."""
     try:
         cc = settings.compliance_config
         return cc.get("hard_veto_rules", [])
@@ -17,6 +20,7 @@ def _load_veto_rules() -> list[str]:
 
 
 def check_veto(employee_id: str, action: str, context: dict | None = None) -> tuple[bool, str]:
+    """Check an action against hard veto rules; returns (is_allowed, reason)."""
     global HARD_VETO_RULES
     if not HARD_VETO_RULES:
         HARD_VETO_RULES.extend(_load_veto_rules())
@@ -32,6 +36,7 @@ def check_veto(employee_id: str, action: str, context: dict | None = None) -> tu
 
 
 def validate_policy_reference(resolved: bool) -> tuple[bool, str]:
+    """Ensure a policy reference was resolved; returns (is_valid, message)."""
     if not resolved:
         return False, "Policy reference is required but was not resolved"
     return True, ""
