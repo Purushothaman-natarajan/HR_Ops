@@ -86,6 +86,15 @@ async def _policy_node(state: SharedState) -> dict:
         f"Answer the HR question based on the retrieved policies.\n\n"
         f"Policies:\n{context}\n\n"
         f"Question: {state.query}\n\n"
+        f"Format your response using this structure:\n"
+        f"1. Start with a brief 1-2 sentence summary answering the question directly\n"
+        f"2. Use a ## heading for key points (e.g., ## Key Points or ## Policy Details)\n"
+        f"3. Use bullet points (not numbered lists) for multiple items\n"
+        f"4. Use **bold** for important terms or policy names\n"
+        f"5. Keep paragraphs short (2-3 sentences max)\n"
+        f"6. End with a clear actionable recommendation if applicable\n"
+        f"7. Avoid mixing numbered lists with bullet points - use one format consistently\n"
+        f"8. Do not include headers like 'Why Not More' or similar - just answer the question directly\n\n"
         f"Provide a clear, actionable answer."
     )
     answer, cost = await llm_call("rag", prompt, max_tokens=512)
