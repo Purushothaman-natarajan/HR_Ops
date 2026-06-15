@@ -240,7 +240,6 @@ async def _reindex_all():
     Also scans and deletes duplicates or invalid chunk IDs.
     """
     from backend.src.memory.chunking.recursive import RecursiveChunking
-    import asyncio
     import hashlib
 
     chunker = RecursiveChunking(chunk_size=800, chunk_overlap=150)
