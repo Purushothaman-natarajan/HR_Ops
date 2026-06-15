@@ -97,19 +97,7 @@ export interface ConversationMessage {
   content: string;
   node?: string;
   cost?: number;
-  liveEvents?: Array<{
-    node: string;
-    agent_role: string;
-    duration_ms: number;
-    output_text: string;
-    input_text: string;
-    cost_usd: number;
-    model_used: string;
-    activities?: ActivityEvent[];
-    reasoning?: string;
-    retrieved_docs?: Array<{ source: string; score: number; chunk: string }>;
-    tool_call?: Record<string, unknown>;
-  }>;
+  liveEvents?: TraceEvent[];
 }
 
 /** A multi-turn conversation session with message history and metadata.
