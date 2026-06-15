@@ -4,6 +4,9 @@ FastAPI + LangGraph backend with multi-agent orchestration, RL feedback, policy 
 
 ## Architecture
 
+An interactive SVG diagram of the backend agents and endpoints is available in the [interactive architecture page](file:///c:/Users/purus/learn/HR_Ops/backend/data/architecture.html).
+
+
 ```
 FastAPI (main.py)
  ├── /graph         → graph_service.run_graph()   → LangGraph StateGraph

@@ -91,7 +91,7 @@ async def lifespan(app: FastAPI):
     loop = asyncio.get_running_loop()
     loop.create_task(asyncio.to_thread(_warmup_embeddings))
     if settings.startup_reindex:
-        loop.create_task(asyncio.to_thread(policy_service._migrate_if_needed))
+        loop.create_task(policy_service._migrate_if_needed())
     else:
         logger.info("Skipping policy reindex on startup (STARTUP_REINDEX=false)")
     logger.info("HR Ops Platform started successfully")

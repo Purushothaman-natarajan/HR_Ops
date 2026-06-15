@@ -171,3 +171,43 @@ class TestPolicies:
         r = client.put("/policies/nonexistent_policy_xyz", json={"title": "Whatever"})
         assert r.status_code == 404
         assert r.json()["success"] is False
+
+
+class TestDatabaseAPI:
+    def test_database_status(self):
+        r = client.get("/database/status")
+        assert r.status_code == 200
+        body = r.json()
+        assert body["success"] is True
+        assert "employees_count" in body["data"]
+
+    def test_database_upload_csv(self):
+        csv_content = b"Employee_ID,Employee_Name,Age,Country,Department,Position,Salary,Joining_Date\nEMP9999,Test Upload,30,USA,HR,Intern,5000,2026-01-01\n"
+        r = client.post(
+            "/database/upload",
+            files={"file": ("test_employees.csv", csv_content, "text/csv")},
+        )
+        assert r.status_code == 200
+        body = r.json()
+        assert body["success"] is True
+        assert "filename" in body["data"]
+        assert body["data"]["status"]["employees_count"] == 1
+
+        # Verify query can read from the uploaded table
+        from backend.src.tools.api_mocks import execute_db_query
+        res = execute_db_query("SELECT Employee_Name FROM employees WHERE Employee_ID = 'EMP9999';")
+        assert res.get("success") is True
+        assert res.get("rows")[0]["Employee_Name"] == "Test Upload"
+
+        # Re-seed the original database to keep it clean for subsequent tests
+        import subprocess
+        subprocess.run(["python", "backend/scripts/enhance_and_seed.py"], check=True)
+
+    def test_database_upload_unsupported(self):
+        r = client.post(
+            "/database/upload",
+            files={"file": ("test.txt", b"some text", "text/plain")},
+        )
+        assert r.status_code == 400
+        assert r.json()["success"] is False
+

@@ -175,7 +175,7 @@ async def supervisor_decision(state: SharedState) -> dict:
         "rl_selected_action": decision,
         "rl_context": rl_context,
         "supervisor_cache_hit": cached_agent is not None if trigger == TriggerType.REACTIVE else False,
-        "trace_log": [
+        "trace_log": (state.trace_log or []) + [
             TraceEntry(
                 node="supervisor",
                 agent_role=AgentRole.SUPERVISOR,

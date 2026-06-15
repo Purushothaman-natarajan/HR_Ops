@@ -77,12 +77,13 @@ class FeedbackStore:
         Applies a negative reward (-0.5) when compliance_veto is True,
         and a positive reward (0.3) when actions were executed.
         """
+        rl_context = run_result.get("rl_context", {})
         if run_result.get("compliance_veto"):
             self.record_feedback(
                 session_id=session_id,
                 action=run_result.get("rl_selected_action", "compliance"),
                 rating=-0.5,
-                context={},
+                context=rl_context,
                 source="compliance",
             )
         if run_result.get("executed_actions"):
@@ -90,18 +91,18 @@ class FeedbackStore:
                 session_id=session_id,
                 action=run_result.get("rl_selected_action", "action"),
                 rating=0.3,
-                context={},
+                context=rl_context,
                 source="auto",
             )
 
-    def record_hitl_reward(self, interaction_id: str, action: str) -> dict | None:
+    def record_hitl_reward(self, interaction_id: str, action: str, trigger_agent: str = "policy", rl_context: dict | None = None) -> dict | None:
         """Record a human-in-the-loop reward: +0.5 for approve, -0.3 otherwise."""
         rating = 0.5 if action == "approve" else -0.3
         return self.record_feedback(
             session_id=interaction_id,
-            action="hitl",
+            action=trigger_agent,
             rating=rating,
-            context={"interaction_id": interaction_id},
+            context=rl_context or {},
             source="hitl",
         )
 

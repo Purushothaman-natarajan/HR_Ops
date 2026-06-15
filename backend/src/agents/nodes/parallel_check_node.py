@@ -29,7 +29,10 @@ async def parallel_check_node(state: SharedState) -> dict:
     if isinstance(results[1], Exception):
         logger.error("Compliance node failed in parallel_check: %s", results[1])
 
-    combined_trace = anom_result.get("trace_log", []) + comp_result.get("trace_log", [])
+    state_trace_len = len(state.trace_log or [])
+    anom_trace = anom_result.get("trace_log", [])[state_trace_len:] if isinstance(anom_result, dict) else []
+    comp_trace = comp_result.get("trace_log", [])[state_trace_len:] if isinstance(comp_result, dict) else []
+    combined_trace = anom_trace + comp_trace
 
     logger.debug(
         "Parallel check complete: anomalies=%d, compliance_veto=%s",
@@ -41,10 +44,17 @@ async def parallel_check_node(state: SharedState) -> dict:
     hitl_from_anomaly = anom_result.get("hitl_needed", False) if isinstance(anom_result, dict) else False
     hitl_from_compliance = comp_result.get("hitl_needed", False) if isinstance(comp_result, dict) else False
 
+    # We do not escalate policy queries based on background database anomalies or read-only compliance checks.
+    current_agent = state.current_agent or "policy"
+    if current_agent == "policy":
+        hitl_needed = state.hitl_needed
+    else:
+        hitl_needed = state.hitl_needed or hitl_from_anomaly or hitl_from_compliance
+
     return {
         "anomaly_results": anom_result.get("anomaly_results", []) if isinstance(anom_result, dict) else [],
         "compliance_veto": comp_result.get("compliance_veto", False) if isinstance(comp_result, dict) else False,
         "compliance_reason": comp_result.get("compliance_reason", "") if isinstance(comp_result, dict) else "",
-        "hitl_needed": state.hitl_needed or hitl_from_anomaly or hitl_from_compliance,
-        "trace_log": state.trace_log + combined_trace,
+        "hitl_needed": hitl_needed,
+        "trace_log": (state.trace_log or []) + combined_trace,
     }

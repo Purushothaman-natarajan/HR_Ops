@@ -20,6 +20,7 @@ def hitl_escalation_node(state: SharedState) -> dict:
             "current_agent": state.current_agent,
             "anomaly_results": [a.__dict__ for a in state.anomaly_results] if state.anomaly_results else [],
             "compliance_veto": state.compliance_veto,
+            "rl_context": state.rl_context,
         },
     )
     from backend.src.utils.agui_store import agui_store
@@ -28,7 +29,7 @@ def hitl_escalation_node(state: SharedState) -> dict:
     return {
         "hitl_request": request,
         "final_response": f"Escalated to human. Interaction ID: {request.interaction_id}",
-        "trace_log": [
+        "trace_log": (state.trace_log or []) + [
             TraceEntry(
                 node="hitl_escalation", agent_role=AgentRole.SUPERVISOR,
                 input_text=state.query,

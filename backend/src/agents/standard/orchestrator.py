@@ -47,7 +47,7 @@ async def _triage_node(state: SharedState) -> dict:
             return {
                 "final_response": f"Input guardrail blocked: {gr.message}",
                 "current_agent": AgentRole.SUPERVISOR,
-                "trace_log": [
+                "trace_log": (state.trace_log or []) + [
                     TraceEntry(
                         node="triage", agent_role=AgentRole.SUPERVISOR,
                         input_text=state.query, output_text=gr.message,
@@ -74,7 +74,7 @@ async def _triage_node(state: SharedState) -> dict:
         "rl_context": {"classification": classification, "query": state.query},
         "rl_selected_action": classification,
         "current_agent": classification,
-        "trace_log": [
+        "trace_log": (state.trace_log or []) + [
             TraceEntry(
                 node="triage", agent_role=AgentRole.SUPERVISOR,
                 input_text=state.query, output_text=f"Classified as {classification}",
@@ -139,7 +139,7 @@ async def _policy_node(state: SharedState) -> dict:
     return {
         "final_response": answer,
         "retrieved_policies": [d.page_content[:200] for d in (docs or [])],
-        "trace_log": [
+        "trace_log": (state.trace_log or []) + [
             TraceEntry(
                 node="policy", agent_role=AgentRole.POLICY,
                 input_text=state.query, output_text=answer,
@@ -154,11 +154,26 @@ async def _policy_node(state: SharedState) -> dict:
 async def _action_node(state: SharedState) -> dict:
     """Parse a tool call from the query and execute it (lookup, modify, or escalate)."""
     start = datetime.now(timezone.utc)
+    # Fetch active database schema dynamically to inject into prompt
+    from backend.src.tools.api_mocks import get_database_schema
+    schema_res = get_database_schema()
+    schema_str = ""
+    if schema_res.get("success"):
+        schema_str = "\nActive Database Schema:\n"
+        for table, cols in schema_res.get("schema", {}).items():
+            schema_str += f"- Table: {table}\n"
+            for col in cols:
+                schema_str += f"  - {col['name']} ({col['type']}){ ' [PK]' if col['pk'] else '' }\n"
+
     prompt = (
         f"Extract the tool call from the query. Valid tools:\n"
+        f"- get_database_schema()\n"
+        f"- execute_db_query(sql_query)\n"
         f"- lookup_employee(employee_id: str)\n"
         f"- modify_record(employee_id: str, field: str, value: any)\n"
         f"- escalate_to_human(employee_id: str, reason: str)\n\n"
+        f"Use `execute_db_query` with standard SQLite queries to retrieve or modify records in the active database tables.\n"
+        f"{schema_str}\n"
         f"Query: {state.query}\n\n"
         f"Reply with a JSON object: {{\"name\": \"tool_name\", \"args\": {{...}}}}"
     )
@@ -198,7 +213,7 @@ async def _action_node(state: SharedState) -> dict:
     return {
         "executed_actions": [result_text],
         "final_response": f"Tool result: {result_text}",
-        "trace_log": [
+        "trace_log": (state.trace_log or []) + [
             TraceEntry(
                 node="action", agent_role=AgentRole.ACTION,
                 input_text=state.query, output_text=result_text,

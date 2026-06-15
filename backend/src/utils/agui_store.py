@@ -55,7 +55,8 @@ class AGUIStore:
             if interaction_id not in self._requests:
                 logger.warning("AG-UI respond: unknown interaction_id=%s", interaction_id)
                 return False
-            self._requests[interaction_id].status = "resolved"
+            req = self._requests[interaction_id]
+            req.status = "resolved"
             resp = InteractionResponse(
                 interaction_id=interaction_id,
                 response=response_text,
@@ -63,9 +64,14 @@ class AGUIStore:
             )
             self._responses[interaction_id] = resp
             logger.info("AG-UI response recorded: %s", interaction_id)
+            
+            # Extract trigger sub-agent and its query context
+            trigger_agent = (req.context or {}).get("current_agent", "policy")
+            rl_context = (req.context or {}).get("rl_context", {})
+            
         action = (metadata or {}).get("action", "")
         if action in ("approve", "reject"):
-            feedback_store.record_hitl_reward(interaction_id, action)
+            feedback_store.record_hitl_reward(interaction_id, action, trigger_agent=trigger_agent, rl_context=rl_context)
         return True
 
     def get_response(self, interaction_id: str) -> InteractionResponse | None:

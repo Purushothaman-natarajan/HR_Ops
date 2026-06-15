@@ -57,7 +57,7 @@ async def anomaly_node(state: SharedState) -> dict:
         "anomaly_results": results,
         "hitl_needed": has_severe,
         "final_response": narrative,
-        "trace_log": [
+        "trace_log": (state.trace_log or []) + [
             TraceEntry(
                 node="anomaly_node", agent_role="anomaly",
                 input_text=state.query, output_text=narrative,

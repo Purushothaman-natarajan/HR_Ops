@@ -56,7 +56,7 @@ async def compliance_node(state: SharedState) -> dict:
         "compliance_reason": result.get("reason", ""),
         "hitl_needed": compliance_veto,
         "final_response": "Compliance check passed." if result.get("compliant") else f"Compliance veto: {result.get('reason')}",
-        "trace_log": [
+        "trace_log": (state.trace_log or []) + [
             TraceEntry(
                 node="compliance_node", agent_role="compliance",
                 input_text=state.query, output_text=json.dumps(result),

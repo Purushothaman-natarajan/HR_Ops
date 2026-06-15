@@ -16,12 +16,27 @@ async def action_node(state: SharedState) -> dict:
     """Parse a tool call from the query, run it through guardrails, and execute it."""
     start = datetime.now(timezone.utc)
     activities = []
+    # Fetch active database schema dynamically to inject into prompt
+    from backend.src.tools.api_mocks import get_database_schema
+    schema_res = get_database_schema()
+    schema_str = ""
+    if schema_res.get("success"):
+        schema_str = "\nActive Database Schema:\n"
+        for table, cols in schema_res.get("schema", {}).items():
+            schema_str += f"- Table: {table}\n"
+            for col in cols:
+                schema_str += f"  - {col['name']} ({col['type']}){ ' [PK]' if col['pk'] else '' }\n"
+
     prompt = (
         f"Extract a tool call from the HR query.\n"
         f"Available tools:\n"
+        f"  get_database_schema()\n"
+        f"  execute_db_query(sql_query)\n"
         f"  lookup_employee(employee_id)\n"
         f"  modify_record(employee_id, field, value)\n"
         f"  escalate_to_human(employee_id, reason)\n\n"
+        f"Use `execute_db_query` with standard SQLite queries to retrieve or modify records in the active database tables.\n"
+        f"{schema_str}\n"
         f"Query: {state.query}\n\n"
         f"Reply with JSON: {{\"name\": \"tool_name\", \"args\": {{...}}}}"
     )
@@ -80,7 +95,7 @@ async def action_node(state: SharedState) -> dict:
             {"role": "user", "content": state.query},
             {"role": "assistant", "content": result_text, "node": "action"},
         ],
-        "trace_log": [
+        "trace_log": (state.trace_log or []) + [
             TraceEntry(
                 node="action_node", agent_role="action",
                 input_text=state.query, output_text=result_text,

@@ -411,6 +411,30 @@ export const api = {
         performance_count: number;
         error?: string;
       }>>("/database/status"),
+
+    /** Upload a CSV or SQLite DB file to replace/enhance the active database.
+     *
+     * @example
+     * const file = new File(["..."], "employees.csv");
+     * const res = await api.database.upload(file);
+     */
+    upload: (file: File) => {
+      const fd = new FormData();
+      fd.append("file", file);
+      return request<APIResponse<{
+        filename: string;
+        message: string;
+        status: {
+          connected: boolean;
+          database_url?: string;
+          employees_count: number;
+          attendance_count: number;
+          payroll_count: number;
+          leaves_count: number;
+          performance_count: number;
+        };
+      }>>("/database/upload", { method: "POST", body: fd });
+    },
   },
 
   debug: {

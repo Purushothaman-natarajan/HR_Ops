@@ -4,6 +4,9 @@ Multi-agent LangGraph system for HR operations with RL feedback, AG-UI human-in-
 
 ## Architecture
 
+An interactive version of the architecture diagram, trigger descriptions, and detailed deployment steps is available in the [interactive architecture page](file:///c:/Users/purus/learn/HR_Ops/backend/data/architecture.html).
+
+
 ```
 ┌──────────────────────────────────────────────────────────────────┐
 │                      Frontend (React + Vite)                      │
@@ -321,11 +324,13 @@ make test
 
 ## Deployment
 
-See architecture notes for production considerations:
-- Qdrant instead of ChromaDB for vector storage
-- Redis-backed LangGraph persistence
-- Langfuse self-hosted deployment
-- Kubernetes orchestration
+For step-by-step guidance on local, container, and cloud environments (such as AWS and GCP), open the [interactive architecture page](file:///c:/Users/purus/learn/HR_Ops/backend/data/architecture.html) directly in your browser.
+
+Production considerations covered include:
+- Migrating to Qdrant vector store for enterprise scale
+- Configuring Redis-backed LangGraph checkpoint persistence
+- Self-hosting the Langfuse analytics platform
+- Orchestrating tasks on Kubernetes cluster deployments
 
 ### Docker
 ```bash

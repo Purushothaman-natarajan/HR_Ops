@@ -213,7 +213,7 @@ async def api_upload_policy(
         )
 
     try:
-        policy = create_policy(file.filename, content, title=title or None)
+        policy = await create_policy(file.filename, content, title=title or None)
         policy["embedded"] = True
         return success_response(data=policy, correlation_id=correlation_id, message="Policy created")
     except ValueError as e:
@@ -261,7 +261,7 @@ async def api_update_policy(policy_id: str, body: dict, request: Request):
             correlation_id=correlation_id,
             status_code=400,
         )
-    policy = update_policy(policy_id, title=title.strip())
+    policy = await update_policy(policy_id, title=title.strip())
     if not policy:
         return error_response(
             message="Policy not found",
@@ -298,7 +298,7 @@ async def api_delete_policy(policy_id: str, request: Request):
     denied = _admin_required(correlation_id)
     if denied:
         return denied
-    deleted = delete_policy(policy_id)
+    deleted = await delete_policy(policy_id)
     if not deleted:
         return error_response(
             message="Policy not found",

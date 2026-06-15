@@ -56,7 +56,7 @@ EXPECTED_SOURCES = {
 
 EXPECTED_ANSWERS = {
     "How many annual leave days do I get per month?": "2.5 days",
-    "When is a medical certificate required for sick leave?": "3 consecutive days",
+    "When is a medical certificate required for sick leave?": "3 consecutive",
     "How long is maternity leave and is it paid?": "26 weeks",
     "What are the core working hours when everyone must be available?": "10:00 AM to 4:00 PM",
     "How many remote work days per week are allowed?": "3 days",

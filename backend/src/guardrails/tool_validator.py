@@ -2,7 +2,7 @@
 
 from backend.src.guardrails.registry import guardrail_registry
 
-ALLOWED_TOOLS = {"lookup_employee", "modify_record", "escalate_to_human"}
+ALLOWED_TOOLS = {"lookup_employee", "modify_record", "escalate_to_human", "get_database_schema", "execute_db_query"}
 
 
 def tool_guardrail(context: dict) -> tuple[bool, str]:

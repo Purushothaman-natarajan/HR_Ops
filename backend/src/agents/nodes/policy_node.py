@@ -34,7 +34,7 @@ async def policy_node(state: SharedState) -> dict:
                 {"role": "user", "content": state.query},
                 {"role": "assistant", "content": cached, "node": "policy"},
             ],
-            "trace_log": [
+            "trace_log": (state.trace_log or []) + [
                 TraceEntry(
                     node="policy_node", agent_role="policy",
                     input_text=state.query, output_text=cached,
@@ -111,7 +111,7 @@ async def policy_node(state: SharedState) -> dict:
             {"role": "user", "content": state.query},
             {"role": "assistant", "content": answer, "node": "policy"},
         ],
-        "trace_log": [
+        "trace_log": (state.trace_log or []) + [
             TraceEntry(
                 node="policy_node", agent_role="policy",
                 input_text=state.query, output_text=answer,

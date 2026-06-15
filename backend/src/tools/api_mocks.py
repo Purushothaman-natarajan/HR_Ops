@@ -119,10 +119,110 @@ def escalate_to_human(employee_id: str, reason: str, context: dict | None = None
     return {"ticket_id": ticket_id, "status": "escalated", "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
+def get_database_schema(db_name: str = "hr_ops") -> dict:
+    """Dynamically query the active SQLite database schema to inspect tables and columns.
+    
+    Allows the agent to understand the database structure dynamically without hardcoded schemas.
+    """
+    import sqlite3
+    from backend.config.settings import settings
+    
+    # Resolve DB file path from settings
+    db_url = settings.database_url
+    db_path = "./backend/data/hr_ops.db"
+    if db_url.startswith("sqlite:///"):
+        db_path = db_url.replace("sqlite:///", "")
+        
+    try:
+        conn = sqlite3.connect(db_path)
+        cur = conn.cursor()
+        
+        # Get list of all tables
+        cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';")
+        tables = [r[0] for r in cur.fetchall()]
+        
+        schema = {}
+        for table in tables:
+            # Query column details
+            cur.execute(f"PRAGMA table_info({table});")
+            cols = cur.fetchall()
+            schema[table] = [
+                {
+                    "cid": col[0],
+                    "name": col[1],
+                    "type": col[2],
+                    "notnull": bool(col[3]),
+                    "dflt_value": col[4],
+                    "pk": bool(col[5])
+                }
+                for col in cols
+            ]
+        conn.close()
+        return {"success": True, "schema": schema}
+    except Exception as e:
+        logger.exception("Failed to fetch database schema")
+        return {"success": False, "error": str(e)}
+
+
+def execute_db_query(sql_query: str, db_name: str = "hr_ops") -> dict:
+    """Execute an arbitrary raw SQL query against the active database.
+    
+    Supports both read (SELECT) and write (UPDATE, INSERT, DELETE) statements.
+    For write operations, performs connection commits.
+    """
+    import sqlite3
+    from backend.config.settings import settings
+    
+    db_url = settings.database_url
+    db_path = "./backend/data/hr_ops.db"
+    if db_url.startswith("sqlite:///"):
+        db_path = db_url.replace("sqlite:///", "")
+        
+    try:
+        conn = sqlite3.connect(db_path)
+        cur = conn.cursor()
+        
+        # Determine if statement is write or read
+        query_strip = sql_query.strip().upper()
+        is_write = any(query_strip.startswith(kw) for kw in ["UPDATE", "INSERT", "DELETE", "CREATE", "DROP", "ALTER", "REPLACE"])
+        
+        cur.execute(sql_query)
+        
+        if is_write:
+            conn.commit()
+            rows_affected = cur.rowcount
+            conn.close()
+            return {
+                "success": True,
+                "type": "write",
+                "rows_affected": rows_affected,
+                "message": f"Successfully executed write query. Rows affected: {rows_affected}."
+            }
+        else:
+            # SELECT or read query
+            cols = [desc[0] for desc in cur.description] if cur.description else []
+            rows = cur.fetchall()
+            results = [dict(zip(cols, row)) for row in rows]
+            conn.close()
+            # Limit results size for model prompt
+            return {
+                "success": True,
+                "type": "read",
+                "rows": results[:100],  # Return up to 100 rows
+                "columns": cols,
+                "row_count": len(results)
+            }
+    except Exception as e:
+        logger.exception("Failed to execute database query: %s", sql_query)
+        return {"success": False, "error": str(e)}
+
+
 TOOL_REGISTRY: dict[str, Any] = {  # Maps tool names to their implementation functions
     "lookup_employee": lookup_employee,
     "modify_record": modify_record,
     "escalate_to_human": escalate_to_human,
+    "get_database_schema": get_database_schema,
+    "execute_db_query": execute_db_query,
 }
 
 

@@ -196,12 +196,12 @@ def get_policy_path(policy_id: str) -> Path | None:
 _MIGRATED = False
 
 
-def _migrate_if_needed():
+async def _migrate_if_needed():
     """One-time startup check: ensure ChromaDB is in sync with on-disk policies.
 
     Runs only once per process lifetime. Triggers a full reindex if:
-      1. Legacy UUID-based IDs are found (pre-slug migration), OR
-      2. Document count in ChromaDB doesn't match the number of files on disk.
+      1. Legacy UUID-based or non-chunk IDs are found (pre-slug migration), OR
+      2. Document count in ChromaDB is 0 while there are files on disk.
     """
     global _MIGRATED
     if _MIGRATED:
@@ -215,107 +215,157 @@ def _migrate_if_needed():
             1 for p in POLICIES_DIR.iterdir()
             if p.suffix.lower() in ALLOWED_EXTENSIONS and p.is_file()
         )
-        if db_count != on_disk:
-            logger.info("Document count mismatch (%d in DB vs %d on disk), re-indexing", db_count, on_disk)
+        if db_count == 0 and on_disk > 0:
+            logger.info("Database is empty, triggering startup re-indexing")
             needs_reindex = True
         elif existing and existing.get("ids"):
-            legacy = [i for i in existing["ids"] if not re.match(r"^[a-z0-9_]+$", i)]
+            legacy = [i for i in existing["ids"] if not re.match(r"^[a-z0-9_]+__chunk_\d+$", i)]
             if legacy:
-                logger.info("Migrating %d legacy UUID-based vectors to slug-based IDs", len(legacy))
+                logger.info("Migrating %d legacy UUID-based or non-chunk vectors to slug-based IDs", len(legacy))
                 needs_reindex = True
     except Exception:
         logger.debug("Migration check skipped (collection may not exist yet)")
         needs_reindex = True
     if needs_reindex:
-        _reindex_all()
+        await _reindex_all()
     _MIGRATED = True
 
 
-def _reindex_all():
+async def _reindex_all():
     """Rebuild the ChromaDB collection for hr_policies incrementally.
 
     Reads all supported files from POLICIES_DIR, tracks file metadata (mtime, size, hash),
     and only re-chunks/re-indexes files that are new or have changed since the last run.
     Deletes vectors for files that have been removed from disk.
+    Also scans and deletes duplicates or invalid chunk IDs.
     """
     from backend.src.memory.chunking.recursive import RecursiveChunking
+    import asyncio
+    import hashlib
 
     chunker = RecursiveChunking(chunk_size=800, chunk_overlap=150)
+    store = get_vector_store("hr_policies")
 
-    # Load previously stored file metadata
-    stored_metadata = _load_policy_metadata()
+    # 1. Retrieve all existing chunks from the database to check for duplicates & hashes
+    existing = store.get()
+    existing_files: dict[str, dict] = {}
+
+    if existing and existing.get("ids"):
+        logger.info("Retrieved %d total chunks from database. Checking for duplicates & cleaning up...", len(existing["ids"]))
+        
+        seen_chunks = {}
+        duplicates_to_delete = []
+        
+        for doc_id, metadata in zip(existing["ids"], existing["metadatas"]):
+            source = metadata.get("source") if metadata else None
+            chunk_index = metadata.get("chunk_index") if metadata else None
+            if source is not None and chunk_index is not None:
+                key = (source, chunk_index)
+                if key in seen_chunks:
+                    duplicates_to_delete.append(doc_id)
+                else:
+                    seen_chunks[key] = doc_id
+                    if source not in existing_files:
+                        existing_files[source] = {"ids": [], "hashes": set()}
+                    existing_files[source]["ids"].append(doc_id)
+                    file_hash = metadata.get("file_hash")
+                    if file_hash:
+                        existing_files[source]["hashes"].add(file_hash)
+            else:
+                # Invalid metadata or legacy structure - clean it up
+                duplicates_to_delete.append(doc_id)
+                
+        if duplicates_to_delete:
+            logger.info("Deleting %d duplicate or invalid chunk records from database...", len(duplicates_to_delete))
+            try:
+                store.delete(duplicates_to_delete)
+            except Exception:
+                logger.exception("Failed to delete duplicate/invalid chunks")
+
+    # 2. Iterate through files on disk, compute their hashes, and detect changes
+    indexed_files = set()
+    total_indexed_chunks = 0
     new_metadata = {}
-
-    # Build the full list of current on-disk chunk ids and corresponding docs
-    docs_by_id: dict[str, Document] = {}
-    changed_files = []  # Track which files were changed/new for logging
+    changed_files = []
 
     for path in sorted(POLICIES_DIR.iterdir()):
         if path.suffix.lower() in ALLOWED_EXTENSIONS and path.is_file():
-            rel_path = path.relative_to(POLICIES_DIR).as_posix()
-            current_meta = _get_file_metadata(path)
-            new_metadata[rel_path] = current_meta
+            filename = path.name
+            slug = _slugify(filename)
+            indexed_files.add(filename)
 
-            # Check if file is new or has changed
-            stored_meta = stored_metadata.get(rel_path)
-            is_new_or_changed = (
-                stored_meta is None
-                or stored_meta.get("mtime") != current_meta["mtime"]
-                or stored_meta.get("size") != current_meta["size"]
-                or stored_meta.get("hash") != current_meta["hash"]
-            )
+            # Read file content and calculate hash
+            text = extract_text(path)
+            current_hash = hashlib.md5(text.encode("utf-8")).hexdigest()
 
-            if is_new_or_changed:
-                changed_files.append(rel_path)
-                text = extract_text(path)
-                slug = _slugify(path)
-                import asyncio
-                chunks = asyncio.run(chunker.chunk(text))
-                for chunk in chunks:
-                    if chunk.text.strip():
-                        doc_id = f"{slug}__chunk_{chunk.index:03d}"
-                        docs_by_id[doc_id] = Document(
-                            page_content=chunk.text,
-                            metadata={"source": path.name, "policy": slug, "chunk_index": chunk.index},
-                        )
+            # Track file metadata (mtime, size, hash)
+            stat = path.stat()
+            new_metadata[filename] = {
+                "mtime": stat.st_mtime,
+                "size": stat.st_size,
+                "hash": current_hash,
+            }
 
-    store = get_vector_store("hr_policies")
-    existing = store.get()
-    existing_ids = set(existing.get("ids", [])) if existing else set()
+            # Check if policy is unchanged in the DB
+            is_unchanged = False
+            if filename in existing_files:
+                hashes = existing_files[filename]["hashes"]
+                if len(hashes) == 1 and current_hash in hashes:
+                    is_unchanged = True
 
-    current_ids = set(docs_by_id.keys())
+            if is_unchanged:
+                logger.info("Policy is unchanged (skipping index): %s (hash: %s)", filename, current_hash)
+                total_indexed_chunks += len(existing_files[filename]["ids"])
+                continue
 
-    # Delete stale vectors that correspond to files removed from disk
-    stale_ids = list(existing_ids - current_ids)
-    if stale_ids:
-        try:
-            store.delete(stale_ids)
-            logger.info("Deleted %d stale vectors (from removed files)", len(stale_ids))
-        except Exception:
-            logger.exception("Failed to delete stale vectors")
+            # If policy changed or is new, delete old chunks first to prevent duplicates
+            if filename in existing_files:
+                old_ids = existing_files[filename]["ids"]
+                logger.info("Policy %s changed/mismatched — deleting %d old chunks...", filename, len(old_ids))
+                try:
+                    store.delete(old_ids)
+                except Exception:
+                    logger.exception("Failed to delete old chunks for changed policy %s", filename)
 
-    # Index only the missing/new documents (avoid re-indexing unchanged chunks)
-    missing_ids = list(current_ids - existing_ids)
-    if missing_ids:
-        # Prepare documents in the same order as missing_ids
-        missing_docs = [docs_by_id[i] for i in missing_ids]
-        batch_size = 8
-        for i in range(0, len(missing_docs), batch_size):
-            batch_docs = missing_docs[i : i + batch_size]
-            batch_ids = missing_ids[i : i + batch_size]
-            store.add_documents(batch_docs, ids=batch_ids)
-        logger.info(
-            "Indexed %d new policy chunks from %d files (%d changed, %d unchanged)",
-            len(missing_ids),
-            len(set(d.metadata["policy"] for d in missing_docs)),
-            len(changed_files),
-            len(new_metadata) - len(changed_files),
-        )
-    else:
-        if changed_files:
-            logger.info("No new chunks to index (detected %d file changes but all chunks already indexed)", len(changed_files))
-        else:
-            logger.info("No new policy chunks to index (all files unchanged)")
+            # Chunk and index new content
+            changed_files.append(filename)
+            chunks = await chunker.chunk(text)
+            logger.info("Indexing modified/new policy: %s (%d chunks, hash: %s)", filename, len(chunks), current_hash)
+
+            batch_docs = []
+            batch_ids = []
+            for chunk in chunks:
+                if chunk.text.strip():
+                    chunk_id = f"{slug}__chunk_{chunk.index:03d}"
+                    doc = Document(
+                        page_content=chunk.text,
+                        metadata={
+                            "source": filename,
+                            "policy": slug,
+                            "chunk_index": chunk.index,
+                            "file_hash": current_hash,
+                        },
+                    )
+                    batch_docs.append(doc)
+                    batch_ids.append(chunk_id)
+
+            if batch_docs:
+                batch_size = 10
+                for idx in range(0, len(batch_docs), batch_size):
+                    store.add_documents(batch_docs[idx:idx + batch_size], ids=batch_ids[idx:idx + batch_size])
+                logger.info("Indexed %d chunks for %s", len(batch_docs), filename)
+                total_indexed_chunks += len(batch_docs)
+
+    # 3. Clean up files deleted from disk
+    for existing_file, info in existing_files.items():
+        if existing_file not in indexed_files:
+            logger.info("Policy file %s was deleted from disk — removing %d chunks from vector database...", existing_file, len(info["ids"]))
+            try:
+                store.delete(info["ids"])
+            except Exception:
+                logger.exception("Failed to delete chunks for removed file %s", existing_file)
+
+    logger.info("Database synchronization complete. Total policy chunks now in database: %d", total_indexed_chunks)
 
     # Save updated metadata for next run
     _save_policy_metadata(new_metadata)
@@ -328,7 +378,7 @@ def _reindex_all():
 # backend.main so it runs in a background thread after the app starts.
 
 
-def create_policy(filename: str, content: bytes, title: str | None = None) -> dict:
+async def create_policy(filename: str, content: bytes, title: str | None = None) -> dict:
     """Write a new policy file to disk and re-index the vector store.
 
     Args:
@@ -355,39 +405,42 @@ def create_policy(filename: str, content: bytes, title: str | None = None) -> di
     if title:
         _set_title(dest, title)
 
-    text = extract_text(dest)
-    doc = Document(page_content=text, metadata={"source": dest.name, "policy": slug})
-    index_document(doc, slug, "hr_policies")
+    # Incrementally reindex all policies (will pick up the new file and chunk it properly)
+    await _reindex_all()
+    
     semantic_cache.clear()  # Invalidate stale cached responses
     info = _make_policy_dict(dest)
-    info["content"] = text
+    info["content"] = extract_text(dest)
     return info
 
 
-def update_policy(policy_id: str, title: str | None = None) -> dict | None:
+async def update_policy(policy_id: str, title: str | None = None) -> dict | None:
     """Update a policy's title (first-line heading) and re-index the vector store."""
     path = get_policy_path(policy_id)
     if not path:
         return None
     if title:
         _set_title(path, title)
-    text = extract_text(path)
-    doc = Document(page_content=text, metadata={"source": path.name, "policy": policy_id})
-    delete_document(policy_id, "hr_policies")
-    index_document(doc, policy_id, "hr_policies")
+    
+    # Incrementally reindex all policies (will pick up changes in the file and chunk it properly)
+    await _reindex_all()
+    
     semantic_cache.clear()  # Invalidate stale cached responses
     info = _make_policy_dict(path)
-    info["content"] = text
+    info["content"] = extract_text(path)
     return info
 
 
-def delete_policy(policy_id: str) -> bool:
+async def delete_policy(policy_id: str) -> bool:
     """Delete a policy file from disk and re-index the vector store."""
     path = get_policy_path(policy_id)
     if not path:
         return False
     path.unlink()  # remove file from disk
-    delete_document(policy_id, "hr_policies")
+    
+    # Incrementally reindex all policies (will detect that the file was deleted and remove its chunks)
+    await _reindex_all()
+    
     semantic_cache.clear()  # Invalidate stale cached responses
     return True
 
