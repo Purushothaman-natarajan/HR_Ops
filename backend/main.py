@@ -44,19 +44,31 @@ from backend.src.utils.model_router import close_nvidia_http_client
 logger = get_logger("hr_ops")
 
 
+# Configure detailed logging for backend flow
+import logging
+for name in [
+    "hr_ops.api", "hr_ops.conversation_routes", "hr_ops.graph",
+    "hr_ops.model_router", "hr_ops.nodes.policy", "hr_ops.nodes.action",
+    "hr_ops.nodes.anomaly", "hr_ops.nodes.compliance", "hr_ops.supervisor",
+    "hr_ops.standard_orchestrator", "hr_ops.conversation_service",
+    "hr_ops.guardrails", "hr_ops.tools"
+]:
+    l = logging.getLogger(name)
+    l.setLevel(logging.DEBUG)
+
+
 async def _warmup_embeddings():
-    """Pre-load embedding models on startup to avoid cold-start latency on first request."""
+    """Pre-warm the NVIDIA embedding model on startup to avoid cold-start latency on first request."""
     try:
-        from sentence_transformers import SentenceTransformer
-        model_name = settings.embed_config.get("embedding", {}).get("model_name", "all-MiniLM-L6-v2")
-        logger.info("Warming up embedding model: %s", model_name)
-        model = SentenceTransformer(model_name)
-        model.encode("warmup", normalize_embeddings=True)
-        logger.info("Embedding model warmup complete: %s", model_name)
-    except ImportError:
-        logger.info("sentence-transformers not available — skipping embedding warmup")
+        from backend.src.utils.nvidia_embeddings import NVIDIAEmbeddings
+        cfg = settings.embed_config.get("embedding", {})
+        model_name = cfg.get("model_name", "nvidia/nv-embed-v1")
+        logger.info("Warming up NVIDIA embedding model: %s", model_name)
+        embedder = NVIDIAEmbeddings(model=model_name)
+        embedder.embed_query("warmup")
+        logger.info("NVIDIA embedding model warmup complete: %s", model_name)
     except Exception as e:
-        logger.warning("Embedding warmup failed: %s", e)
+        logger.warning("NVIDIA embedding warmup failed: %s", e)
 
 
 @asynccontextmanager

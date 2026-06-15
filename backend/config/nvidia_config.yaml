@@ -1,0 +1,169 @@
+# ──────────────────────────────────────────────────────────────────────
+# nvidia_config.yaml  —  NVIDIA NIM infrastructure config
+#
+# Partner file: app_config.yaml (application-layer config)
+# Loaded by:    backend/config/settings.py → settings.nvidia_config
+#
+# Sections map to settings.py properties:
+#   embedding       → settings.embed_config      (alias: settings.nvidia_config)
+#   models          → settings.model_config_yaml  (alias: settings.nvidia_config["models"])
+#   cost            → settings.cost_config        (alias: settings.nvidia_config["cost"])
+#   chunking        → settings.chunking_config    (alias: settings.nvidia_config["chunking"])
+# ──────────────────────────────────────────────────────────────────────
+
+# ── Embedding ─────────────────────────────────────────────────────────
+# Model: nv-embed-v1 (4096-dim) via NVIDIA NIM API
+# All embeddings (vector store, semantic cache, supervisor cache) share
+# this model to keep the vector space consistent.
+# Docs: https://build.nvidia.com/nvidia/nv-embed-v1
+embedding:
+  model_name: nvidia/nv-embed-v1
+  dimension: 4096
+  normalize_embeddings: true
+  batch_size: 32
+  input_type: query                  # "query" for single-query, "passage" for batch docs
+
+# ── Vector Store (ChromaDB) ───────────────────────────────────────────
+vector_store:
+  collection_name: hr_policies
+  default_k: 20                       # Top-k results for similarity_search()
+  persist_dir: ./backend/data/chroma_db
+
+# ── Semantic Cache ────────────────────────────────────────────────────
+# Embedding-similarity cache: deduplicates repeated queries by comparing
+# cos-sim of the query embedding against cached entries.
+semantic_cache:
+  similarity_threshold: 0.95         # Match threshold (0.0–1.0)
+  ttl_seconds: 86400                 # 24 hours
+
+# ── Reranker ──────────────────────────────────────────────────────────
+# Optional cross-encoder reranker to re-order ChromaDB results.
+# Currently disabled; enabled requires nvidia/rerank-qa-mistral-4b.
+reranker:
+  enabled: false
+  model: nvidia/rerank-qa-mistral-4b
+  top_k: 4
+  timeout_seconds: 2.0
+
+# ── Trace Sampling / PII / Alerting ──────────────────────────────────
+trace_sampling:
+  enabled: true
+  success_sample_rate: 0.1           # Log 10% of successful traces to Langfuse
+
+pii_redaction:
+  enabled: true
+  patterns:                          # Regex patterns matched against input/output
+    - "\\b[\\w.-]+@[\\w.-]+\\.\\w+\\b"   # Email
+    - "\\b\\d{3}-\\d{2}-\\d{4}\\b"       # SSN (###-##-####)
+    - "\\b\\d{9}\\b"                      # Generic 9-digit ID
+
+alerting:
+  enabled: true
+  p99_threshold_ms: 10000            # Warn if P99 latency exceeds 10s
+  error_rate_threshold_pct: 10.0     # Warn if error rate exceeds 10%
+
+# ── Chunking Strategies ──────────────────────────────────────────────
+# Six pluggable strategies for policy document chunking.
+# Referenced by backend/src/memory/chunking/factory.py
+chunking:
+  default_strategy: recursive
+  strategies:
+    recursive:
+      chunk_size: 400
+      chunk_overlap: 80
+      separators: ["\n\n", "\n", ".", " "]
+    fixed_size:
+      chunk_size: 300
+      chunk_overlap: 50
+    semantic:
+      threshold: 0.75
+      min_chunk_size: 100
+      max_chunk_size: 500
+    parent_document:
+      parent_chunk_size: 1000
+      child_chunk_size: 200
+      child_overlap: 40
+    agentic:
+      llm_model: gpt-4o-mini
+      max_iterations: 3
+    late_chunking:
+      base_chunk_size: 400
+      overlap: 80
+
+# ── LLM Model Routing ────────────────────────────────────────────────
+# Default provider + per-agent model assignments.
+# Referenced by backend/src/utils/model_router.py
+models:
+  default_provider: nvidia
+  default_model: nvidia/meta/llama-3.1-8b-instruct
+  agents:
+    triage:
+      primary: nvidia/meta/llama-3.1-8b-instruct
+      fallback: nvidia/meta/llama-3.1-70b-instruct
+      cost_floor: 0.001
+      reasoning_effort: none
+      top_p: 0.95
+    rag:
+      primary: nvidia/meta/llama-3.1-8b-instruct
+      fallback: nvidia/meta/llama-3.1-70b-instruct
+      cost_floor: 0.001
+      reasoning_effort: none
+      top_p: 0.95
+    narrative:
+      primary: nvidia/meta/llama-3.1-8b-instruct
+      fallback: nvidia/meta/llama-3.1-70b-instruct
+      cost_floor: 0.01
+      reasoning_effort: none
+      top_p: 0.95
+    compliance:
+      primary: nvidia/meta/llama-3.1-8b-instruct
+      fallback: nvidia/meta/llama-3.1-70b-instruct
+      cost_floor: 0.001
+      reasoning_effort: none
+      top_p: 0.95
+    anomaly:
+      primary: nvidia/meta/llama-3.1-8b-instruct
+      fallback: nvidia/meta/llama-3.1-70b-instruct
+      cost_floor: 0.002
+      reasoning_effort: none
+      top_p: 0.95
+    supervisor:
+      primary: nvidia/meta/llama-3.1-8b-instruct
+      fallback: nvidia/meta/llama-3.1-70b-instruct
+      cost_floor: 0.01
+      reasoning_effort: none
+      top_p: 0.95
+
+# ── Cost Management ──────────────────────────────────────────────────
+# Per-model token costs, monthly budgets, and cost-tier thresholds.
+# Referenced by backend/src/utils/model_router.py
+cost:
+  model_costs_per_1k:               # USD per 1K tokens (input / output)
+    llama-3.1-8b-instruct:
+      input: 0.0001
+      output: 0.0004
+    llama-3.1-70b-instruct:
+      input: 0.0005
+      output: 0.001
+    nv-embed-v1:
+      input: 0.00002
+      output: 0.00002
+  budgets:
+    monthly_usd: 500.0
+    per_run_max_usd: 0.50
+  alerts:
+    daily_threshold_usd: 20.0
+    weekly_threshold_usd: 125.0
+  cost_tiers:
+    cheap:
+      max_cost_usd: 0.01
+      preferred_model: nvidia/meta/llama-3.1-8b-instruct
+    standard:
+      max_cost_usd: 0.05
+      preferred_model: nvidia/meta/llama-3.1-8b-instruct
+    premium:
+      max_cost_usd: 0.50
+      preferred_model: nvidia/meta/llama-3.1-8b-instruct
+  cost_weights:
+    input_token: 1.0
+    output_token: 2.0

@@ -1,0 +1,116 @@
+# ──────────────────────────────────────────────────────────────────────
+# app_config.yaml  —  Application-layer config (feature toggles,
+#                     guardrails, compliance rules, RBAC)
+#
+# Partner file:  nvidia_config.yaml  (model/chunking/cost config)
+# Loaded by:     backend/config/settings.py → settings.app_config
+#
+# Sections map to settings.py properties:
+#   feature_flags  → settings.feature_flags
+#   guardrails     → settings.guardrails_config
+#   compliance     → settings.compliance_config
+#   roles          → settings.roles_config
+# ──────────────────────────────────────────────────────────────────────
+
+# ── Feature Toggles ──────────────────────────────────────────────────
+# Flip any flag to false to disable that subsystem entirely, removing
+# its runtime overhead without requiring code changes.
+feature_flags:
+  guardrails:
+    input_enabled: true      # PII detection, prompt injection, topic blocking, length limits
+    output_enabled: true     # PII redaction, tone validation, hallucination detection
+    tool_enabled: true       # Argument validation, tool whitelist enforcement
+    model_enabled: true      # Cost threshold ($0.50) and timeout (30s) limits
+
+  rl:
+    enabled: true            # Master switch for the LinUCB contextual bandit
+    learn_mode: true         # When false, bandit selects actions but never updates weights
+
+  dspy:
+    enabled: true
+    optimization_schedule_cron: "0 3 * * 0"  # Every Sunday at 3:00 AM UTC
+
+  semantic_cache:
+    enabled: true            # Embedding-similarity cache (threshold/ttl in nvidia_config)
+
+  hitl:
+    enabled: true            # Human-in-the-loop escalation via AG-UI protocol
+
+  cost_tracking:
+    enabled: true            # Per-run cost calculation logged to Langfuse
+
+
+# ── Guardrails ──────────────────────────────────────────────────────
+# Each section is independently toggleable via feature_flags.guardrails.*.
+# See backend/src/guardrails/ for the Python implementation.
+guardrails:
+  input:
+    pii_detection: true        # Scans for SSN, credit card numbers, email addresses (regex)
+    injection_detection: true  # Detects prompt injection patterns
+    topic_restriction: true    # Blocks queries matching blocked_topics list
+    max_input_length: 4096     # Character limit; longer queries are rejected
+    blocked_topics:
+      - violence
+      - illegal_activity
+      - discrimination
+
+  output:
+    pii_redaction: true        # Redacts PII that might leak in LLM responses
+    hallucination_check: true  # Detects hedging/uncertainty language patterns
+    tone_validation: true      # Ensures response tone matches allowed_tones
+    allowed_tones:
+      - professional
+      - empathetic
+      - informative
+
+  tool:
+    validate_args: true          # Checks argument types and max length (2000 chars)
+    validate_output_schema: true # Verifies tool output matches expected schema
+
+  model:
+    max_retries: 3               # LLM retries with exponential backoff (tenacity)
+    timeout_seconds: 30          # Max wait per LLM call; exceeded calls are aborted
+    cost_threshold_usd: 0.50     # Max cost per call; exceeded calls fall back
+
+
+# ── Compliance Rules ────────────────────────────────────────────────
+# Hard veto rules enforced after every sub-agent execution.
+# A veto overrides all other agent recommendations and blocks the action.
+# See backend/src/intelligence/compliance/.
+compliance:
+  hard_veto_rules:
+    - cannot_approve_termination_without_approval
+    - cannot_modify_salary_below_minimum_wage
+    - cannot_grant_leave_exceeding_accrued_balance
+    - cannot_change_compliance_status_without_evidence
+
+  policy_reference_required: true   # Actions must cite a relevant policy document
+
+  escalation_roles:
+    - hr_manager
+    - compliance_officer
+
+
+# ── Role-Based Access Control ──────────────────────────────────────
+# Priority order (highest wins):
+#   1. APP_ROLE environment variable
+#   2. app_role field below (YAML fallback)
+#   3. Hardcoded "admin" default in settings.py
+#
+# Frontend gating: frontend/src/App.tsx reads /health → role,
+#                   then shows/hides sections via frontend/src/api/client.ts
+roles:
+  app_role: admin               # Default role when APP_ROLE env var is not set
+
+  roles:
+    admin:
+      sections: ["main", "observability", "knowledge", "insights"]
+      policy_crud: true         # Can upload, update, and delete policy documents
+      can_access_trace: true    # Can view execution trace viewer and compare
+      can_access_feedback: true # Can view RL dashboard and feedback stats
+
+    user:
+      sections: ["main"]        # Only sees main nav (query, HITL, policies view)
+      policy_crud: false        # Policy management is view-only (no edit/delete buttons)
+      can_access_trace: false   # Trace and RL sections are hidden
+      can_access_feedback: false

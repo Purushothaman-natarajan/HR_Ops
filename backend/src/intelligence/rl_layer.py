@@ -20,7 +20,7 @@ logger = logging.getLogger("hr_ops.rl")
 
 _ACTION_DIM = 4
 _FEATURE_DIM = 8
-_PERSIST_PATH = Path("data/rl_bandit.pkl")
+_PERSIST_PATH = Path("backend/data/rl_bandit.pkl")
 
 
 class LinUCBAgent:

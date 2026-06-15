@@ -12,9 +12,18 @@ env/
 .env
 .env.local
 
-# Data
+# Data (runtime-generated: vector store, DB, RL pickle, logs)
 backend/data/chroma_db/
+backend/data/hr_ops.db
+backend/data/hr_ops.db-journal
+backend/data/hr_ops.db-wal
+backend/data/hr_ops.db-shm
+backend/data/rl_bandit.pkl
+!backend/data/policies/
 !backend/data/policies/*.md
+
+# Ghost directory from accidentally running inside backend/
+backend/backend/
 
 # Node
 node_modules/

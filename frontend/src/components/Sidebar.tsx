@@ -1,4 +1,6 @@
 import type { AppRole } from "../types";
+import { Icon } from "./Icons";
+import type { IconName } from "./Icons";
 
 type Page = "dashboard" | "query" | "hitl" | "trace" | "tracequery" | "rl" | "cost" | "policies" | "performance";
 
@@ -7,26 +9,27 @@ interface Props {
   onNavigate: (page: Page) => void;
   role: AppRole;
   onLogout: () => void;
+  isOpen: boolean;
 }
 
 interface NavItem {
   id: Page;
   label: string;
-  icon: string;
+  icon: IconName;
   section: string;
   roles: AppRole[];
 }
 
 const navItems: NavItem[] = [
-  { id: "dashboard", label: "Dashboard", icon: "\u2302", section: "Main", roles: ["admin", "hr", "employee"] },
-  { id: "query", label: "Query Agent", icon: "\u2192", section: "Main", roles: ["admin", "hr", "employee"] },
-  { id: "hitl", label: "HITL Requests", icon: "\u2691", section: "Main", roles: ["admin", "hr"] },
-  { id: "trace", label: "Trace Viewer", icon: "\u2630", section: "Observability", roles: ["admin"] },
-  { id: "tracequery", label: "Trace Compare", icon: "\u2261", section: "Observability", roles: ["admin"] },
-  { id: "policies", label: "Policy Manager", icon: "\u25A1", section: "Knowledge", roles: ["admin", "hr", "employee"] },
-  { id: "rl", label: "RL Dashboard", icon: "\u25B3", section: "Insights", roles: ["admin"] },
-  { id: "cost", label: "Cost Monitor", icon: "\u0024", section: "Insights", roles: ["admin", "hr"] },
-  { id: "performance", label: "Performance", icon: "\u26A1", section: "Observability", roles: ["admin"] },
+  { id: "dashboard", label: "Dashboard", icon: "dashboard", section: "Main", roles: ["admin", "hr", "employee"] },
+  { id: "query", label: "Query Agent", icon: "query", section: "Main", roles: ["admin", "hr", "employee"] },
+  { id: "hitl", label: "HITL Requests", icon: "hitl", section: "Main", roles: ["admin", "hr"] },
+  { id: "trace", label: "Trace Viewer", icon: "trace", section: "Observability", roles: ["admin"] },
+  { id: "tracequery", label: "Trace Compare", icon: "trace-compare", section: "Observability", roles: ["admin"] },
+  { id: "policies", label: "Policy Manager", icon: "policy", section: "Knowledge", roles: ["admin", "hr", "employee"] },
+  { id: "rl", label: "RL Dashboard", icon: "rl", section: "Insights", roles: ["admin"] },
+  { id: "cost", label: "Cost Monitor", icon: "cost", section: "Insights", roles: ["admin", "hr"] },
+  { id: "performance", label: "Performance", icon: "performance", section: "Observability", roles: ["admin"] },
 ];
 
 const sectionOrder = ["Main", "Observability", "Knowledge", "Insights"];
@@ -37,20 +40,19 @@ const ROLE_LABELS: Record<AppRole, string> = {
   employee: "Employee",
 };
 
-export function Sidebar({ activePage, onNavigate, role, onLogout }: Props) {
+export function Sidebar({ activePage, onNavigate, role, onLogout, isOpen }: Props) {
   const visibleSections = sectionOrder.filter((section) => {
     const itemsInSection = navItems.filter((item) => item.section === section);
     return itemsInSection.some((item) => item.roles.includes(role));
   });
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar${isOpen ? " open" : ""}`}>
       <div className="sidebar-header">
         <div className="sidebar-logo">
-          <div className="sidebar-logo-icon">HR</div>
-          <span>HR Ops Platform</span>
+          <span>HR Buddy</span>
         </div>
-        <div className="sidebar-subtitle">Self-Healing Multi-Agent System</div>
+        <div className="sidebar-subtitle">Your AI-Powered HR Assistant</div>
       </div>
 
       <nav className="sidebar-nav">
@@ -65,7 +67,7 @@ export function Sidebar({ activePage, onNavigate, role, onLogout }: Props) {
                   className={`sidebar-item${activePage === item.id ? " active" : ""}`}
                   onClick={() => onNavigate(item.id)}
                 >
-                  <span className="sidebar-icon">{item.icon}</span>
+                  <Icon name={item.icon} size={16} className="sidebar-icon" />
                   {item.label}
                   {role === "employee" && item.id === "policies" && (
                     <span className="sidebar-suffix">(View)</span>

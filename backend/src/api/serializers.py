@@ -71,6 +71,8 @@ def serialize_graph_result(
     """
     trace_log = result.get("trace_log", [])
     anomalies = result.get("anomaly_results", [])
+    events = _serialize_trace_events(trace_log)
+    total_cost = result.get("total_cost_usd", 0.0)
 
     return {
         "run_id": run_id,
@@ -81,7 +83,9 @@ def serialize_graph_result(
         "compliance_reason": result.get("compliance_reason", ""),
         "retrieved_policies": result.get("retrieved_policies", [])[:3],
         "executed_actions": result.get("executed_actions", [])[:3],
-        "total_cost_usd": result.get("total_cost_usd", 0.0),
-        "trace_events": _serialize_trace_events(trace_log),
+        "total_cost_usd": total_cost,
+        "cost_usd": total_cost,
+        "duration_ms": sum(e.get("duration_ms", 0) for e in events),
+        "trace_events": events,
         "anomaly_results": _serialize_anomaly_results(anomalies),
     }

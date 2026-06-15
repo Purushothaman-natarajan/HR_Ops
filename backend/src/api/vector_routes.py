@@ -6,6 +6,7 @@ import logging
 
 from fastapi import APIRouter, Request
 
+from backend.config.settings import settings
 from backend.src.core.response import get_correlation_id, success_response
 from backend.src.memory.vector_store import get_vector_store
 
@@ -21,13 +22,14 @@ async def api_vector_status(request: Request):
         store = get_vector_store()
         count = store._collection.count()
         persist = getattr(store, "_persist_directory", str(store._collection._persist_directory) if hasattr(store._collection, "_persist_directory") else "")
+        cfg = settings.embed_config.get("embedding", {})
         return success_response(
             data={
                 "available": True,
                 "collection": "hr_policies",
                 "document_count": count,
-                "embedding_model": "all-MiniLM-L6-v2",
-                "dimension": 384,
+                "embedding_model": cfg.get("model_name", "nvidia/nv-embed-v1"),
+                "dimension": cfg.get("dimension", 4096),
                 "persist_dir": persist,
             },
             correlation_id=correlation_id,

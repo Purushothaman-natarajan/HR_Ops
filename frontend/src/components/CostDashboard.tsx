@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { api } from "../api/client";
+import { Icon } from "./Icons";
 
 interface CostEntry {
   agent: string;
@@ -60,7 +61,7 @@ export function CostDashboard() {
     return (
       <div className="card" style={{ borderLeft: "4px solid var(--color-error)" }}>
         <div className="card-body" style={{ padding: "12px 16px", display: "flex", alignItems: "flex-start", gap: 12 }}>
-          <span style={{ fontSize: 16 }}>{"\u26A0\uFE0F"}</span>
+          <Icon name="warning" size={16} />
           <div style={{ flex: 1, fontSize: 13, lineHeight: 1.5 }}>{fetchError}</div>
         </div>
       </div>

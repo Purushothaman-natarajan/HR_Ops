@@ -1,4 +1,6 @@
 import type { AppRole } from "../types";
+import { Icon } from "./Icons";
+import type { IconName } from "./Icons";
 
 type Page = "dashboard" | "query" | "hitl" | "trace" | "tracequery" | "rl" | "cost" | "policies";
 
@@ -12,7 +14,7 @@ interface FeatureCard {
   title: string;
   desc: string;
   color: string;
-  icon: string;
+  icon: IconName;
   roles: AppRole[];
 }
 
@@ -22,7 +24,7 @@ const features: FeatureCard[] = [
     title: "Query Agent",
     desc: "Ask HR policy questions, execute actions, run anomaly detection, or check compliance",
     color: "#6366f1",
-    icon: "\u2192",
+    icon: "query",
     roles: ["admin", "hr", "employee"],
   },
   {
@@ -30,7 +32,7 @@ const features: FeatureCard[] = [
     title: "HITL Requests",
     desc: "Review and respond to human-in-the-loop escalations from the agent system",
     color: "#f59e0b",
-    icon: "\u2691",
+    icon: "hitl",
     roles: ["admin", "hr"],
   },
   {
@@ -38,7 +40,7 @@ const features: FeatureCard[] = [
     title: "Trace Viewer",
     desc: "Inspect detailed execution traces from graph runs with timing and cost data",
     color: "#10b981",
-    icon: "\u2630",
+    icon: "trace",
     roles: ["admin"],
   },
   {
@@ -46,7 +48,7 @@ const features: FeatureCard[] = [
     title: "Trace Compare",
     desc: "Compare multiple trace runs side-by-side to debug agent behavior",
     color: "#3b82f6",
-    icon: "\u2261",
+    icon: "trace-compare",
     roles: ["admin"],
   },
   {
@@ -54,7 +56,7 @@ const features: FeatureCard[] = [
     title: "RL Dashboard",
     desc: "Monitor LinUCB bandit learning progress, action distribution, and rewards",
     color: "#8b5cf6",
-    icon: "\u25B3",
+    icon: "rl",
     roles: ["admin"],
   },
   {
@@ -62,7 +64,7 @@ const features: FeatureCard[] = [
     title: "Cost Monitor",
     desc: "Track LLM usage costs per agent with budget alerts and optimization insights",
     color: "#ec4899",
-    icon: "\u0024",
+    icon: "cost",
     roles: ["admin", "hr"],
   },
 ];
@@ -76,7 +78,7 @@ export function Dashboard({ onNavigate, role }: Props) {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
             <h1 className="page-title">Dashboard</h1>
-            <p className="page-desc">Overview of your Self-Healing HR Ops Platform</p>
+            <p className="page-desc">Overview of your HR Buddy</p>
           </div>
           <span className={`badge ${role === "admin" ? "badge-info" : role === "hr" ? "badge-info" : "badge-warning"}`}>
             {role === "admin" ? "Admin Mode" : role === "hr" ? "HR Mode" : "Employee Mode"}
@@ -91,7 +93,7 @@ export function Dashboard({ onNavigate, role }: Props) {
         {visibleFeatures.map((f) => (
           <div key={f.id} className="feature-card" onClick={() => onNavigate(f.id)}>
             <div className="feature-card-icon" style={{ background: `${f.color}15`, color: f.color }}>
-              {f.icon}
+              <Icon name={f.icon} size={22} />
             </div>
             <div className="feature-card-title">{f.title}</div>
             <div className="feature-card-desc">{f.desc}</div>

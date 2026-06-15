@@ -24,6 +24,25 @@ logger = logging.getLogger("hr_ops.conversation_routes")
 router = APIRouter(prefix="/conversation", tags=["conversation"])
 
 
+def _log_request(endpoint: str, session_id: str | None, query: str, mode: str, turn: int | None = None):
+    """Log incoming conversation request with full context."""
+    parts = [f"endpoint={endpoint}", f"mode={mode}"]
+    if session_id:
+        parts.append(f"session_id={session_id}")
+    if turn is not None:
+        parts.append(f"turn={turn}")
+    parts.append(f"query={query[:100]}")
+    logger.info("CONVERSATION_REQUEST | %s", " | ".join(parts))
+
+
+def _log_response(endpoint: str, session_id: str, turn: int, cost: float, trace_count: int, response_preview: str):
+    """Log conversation response with execution details."""
+    logger.info(
+        "CONVERSATION_RESPONSE | endpoint=%s | session_id=%s | turn=%d | cost_usd=%.6f | trace_events=%d | response=%s",
+        endpoint, session_id, turn, cost, trace_count, response_preview[:150]
+    )
+
+
 @router.post("/start")
 async def api_start_conversation(body: dict, request: Request):
     """Create a new session and immediately run the first turn.
@@ -68,16 +87,20 @@ async def api_start_conversation(body: dict, request: Request):
             status_code=400,
         )
 
+    _log_request("POST /conversation/start", None, query, mode)
     session = session_store.create_session(query, mode=mode)
     try:
         result = await session_store.run_turn_async(session["session_id"], query)
     except ModelNotAvailableError as e:
         session_store.delete_session(session["session_id"])
+        logger.warning("CONVERSATION_ERROR | endpoint=POST /conversation/start | session_id=%s | error=model_unavailable: %s", session["session_id"], e)
         return error_response(message=e.message, correlation_id=correlation_id, status_code=503)
     except Exception as e:
         session_store.delete_session(session["session_id"])
+        logger.exception("CONVERSATION_ERROR | endpoint=POST /conversation/start | session_id=%s | error=%s", session["session_id"], e)
         return error_response(message=str(e), correlation_id=correlation_id, status_code=500)
 
+    _log_response("POST /conversation/start", session["session_id"], result["turn_number"], result.get("total_cost_usd", 0), len(result.get("trace_events", [])), result.get("response", ""))
     return success_response(
         data={**result, "mode": mode},
         correlation_id=correlation_id,
@@ -131,8 +154,10 @@ async def api_stream_start(query: str, request: Request, mode: str = "standard")
             status_code=400,
         )
 
+    _log_request("GET /conversation/stream/start", None, query, mode)
     session = session_store.create_session(query, mode=mode)
     session_id = session["session_id"]
+    logger.info("SSE_STREAM_START | session_id=%s | mode=%s | query=%s", session_id, mode, query[:100])
 
     return StreamingResponse(
         _stream_events(session_id, query),
@@ -183,8 +208,10 @@ async def api_send_message(session_id: str, body: dict, request: Request):
             status_code=400,
         )
 
+    _log_request("POST /conversation/{session_id}/send", session_id, query, "", 0)
     session = session_store.get_session(session_id)
     if not session:
+        logger.warning("CONVERSATION_ERROR | endpoint=POST /conversation/{session_id}/send | session_id=%s | error=session_not_found", session_id)
         return error_response(
             message="Session not found",
             correlation_id=correlation_id,
@@ -194,10 +221,13 @@ async def api_send_message(session_id: str, body: dict, request: Request):
     try:
         result = await session_store.run_turn_async(session_id, query)
     except ModelNotAvailableError as e:
+        logger.warning("CONVERSATION_ERROR | endpoint=POST /conversation/{session_id}/send | session_id=%s | error=model_unavailable: %s", session_id, e)
         return error_response(message=e.message, correlation_id=correlation_id, status_code=503)
     except Exception as e:
+        logger.exception("CONVERSATION_ERROR | endpoint=POST /conversation/{session_id}/send | session_id=%s | error=%s", session_id, e)
         return error_response(message=str(e), correlation_id=correlation_id, status_code=500)
 
+    _log_response("POST /conversation/{session_id}/send", session_id, result["turn_number"], result.get("total_cost_usd", 0), len(result.get("trace_events", [])), result.get("response", ""))
     return success_response(
         data={**result, "mode": session["mode"]},
         correlation_id=correlation_id,
@@ -231,14 +261,17 @@ async def api_stream_send(session_id: str, query: str, request: Request):
             status_code=400,
         )
 
+    _log_request("GET /conversation/{session_id}/stream/send", session_id, query, "", 0)
     session = session_store.get_session(session_id)
     if not session:
+        logger.warning("CONVERSATION_ERROR | endpoint=GET /conversation/{session_id}/stream/send | session_id=%s | error=session_not_found", session_id)
         return error_response(
             message="Session not found",
             correlation_id=correlation_id,
             status_code=404,
         )
 
+    logger.info("SSE_STREAM_SEND | session_id=%s | mode=%s | query=%s", session_id, session["mode"], query[:100])
     return StreamingResponse(
         _stream_events(session_id, query),
         media_type="text/event-stream",

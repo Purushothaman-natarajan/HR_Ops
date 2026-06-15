@@ -1,6 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { api } from "../api/client";
 import { TraceViewer } from "./TraceViewer";
+import { ActivityPanel, LiveActivityPanel } from "./ActivityPanel";
+import { Icon } from "./Icons";
+import type { IconName } from "./Icons";
 import type { ConversationMessage, TraceEvent, ConversationSession } from "../types";
 
 type Mode = "standard" | "advanced";
@@ -47,17 +50,28 @@ interface NodeEvent {
   input_text: string;
   cost_usd: number;
   model_used: string;
+  activities?: Array<{
+    type: string;
+    label: string;
+    detail: string;
+    status: string;
+    duration_ms?: number;
+    metadata?: Record<string, unknown>;
+  }>;
+  reasoning?: string;
+  retrieved_docs?: Array<{ source: string; score: number; chunk: string }>;
+  tool_call?: Record<string, unknown>;
 }
 
-const NODE_ICONS: Record<string, string> = {
-  supervisor: "\u2699",
-  triage: "\u2699",
-  policy: "\uD83D\uDCC4",
-  action: "\u2692",
-  anomaly: "\u26A0",
-  compliance: "\u2712",
-  parallel_check: "\u26A1",
-  hitl: "\uD83D\uDC64",
+const NODE_ICONS: Record<string, IconName> = {
+  supervisor: "supervisor",
+  triage: "triage",
+  policy: "policy",
+  action: "action",
+  anomaly: "anomaly",
+  compliance: "compliance",
+  parallel_check: "parallel",
+  hitl: "hitl",
 };
 
 function formatDuration(ms: number): string {
@@ -132,13 +146,18 @@ export function ChatInterface({ employeeId = "" }: ChatInterfaceProps) {
 
         setSessionId((prev) => prev || newSessionId);
 
+        // Capture the live events that were displayed during streaming
+        const currentLiveEvents = [...liveEvents];
+
         const assistantMsg: ConversationMessage = {
           role: "assistant",
           content: response,
           node: mode,
+          liveEvents: currentLiveEvents,
         };
         setMessages((prev) => [...prev, assistantMsg]);
         setTotalCost((prev) => prev + cost);
+        setLiveEvents([]);
         if (events.length > 0) {
           setTraceEvents(events);
         }
@@ -271,6 +290,16 @@ export function ChatInterface({ employeeId = "" }: ChatInterfaceProps) {
               <div className="chat-bubble-role">
                 {msg.role === "user" ? "You" : `Agent${msg.node ? ` (${msg.node})` : ""}`}
               </div>
+              {msg.role === "assistant" && msg.liveEvents && msg.liveEvents.length > 0 && (
+                <ActivityPanel
+                  events={msg.liveEvents.map((e) => ({
+                    ...e,
+                    cost_usd: e.cost_usd,
+                  }))}
+                  totalCost={msg.cost}
+                  compact
+                />
+              )}
               <div className="chat-bubble-content">{msg.content}</div>
               {msg.role === "assistant" && (
                 <div className="chat-bubble-actions">
@@ -280,7 +309,7 @@ export function ChatInterface({ employeeId = "" }: ChatInterfaceProps) {
                     disabled={ratedTurns[i] !== undefined}
                     title="Useful"
                   >
-                    {ratedTurns[i] === 1 ? "\u2713" : "\uD83D\uDC4D"}
+                    <Icon name={ratedTurns[i] === 1 ? "check" : "thumbs-up"} size={16} />
                   </button>
                   <button
                     className={`chat-rating-btn${ratedTurns[i] === 0 ? " rated" : ""}`}
@@ -288,7 +317,7 @@ export function ChatInterface({ employeeId = "" }: ChatInterfaceProps) {
                     disabled={ratedTurns[i] !== undefined}
                     title="Somewhat useful"
                   >
-                    {ratedTurns[i] === 0 ? "\u2713" : "\uD83E\uDD37"}
+                    <Icon name={ratedTurns[i] === 0 ? "check" : "shrug"} size={16} />
                   </button>
                   <button
                     className={`chat-rating-btn${ratedTurns[i] === -1 ? " rated" : ""}`}
@@ -296,7 +325,7 @@ export function ChatInterface({ employeeId = "" }: ChatInterfaceProps) {
                     disabled={ratedTurns[i] !== undefined}
                     title="Not useful"
                   >
-                    {ratedTurns[i] === -1 ? "\u2713" : "\uD83D\uDC4E"}
+                    <Icon name={ratedTurns[i] === -1 ? "check" : "thumbs-down"} size={16} />
                   </button>
                   {msg.cost !== undefined && (
                     <span className="chat-cost-badge">${msg.cost.toFixed(5)}</span>
@@ -309,47 +338,16 @@ export function ChatInterface({ employeeId = "" }: ChatInterfaceProps) {
           {loading && (
             <div className="chat-bubble chat-bubble-assistant">
               <div className="chat-bubble-role">Agent</div>
-              <div className="chat-live-timeline">
-                {liveEvents.length === 0 && (
-                  <div className="chat-loading">
-                    <div className="spinner" />
-                    <span>Starting...</span>
-                  </div>
-                )}
-                {liveEvents.map((evt, i) => (
-                  <div key={i} className="chat-timeline-row">
-                    <div className="chat-timeline-dot completed" />
-                    <div className="chat-timeline-icon">
-                      {NODE_ICONS[evt.node] || evt.node.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="chat-timeline-info">
-                      <span className="chat-timeline-node">
-                        {evt.agent_role || evt.node}
-                      </span>
-                      <span className="chat-timeline-ms">
-                        {formatDuration(evt.duration_ms)}
-                      </span>
-                      {evt.output_text && (
-                        <span className="chat-timeline-output">
-                          {evt.output_text.length > 60
-                            ? evt.output_text.slice(0, 60) + "..."
-                            : evt.output_text}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-                {liveEvents.length > 0 && (
-                  <div className="chat-timeline-row">
-                    <div className="chat-timeline-dot active" />
-                    <div className="chat-timeline-icon">...</div>
-                    <div className="chat-timeline-info">
-                      <span className="chat-timeline-node">Processing</span>
-                      <div className="spinner" style={{ width: 14, height: 14 }} />
-                    </div>
-                  </div>
-                )}
-              </div>
+              <LiveActivityPanel
+                events={liveEvents}
+                isProcessing={loading}
+              />
+              {liveEvents.length === 0 && (
+                <div className="chat-loading">
+                  <div className="spinner" />
+                  <span>Starting...</span>
+                </div>
+              )}
             </div>
           )}
 
@@ -359,7 +357,7 @@ export function ChatInterface({ employeeId = "" }: ChatInterfaceProps) {
         {error && (
           <div className="card" style={{ margin: "0 16px 8px", borderLeft: "4px solid var(--color-error)" }}>
             <div className="card-body" style={{ padding: "12px 16px", display: "flex", alignItems: "flex-start", gap: 12 }}>
-              <span style={{ fontSize: 20, flexShrink: 0 }}>{"\u26A0\uFE0F"}</span>
+              <Icon name="warning" size={20} style={{ flexShrink: 0 }} />
               <div style={{ flex: 1, fontSize: 13, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
                 {error}
               </div>

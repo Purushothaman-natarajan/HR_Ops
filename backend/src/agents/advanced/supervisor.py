@@ -6,16 +6,15 @@ from datetime import datetime, timezone
 
 import numpy as np
 
-from backend.src.agents.state import AgentRole, SharedState, TraceEntry, TriggerType
+from backend.src.agents.state import AgentRole, Activity, SharedState, TraceEntry, TriggerType
 from backend.src.intelligence.rl_layer import rl_agent
 from backend.src.utils.model_router import llm_call
 
 logger = logging.getLogger("hr_ops.supervisor")
 
 try:
-    from sentence_transformers import SentenceTransformer
-    _model_cfg = __import__("backend.config.settings", fromlist=["settings"]).settings.embed_config.get("embedding", {})
-    _SUPERVISOR_ENCODER = SentenceTransformer(_model_cfg.get("model_name", "all-MiniLM-L6-v2"))
+    from backend.src.utils.nvidia_embeddings import NVIDIAEmbeddings
+    _SUPERVISOR_ENCODER = NVIDIAEmbeddings(input_type="query")
 except ImportError:
     _SUPERVISOR_ENCODER = None
 
@@ -34,8 +33,7 @@ class SupervisorCache:
 
     def _embed(self, text: str) -> list[float]:
         if _SUPERVISOR_ENCODER:
-            emb = _SUPERVISOR_ENCODER.encode(text, normalize_embeddings=True)
-            return emb.tolist()
+            return _SUPERVISOR_ENCODER.embed_query(text)
         return []
 
     def _cosine_sim(self, a: list[float], b: list[float]) -> float:
@@ -85,14 +83,22 @@ async def supervisor_decision(state: SharedState) -> dict:
     start = datetime.now(timezone.utc)
     trigger = state.trigger_type
     cached_agent = None
+    activities = []
 
     if trigger == TriggerType.REACTIVE:
+        activities.append(Activity(
+            type="cache_check", label="Checking supervisor cache",
+            detail="Comparing query embedding against cached classifications",
+            status="completed",
+        ))
         cached_agent = supervisor_cache.get(state.query)
         if cached_agent:
             llm_decision = cached_agent
             reasoning_detail = f"Cache hit: routed to {cached_agent}"
+            activities[-1].detail = f"Cache HIT — reusing classification: {cached_agent}"
             logger.debug("Supervisor cache used: query=%.50s -> %s", state.query, llm_decision)
         else:
+            activities[-1].detail = "Cache MISS — calling LLM classifier"
             history = state.messages
             history_context = ""
             if history:
@@ -108,16 +114,33 @@ async def supervisor_decision(state: SharedState) -> dict:
                 f"Query: {state.query}\n"
                 f"Reply with one word."
             )
+            activities.append(Activity(
+                type="llm_call", label="Classifying query with LLM",
+                detail=f"Query: {state.query[:80]}...",
+                status="running",
+            ))
             llm_decision, _ = await llm_call("supervisor", prompt, max_tokens=20, temperature=0)
             llm_decision = llm_decision.strip().lower()
+            activities[-1].status = "completed"
+            activities[-1].detail = f"LLM classified as: {llm_decision}"
             supervisor_cache.set(state.query, llm_decision)
             reasoning_detail = f"LLM classified as '{llm_decision}'"
     elif trigger == TriggerType.SCHEDULED:
         llm_decision = "anomaly"
         reasoning_detail = "Scheduled trigger: routed to anomaly"
+        activities.append(Activity(
+            type="decision", label="Scheduled trigger detected",
+            detail="Routing to anomaly agent by default",
+            status="completed",
+        ))
     else:
         llm_decision = "compliance"
         reasoning_detail = "Default trigger: routed to compliance"
+        activities.append(Activity(
+            type="decision", label="Default trigger detected",
+            detail="Routing to compliance agent by default",
+            status="completed",
+        ))
 
     valid = {"policy", "action", "anomaly", "compliance"}
     llm_decision = llm_decision if llm_decision in valid else "policy"
@@ -131,7 +154,14 @@ async def supervisor_decision(state: SharedState) -> dict:
         "urgent": 1.0 if any(kw in state.query.lower() for kw in ["urgent", "asap", "immediately"]) else 0.0,
     }
 
+    activities.append(Activity(
+        type="decision", label="RL bandit re-ranking",
+        detail=f"LLM suggested: {llm_decision} — selecting final agent",
+        status="running",
+    ))
     decision = rl_agent.select_action(rl_context)
+    activities[-1].status = "completed"
+    activities[-1].detail = f"RL selected: {decision} (LLM suggested: {llm_decision})"
     reasoning_detail += f" | RL bandit selected '{decision}'"
 
     logger.info(
@@ -160,6 +190,7 @@ async def supervisor_decision(state: SharedState) -> dict:
                     for agent in ["policy", "action", "anomaly", "compliance"]
                     if hasattr(rl_agent, "arm_scores")
                 ],
+                activities=activities,
             )
         ],
     }

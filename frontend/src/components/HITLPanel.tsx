@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { api } from "../api/client";
+import { Icon } from "./Icons";
 import type { PendingItem } from "../types";
 
 /** HITL (human-in-the-loop) escalation panel for pending agent requests.
@@ -67,7 +68,7 @@ export function HITLPanel() {
 
       {items.length === 0 ? (
         <div className="empty-state">
-          <div className="empty-state-icon">\u2714</div>
+          <Icon name="check" size={48} className="empty-state-icon" />
           <div className="empty-state-text">No pending HITL requests. All clear!</div>
         </div>
       ) : (

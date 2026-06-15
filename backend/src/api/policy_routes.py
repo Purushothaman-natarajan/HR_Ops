@@ -19,6 +19,7 @@ from backend.src.core.response import (
     get_correlation_id,
     success_response,
 )
+from backend.src.memory.vector_store import get_document_count
 from backend.src.services.policy_service import (
     ALLOWED_EXTENSIONS,
     MAX_FILE_SIZE,
@@ -75,7 +76,8 @@ async def api_list_policies(request: Request):
     """
     correlation_id = get_correlation_id(request)
     policies = list_policies()
-    return success_response(data={"policies": policies}, correlation_id=correlation_id)
+    embedded_count = get_document_count("hr_policies")
+    return success_response(data={"policies": policies, "embedded_count": embedded_count}, correlation_id=correlation_id)
 
 
 @router.get("/{policy_id}")
@@ -212,6 +214,7 @@ async def api_upload_policy(
 
     try:
         policy = create_policy(file.filename, content, title=title or None)
+        policy["embedded"] = True
         return success_response(data=policy, correlation_id=correlation_id, message="Policy created")
     except ValueError as e:
         return error_response(message=str(e), correlation_id=correlation_id, status_code=400)
@@ -265,6 +268,7 @@ async def api_update_policy(policy_id: str, body: dict, request: Request):
             correlation_id=correlation_id,
             status_code=404,
         )
+    policy["embedded"] = True
     return success_response(data=policy, correlation_id=correlation_id, message="Policy updated")
 
 
@@ -301,4 +305,4 @@ async def api_delete_policy(policy_id: str, request: Request):
             correlation_id=correlation_id,
             status_code=404,
         )
-    return success_response(data={"id": policy_id}, correlation_id=correlation_id, message="Policy deleted")
+    return success_response(data={"id": policy_id, "embedded": True}, correlation_id=correlation_id, message="Policy deleted")

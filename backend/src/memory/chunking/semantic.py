@@ -4,9 +4,8 @@ Used during policy ingestion to split documents into coherent chunks
 before embedding them into ChromaDB. Sentences whose cosine similarity
 falls below the threshold trigger a new chunk boundary.
 
-The same SentenceTransformer model (all-MiniLM-L6-v2 from embed_config.yaml)
-is used here as in the vector store and semantic cache — ensuring that
-chunks, cached queries, and live queries all live in the same vector space.
+Uses NVIDIA nv-embed-v1 (via NVIDIA NIM API) for embeddings — ensuring
+that chunks, cached queries, and live queries all live in the same vector space.
 """
 
 from __future__ import annotations
@@ -16,21 +15,15 @@ import numpy as np
 from backend.config.settings import settings
 from backend.src.memory.chunking.base import Chunk, ChunkingStrategy
 from backend.src.memory.chunking.recursive import RecursiveChunking
+from backend.src.utils.nvidia_embeddings import NVIDIAEmbeddings
 
-try:
-    from sentence_transformers import SentenceTransformer
-
-    _model_name = settings.embed_config.get("embedding", {}).get("model_name", "all-MiniLM-L6-v2")
-    _ENCODER = SentenceTransformer(_model_name)
-except ImportError:
-    _ENCODER = None
+_ENCODER = NVIDIAEmbeddings(input_type="passage")
 
 
 class SemanticChunking(ChunkingStrategy):
     """Chunks text by grouping sentences whose embeddings are similar above a threshold.
 
-    Threshold, min/max chunk sizes, and embedding model name all come from
-    embed_config.yaml and chunking_config.yaml.
+    Threshold, min/max chunk sizes come from nvidia_config.yaml.
     """
 
     def __init__(
@@ -44,14 +37,16 @@ class SemanticChunking(ChunkingStrategy):
         self.max_chunk_size = max_chunk_size
 
     async def chunk(self, text: str, **kwargs) -> list[Chunk]:
-        """Split text into semantically coherent chunks using sentence embeddings."""
-        if _ENCODER is None:
-            return await self._fallback(text)
+        """Split text into semantically coherent chunks using NVIDIA embeddings."""
         sentences = self._split_sentences(text)
         if len(sentences) <= 1:
             return [Chunk(text=text.strip(), index=0)]
 
-        embeddings = _ENCODER.encode(sentences, normalize_embeddings=True)
+        try:
+            embeddings = _ENCODER.embed_documents(sentences)
+        except Exception:
+            return await self._fallback(text)
+
         chunks = []
         current = []
         current_emb = None
@@ -89,5 +84,5 @@ class SemanticChunking(ChunkingStrategy):
         return [p.strip() for p in parts if p.strip()]
 
     async def _fallback(self, text: str) -> list[Chunk]:
-        """Fallback to RecursiveChunking when sentence encoder is unavailable."""
+        """Fallback to RecursiveChunking when embeddings are unavailable."""
         return await RecursiveChunking().chunk(text)

@@ -60,13 +60,14 @@ Multi-agent LangGraph system for HR operations with RL feedback, AG-UI human-in-
 |-------|-----------|
 | **Backend** | Python 3.10+, FastAPI, LangGraph, LiteLLM, ChromaDB |
 | **Frontend** | React 18, TypeScript, Vite, Recharts |
-| **LLM** | GPT-4o (primary), Claude-3-Haiku / GPT-4o-mini (fallback per agent) |
+| **LLM** | Llama-3.1-8B-Instruct (primary, via NVIDIA NIM), Llama-3.1-70B-Instruct (fallback) |
+| **Embedding** | NVIDIA nv-embed-v1 (4096-dim, via NVIDIA NIM API) |
 | **RL** | LinUCB contextual bandit (4-action, 8-dim context) |
 | **Prompt Optimization** | DSPy MIPROv2 (manual / scheduled externally) |
 | **HITL** | AG-UI protocol (interrupt/resume) |
 | **Observability** | Langfuse-native trace capture, cost tracking, latency monitoring |
-| **Vector Store** | ChromaDB with `all-MiniLM-L6-v2` embeddings (384d) |
-| **Cache** | Semantic embedding cache (0.95 similarity threshold, no TTL enforcement) |
+| **Vector Store** | ChromaDB with nv-embed-v1 embeddings (4096d) |
+| **Cache** | Semantic embedding cache (0.95 similarity threshold, 24h TTL) |
 | **Guardrails** | Input, Output, Tool, Model — 4 categories, config-driven |
 
 ## Features
@@ -96,7 +97,7 @@ Multi-agent LangGraph system for HR operations with RL feedback, AG-UI human-in-
 python -m venv .venv
 .venv\Scripts\activate          # Windows
 pip install -r requirements.txt
-cp .env.example .env            # Fill in API keys
+cp .env.example .env            # Fill in API keys (NVIDIA_API_KEY required)
 uvicorn backend.main:app --reload
 
 # Frontend (separate terminal)
@@ -104,8 +105,8 @@ cd frontend
 npm install
 npm run dev
 
-# Or one-command launcher
-python app.py
+# Or one-command launcher (color-coded inline logs)
+run.bat
 
 # Docker
 docker compose -f docker-compose.dev.yml up --build
@@ -116,15 +117,10 @@ docker compose -f docker-compose.dev.yml up --build
 ```
 backend/
 ├── main.py                     # FastAPI entrypoint
-├── config/                     # Pydantic settings + YAML configs
-│   ├── settings.py             # Centralized Settings singleton
-│   ├── feature_flags.yaml      # Feature toggles
-│   ├── chunking_config.yaml    # Chunking strategy config
-│   ├── model_config.yaml       # Per-agent model routing
-│   ├── guardrails_config.yaml  # Guardrail rules
-│   ├── compliance_config.yaml  # Compliance veto rules
-│   ├── cost_config.yaml        # Cost budgets & thresholds
-│   └── roles_config.yaml       # Admin/User role defs
+├── config/                     # Pydantic settings + YAML configs (2-file split)
+│   ├── settings.py             # Centralized Settings singleton + lazy YAML loader
+│   ├── app_config.yaml         # Feature toggles, guardrails, compliance, RBAC
+│   └── nvidia_config.yaml      # Embedding, models, cost, chunking, cache, reranker
 ├── src/
 │   ├── agents/
 │   │   ├── state.py            # SharedState TypedDict, TraceEntry
@@ -179,7 +175,7 @@ All responses use the standard envelope: `{success, data, message, correlation_i
 ### Conversation (Multi-Turn)
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/conversation/start` | Create session `{mode: standard|advanced}` |
+| POST | `/conversation/start` | Create session `{mode: standard\|advanced}` |
 | POST | `/conversation/send` | Send message in session `{session_id, query}` |
 | GET | `/conversation/{session_id}` | Get session history |
 | DELETE | `/conversation/{session_id}` | Delete session |
@@ -227,39 +223,50 @@ Interactive docs: [Swagger UI](http://localhost:8000/docs) | [ReDoc](http://loca
 
 ## Configuration
 
+Config is split into two YAML files in `backend/config/`:
+
+| File | Loads into | Purpose |
+|------|-----------|---------|
+| `app_config.yaml` | `settings.app_config` | Feature toggles, guardrails, compliance rules, RBAC |
+| `nvidia_config.yaml` | `settings.nvidia_config` | Embedding (nv-embed-v1), LLM routing (Llama), cost, chunking |
+
 ### Environment Variables
+
 ```
-OPENAI_API_KEY=sk-...           # Required
-ANTHROPIC_API_KEY=sk-ant-...    # Optional (fallback)
-GROQ_API_KEY=gsk-...            # Optional (fallback)
-LANGFUSE_PUBLIC_KEY=...         # Optional (observability)
-LANGFUSE_SECRET_KEY=...         # Optional (observability)
-LANGFUSE_HOST=...               # Optional (self-hosted Langfuse URL)
-CHROMA_PERSIST_DIR=...          # Optional (ChromaDB directory, default: ./backend/data/chroma_db)
-LOG_LEVEL=INFO                  # Logging verbosity
-ENVIRONMENT=development         # development | production
-AGUI_TIMEOUT_SECONDS=300        # HITL timeout
-APP_ROLE=admin                  # admin | user (env overrides roles_config.yaml)
-RL_ALPHA=0.1                    # Bandit exploration
-RL_GAMMA=0.9                    # Bandit discount
-RL_BATCH_SIZE=10                # Feedback batch before bandit update
+NVIDIA_API_KEY=nvapi-...                  # Required (primary LLM + embedding provider)
+OPENAI_API_KEY=sk-...                     # Optional fallback
+ANTHROPIC_API_KEY=sk-ant-...              # Optional fallback
+GROQ_API_KEY=gsk-...                      # Optional fallback
+LANGFUSE_PUBLIC_KEY=...                   # Optional (observability)
+LANGFUSE_SECRET_KEY=...                   # Optional (observability)
+LANGFUSE_HOST=...                         # Optional (self-hosted Langfuse URL)
+CHROMA_PERSIST_DIR=...                    # Optional (default: ./backend/data/chroma_db)
+LOG_LEVEL=INFO                            # Logging verbosity
+ENVIRONMENT=development                   # development | production
+AGUI_TIMEOUT_SECONDS=300                  # HITL timeout
+APP_ROLE=admin                            # admin | user (env overrides roles_config)
+RL_ALPHA=0.1                              # Bandit exploration
+RL_GAMMA=0.9                              # Bandit discount
+RL_BATCH_SIZE=10                          # Feedback batch before bandit update
 ```
 
-### Feature Flags (`config/feature_flags.yaml`)
+The `.env` file is loaded relative to `backend/config/settings.py` (not the working directory), so the app works correctly regardless of where you launch it from.
+
+### Feature Flags (`app_config.yaml` → `feature_flags`)
 Toggle guardrails, RL, DSPy, semantic cache, HITL, and cost tracking on/off.
 
-### Role-Based Access (`config/roles_config.yaml`)
+### Role-Based Access (`app_config.yaml` → `roles`)
 Defines `sections` (visible UI sections) and `policy_crud` (can edit/delete policies) per role.
 
 ## Agent System
 
 | Agent | File | Model | Role |
 |-------|------|-------|------|
-| **Supervisor** | `backend/src/agents/advanced/supervisor.py` | GPT-4o (Haiku fallback) | Triages queries, RL-augmented routing |
-| **Policy** | `backend/src/agents/nodes/policy_node.py` | GPT-4o-mini | RAG over HR policy documents (ChromaDB) |
-| **Action** | `backend/src/agents/nodes/action_node.py` | GPT-4o-mini | Executes CRUD tools (lookup, modify, escalate) |
-| **Anomaly** | `backend/src/agents/nodes/anomaly_node.py` | GPT-4o (narrative) | Statistical outlier detection + LLM narrative |
-| **Compliance** | `backend/src/agents/nodes/compliance_node.py` | GPT-4o-mini | Hard veto rules + LLM compliance check |
+| **Supervisor** | `backend/src/agents/advanced/supervisor.py` | Llama-3.1-8B (70B fallback) | Triages queries, RL-augmented routing |
+| **Policy** | `backend/src/agents/nodes/policy_node.py` | Llama-3.1-8B | RAG over HR policy documents (ChromaDB) |
+| **Action** | `backend/src/agents/nodes/action_node.py` | Llama-3.1-8B | Executes CRUD tools (lookup, modify, escalate) |
+| **Anomaly** | `backend/src/agents/nodes/anomaly_node.py` | Llama-3.1-8B (narrative) | Statistical outlier detection + LLM narrative |
+| **Compliance** | `backend/src/agents/nodes/compliance_node.py` | Llama-3.1-8B | Hard veto rules + LLM compliance check |
 | **HITL Escalation** | `backend/src/agents/nodes/hitl_escalation_node.py` | — | AG-UI interrupt for human approval |
 
 ### Graph Modes
@@ -275,7 +282,7 @@ Defines `sections` (visible UI sections) and `policy_crud` (can edit/delete poli
 | **Tool** | Argument validation (max 2000 chars), whitelist-based allowed tools |
 | **Model** | Cost threshold ($0.50/call), timeout threshold (30s) |
 
-All configurable via `config/guardrails_config.yaml` and `config/feature_flags.yaml`.
+Configurable via `app_config.yaml` (guardrails + feature_flags sections).
 
 ## RL Feedback Layer
 
@@ -340,10 +347,10 @@ make lint       # Lint with ruff
 ## Troubleshooting
 
 | Problem | Fix |
-|---------|-----|
-| Backend won't start | Ensure `.env` has `OPENAI_API_KEY`; run `pip install -r requirements.txt` |
+|---------|------|
+| Backend won't start | Ensure `.env` has `NVIDIA_API_KEY`; run `pip install -r requirements.txt` |
 | Frontend can't connect | Ensure backend on port 8000; check `VITE_API_URL` (default empty, proxied via Vite) |
-| ChromaDB slow first query | Embeddings load lazily via sentence-transformers (~2-3s delay first call) |
-| RL bandit not learning | Ensure `rl.enabled: true` and `rl.learn_mode: true` in feature_flags.yaml |
+| ChromaDB slow first query | Embeddings load lazily via NVIDIA NIM API (~1-2s delay first call) |
+| RL bandit not learning | Ensure `rl.enabled: true` and `rl.learn_mode: true` in app_config.yaml |
 | Tests fail | Run from repo root: `python -m pytest backend/tests/` |
 | Stale uvicorn on :8000 | Check for orphan processes before starting |

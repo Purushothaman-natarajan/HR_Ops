@@ -210,6 +210,16 @@ class SessionStore:
                     final_result = node_state
                     trace_log = node_state.get("trace_log", [])
                     for t in trace_log[prev_trace_len:]:
+                        activities_data = []
+                        for a in getattr(t, "activities", []):
+                            activities_data.append({
+                                "type": getattr(a, "type", ""),
+                                "label": getattr(a, "label", ""),
+                                "detail": getattr(a, "detail", ""),
+                                "status": getattr(a, "status", "completed"),
+                                "duration_ms": getattr(a, "duration_ms", 0),
+                                "metadata": getattr(a, "metadata", {}),
+                            })
                         yield {
                             "event": "node_complete",
                             "node": getattr(t, "node", node_name),
@@ -220,8 +230,16 @@ class SessionStore:
                             "cost_usd": getattr(t, "cost_usd", 0),
                             "cache_hit": getattr(t, "cache_hit", False),
                             "model_used": getattr(t, "model_used", ""),
+                            "activities": activities_data,
+                            "reasoning": getattr(t, "reasoning", ""),
+                            "retrieved_docs": getattr(t, "retrieved_docs", []),
+                            "tool_call": getattr(t, "tool_call", {}),
                         }
                     prev_trace_len = len(trace_log)
+                    # Track final_response from any node that sets it
+                    # (parallel_check_node doesn't return final_response, so we must preserve it)
+                    if node_state.get("final_response"):
+                        final_result["final_response"] = node_state["final_response"]
         except ModelNotAvailableError:
             raise
         except Exception as e:
@@ -249,14 +267,6 @@ class SessionStore:
 
         feedback_store.record_auto_rewards(result, session_id=session_id)
 
-        trace_store.save_run({
-            "run_id": f"conv_{session_id}_turn_{turn}",
-            "session_id": session_id,
-            "turn_number": turn,
-            "query": query,
-            "final_response": final_response,
-        })
-
         trace_events = []
         for t in trace_log:
             trace_events.append({
@@ -270,12 +280,26 @@ class SessionStore:
                 "model_used": getattr(t, "model_used", ""),
             })
 
+        total_cost = result.get("total_cost_usd", 0.0)
+
+        trace_store.save_run({
+            "run_id": f"conv_{session_id}_turn_{turn}",
+            "session_id": session_id,
+            "turn_number": turn,
+            "query": query,
+            "final_response": final_response,
+            "trace_events": trace_events,
+            "total_cost_usd": total_cost,
+            "cost_usd": total_cost,
+            "duration_ms": sum(t.get("duration_ms", 0) for t in trace_events),
+        })
+
         return {
             "session_id": session_id,
             "turn_number": turn,
             "response": final_response,
             "trace_events": trace_events,
-            "total_cost_usd": result.get("total_cost_usd", 0.0),
+            "total_cost_usd": total_cost,
         }
 
     def list_sessions(self, limit: int = 20) -> list[dict]:

@@ -15,7 +15,13 @@ from pathlib import Path
 
 from langchain_core.documents import Document
 
-from backend.src.memory.vector_store import get_vector_store, index_documents
+from backend.src.memory.cache import semantic_cache
+from backend.src.memory.vector_store import (
+    delete_document,
+    get_vector_store,
+    index_document,
+    index_documents,
+)
 
 logger = logging.getLogger("hr_ops.policy_service")
 
@@ -124,28 +130,84 @@ def get_policy_path(policy_id: str) -> Path | None:
     return None
 
 
+_MIGRATED = False
+
+
+def _migrate_if_needed():
+    """One-time startup check: ensure ChromaDB is in sync with on-disk policies.
+
+    Runs only once per process lifetime. Triggers a full reindex if:
+      1. Legacy UUID-based IDs are found (pre-slug migration), OR
+      2. Document count in ChromaDB doesn't match the number of files on disk.
+    """
+    global _MIGRATED
+    if _MIGRATED:
+        return
+    needs_reindex = False
+    try:
+        store = get_vector_store("hr_policies")
+        existing = store.get()
+        db_count = len(existing.get("ids", [])) if existing else 0
+        on_disk = sum(
+            1 for p in POLICIES_DIR.iterdir()
+            if p.suffix.lower() in ALLOWED_EXTENSIONS and p.is_file()
+        )
+        if db_count != on_disk:
+            logger.info("Document count mismatch (%d in DB vs %d on disk), re-indexing", db_count, on_disk)
+            needs_reindex = True
+        elif existing and existing.get("ids"):
+            legacy = [i for i in existing["ids"] if not re.match(r"^[a-z0-9_]+$", i)]
+            if legacy:
+                logger.info("Migrating %d legacy UUID-based vectors to slug-based IDs", len(legacy))
+                needs_reindex = True
+    except Exception:
+        logger.debug("Migration check skipped (collection may not exist yet)")
+        needs_reindex = True
+    if needs_reindex:
+        _reindex_all()
+    _MIGRATED = True
+
+
 def _reindex_all():
     """Rebuild the entire ChromaDB collection for hr_policies from scratch.
 
-    Reads all supported files from POLICIES_DIR, creates Document objects,
-    deletes the existing collection contents, and re-indexes every document.
+    Reads all supported files from POLICIES_DIR, chunks them into embedding-sized
+    pieces, deletes the existing collection contents, and re-indexes with explicit
+    slug-based chunk IDs to prevent UUID/slug mismatch on next startup.
     """
+    from backend.src.memory.chunking.recursive import RecursiveChunking
+
+    chunker = RecursiveChunking(chunk_size=800, chunk_overlap=150)
     docs = []
+    ids = []
     for path in sorted(POLICIES_DIR.iterdir()):
         if path.suffix.lower() in ALLOWED_EXTENSIONS and path.is_file():
             text = extract_text(path)
-            doc = Document(
-                page_content=text,
-                metadata={"source": path.name, "policy": _slugify(path)},
-            )
-            docs.append(doc)
+            slug = _slugify(path)
+            import asyncio
+            chunks = asyncio.run(chunker.chunk(text))
+            for chunk in chunks:
+                if chunk.text.strip():
+                    doc = Document(
+                        page_content=chunk.text,
+                        metadata={"source": path.name, "policy": slug, "chunk_index": chunk.index},
+                    )
+                    docs.append(doc)
+                    ids.append(f"{slug}__chunk_{chunk.index:03d}")
     store = get_vector_store("hr_policies")
     existing = store.get()
     if existing and existing.get("ids"):
         store.delete(existing["ids"])  # clear stale vectors before re-import
     if docs:
-        index_documents(docs, "hr_policies")
-    logger.info("Re-indexed %d policy documents", len(docs))
+        # Index in small batches to avoid API overload
+        batch_size = 8
+        for i in range(0, len(docs), batch_size):
+            store.add_documents(docs[i:i + batch_size], ids=ids[i:i + batch_size])
+    logger.info("Re-indexed %d policy chunks from %d files", len(docs), len(set(d.metadata["policy"] for d in docs)))
+
+
+# One-time migration on import
+_migrate_if_needed()
 
 
 def create_policy(filename: str, content: bytes, title: str | None = None) -> dict:
@@ -175,9 +237,12 @@ def create_policy(filename: str, content: bytes, title: str | None = None) -> di
     if title:
         _set_title(dest, title)
 
-    _reindex_all()
+    text = extract_text(dest)
+    doc = Document(page_content=text, metadata={"source": dest.name, "policy": slug})
+    index_document(doc, slug, "hr_policies")
+    semantic_cache.clear()  # Invalidate stale cached responses
     info = _make_policy_dict(dest)
-    info["content"] = extract_text(dest)
+    info["content"] = text
     return info
 
 
@@ -188,9 +253,13 @@ def update_policy(policy_id: str, title: str | None = None) -> dict | None:
         return None
     if title:
         _set_title(path, title)
-    _reindex_all()
+    text = extract_text(path)
+    doc = Document(page_content=text, metadata={"source": path.name, "policy": policy_id})
+    delete_document(policy_id, "hr_policies")
+    index_document(doc, policy_id, "hr_policies")
+    semantic_cache.clear()  # Invalidate stale cached responses
     info = _make_policy_dict(path)
-    info["content"] = extract_text(path)
+    info["content"] = text
     return info
 
 
@@ -200,7 +269,8 @@ def delete_policy(policy_id: str) -> bool:
     if not path:
         return False
     path.unlink()  # remove file from disk
-    _reindex_all()
+    delete_document(policy_id, "hr_policies")
+    semantic_cache.clear()  # Invalidate stale cached responses
     return True
 
 

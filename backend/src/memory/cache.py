@@ -3,7 +3,7 @@
 How it works in real-time:
 
 1. Before calling the LLM, the policy node calls ``semantic_cache.get(query)``
-2. The query is embedded using the same SentenceTransformer model
+2. The query is embedded using NVIDIA nv-embed-v1 (via API)
 3. Every cached entry is compared via cosine similarity against the query vector
 4. If any entry exceeds ``similarity_threshold`` (default 0.95), its cached
    response is returned instantly -- O(n) scan but avoids the LLM call entirely
@@ -23,14 +23,9 @@ import time
 import numpy as np
 
 from backend.config.settings import settings
+from backend.src.utils.nvidia_embeddings import NVIDIAEmbeddings
 
-try:
-    from sentence_transformers import SentenceTransformer
-
-    _model_cfg = settings.embed_config.get("embedding", {})
-    _ENCODER = SentenceTransformer(_model_cfg.get("model_name", "all-MiniLM-L6-v2"))
-except ImportError:
-    _ENCODER = None
+_ENCODER = NVIDIAEmbeddings(input_type="query")
 
 
 class SemanticCache:
@@ -43,11 +38,8 @@ class SemanticCache:
         self._store: dict[str, dict] = {}
 
     def _embed(self, text: str) -> list[float]:
-        """Encode text into a normalized embedding vector (384-dim for all-MiniLM-L6-v2)."""
-        if _ENCODER:
-            emb = _ENCODER.encode(text, normalize_embeddings=True)
-            return emb.tolist()
-        return []
+        """Encode text into a normalized embedding vector (4096-dim for nv-embed-v1)."""
+        return _ENCODER.embed_query(text)
 
     def _key(self, query: str) -> str:
         """Deterministic cache key from the raw query string (for dedup, not lookup)."""

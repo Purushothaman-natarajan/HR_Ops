@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Sidebar } from "./components/Sidebar";
+import { Icon } from "./components/Icons";
 import { StatusIndicator } from "./components/StatusIndicator";
 import { VectorDBStatus } from "./components/VectorDBStatus";
 import { DatabaseStatus } from "./components/DatabaseStatus";
@@ -32,7 +33,7 @@ function getAllowedPages(role: AppRole): Page[] {
 function AccessDenied() {
   return (
     <div className="empty-state">
-      <div className="empty-state-icon" style={{ fontSize: 40, opacity: 0.5 }}>{"\uD83D\uDD12"}</div>
+      <Icon name="lock" size={40} className="empty-state-icon" style={{ opacity: 0.5 }} />
       <div className="empty-state-text" style={{ fontWeight: 600, color: "var(--color-text)", marginBottom: 4 }}>
         Access Restricted
       </div>
@@ -46,6 +47,7 @@ function AccessDenied() {
 function AppInner() {
   const { role, employeeId, isAuthenticated, logout } = useAuth();
   const [activePage, setActivePage] = useState<Page>("dashboard");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   if (!isAuthenticated || !role) {
     return <LoginPage />;
@@ -54,9 +56,18 @@ function AppInner() {
   const allowedPages = getAllowedPages(role);
   const safePage = allowedPages.includes(activePage) ? activePage : allowedPages[0];
 
+  const handleNavigate = (p: Page) => {
+    setActivePage(p);
+    setSidebarOpen(false);
+  };
+
   return (
     <div className="app-layout">
-      <Sidebar activePage={safePage} onNavigate={(p) => setActivePage(p)} role={role} onLogout={logout} />
+      <button className="mobile-menu-btn" onClick={() => setSidebarOpen(!sidebarOpen)}>
+        <Icon name="dashboard" size={18} />
+      </button>
+      {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
+      <Sidebar activePage={safePage} onNavigate={handleNavigate} role={role} onLogout={logout} isOpen={sidebarOpen} />
       <main className="app-main">
         <div className="app-content">
           <div className="app-content-inner">

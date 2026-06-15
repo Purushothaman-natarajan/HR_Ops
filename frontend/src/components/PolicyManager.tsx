@@ -8,20 +8,22 @@ import type { PolicyDocument, AppRole } from "../types";
  *
  * Shows document list on the left, markdown preview on the right.
  * Upload modal with drag-and-drop for .pdf / .md / .txt files.
- * When role="user" the UI is read-only with an info banner.
+ * Includes edit title, delete, and live embedding status.
  *
  * @example
  * <PolicyManager role="admin" />
- *
- * @example // Read-only for non-admin users
- * <PolicyManager role="user" />
- */export function PolicyManager({ role }: { role: AppRole }) {
+ */
+export function PolicyManager({ role }: { role: AppRole }) {
   const [policies, setPolicies] = useState<PolicyDocument[]>([]);
+  const [embeddedCount, setEmbeddedCount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selected, setSelected] = useState<PolicyDocument | null>(null);
   const [showUpload, setShowUpload] = useState(false);
+  const [showEdit, setShowEdit] = useState<PolicyDocument | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [embedding, setEmbedding] = useState<string | null>(null);
 
   const fetchPolicies = useCallback(async () => {
     setLoading(true);
@@ -29,6 +31,7 @@ import type { PolicyDocument, AppRole } from "../types";
     try {
       const res = await api.policies.list();
       setPolicies(res.data.policies);
+      setEmbeddedCount(res.data.embedded_count ?? res.data.policies.length);
     } catch (e) {
       setError(String(e));
     } finally {
@@ -49,7 +52,22 @@ import type { PolicyDocument, AppRole } from "../types";
     }
   };
 
+  const handleEdit = async (id: string, newTitle: string) => {
+    setEmbedding(id);
+    try {
+      await api.policies.update(id, { title: newTitle });
+      setShowEdit(null);
+      setSelected((prev) => (prev?.id === id ? { ...prev, title: newTitle } : prev));
+      fetchPolicies();
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setEmbedding(null);
+    }
+  };
+
   const handleDelete = async (id: string) => {
+    setDeleting(id);
     try {
       await api.policies.delete(id);
       setConfirmDelete(null);
@@ -57,6 +75,8 @@ import type { PolicyDocument, AppRole } from "../types";
       fetchPolicies();
     } catch (e) {
       setError(String(e));
+    } finally {
+      setDeleting(null);
     }
   };
 
@@ -116,7 +136,10 @@ import type { PolicyDocument, AppRole } from "../types";
           <div className="card">
             <div className="card-header">
               <span className="card-title">Documents</span>
-              <span className="badge badge-info">{policies.length} file{policies.length !== 1 ? "s" : ""}</span>
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <span className="badge badge-info">{policies.length} file{policies.length !== 1 ? "s" : ""}</span>
+                <span className="badge badge-success">{embeddedCount} embedded</span>
+              </div>
             </div>
             <div className="card-body" style={{ padding: 0 }}>
               {loading ? (
@@ -136,7 +159,14 @@ import type { PolicyDocument, AppRole } from "../types";
                       className={`policy-row${selected?.id === p.id ? " selected" : ""}`}
                     >
                       <div className="policy-row-info" onClick={() => handleView(p.id)}>
-                        <div className="policy-row-title">{p.title}</div>
+                        <div className="policy-row-title">
+                          {p.title}
+                          {embedding === p.id && (
+                            <span className="badge badge-warning" style={{ marginLeft: 6, fontSize: 10 }}>
+                              Re-embedding...
+                            </span>
+                          )}
+                        </div>
                         <div className="policy-row-meta">
                           {typeBadge(p.content_type)}
                           <span>{formatSize(p.file_size)}</span>
@@ -153,13 +183,25 @@ import type { PolicyDocument, AppRole } from "../types";
                         >
                           Download
                         </a>
+                        {(role === "admin" || role === "hr") && (
+                          <button
+                            className="btn btn-sm btn-secondary"
+                            onClick={() => setShowEdit(p)}
+                            title="Edit title"
+                            disabled={embedding === p.id}
+                          >
+                            Edit
+                          </button>
+                        )}
                         {role === "admin" && (confirmDelete === p.id ? (
                           <div className="policy-confirm-delete">
-                            <span style={{ fontSize: 12, color: "var(--color-error)" }}>Delete?</span>
-                            <button className="btn btn-sm btn-danger" onClick={() => handleDelete(p.id)}>
+                            <span style={{ fontSize: 12, color: "var(--color-error)" }}>
+                              {deleting === p.id ? "Deleting..." : "Delete?"}
+                            </span>
+                            <button className="btn btn-sm btn-danger" onClick={() => handleDelete(p.id)} disabled={deleting === p.id}>
                               Yes
                             </button>
-                            <button className="btn btn-sm btn-secondary" onClick={() => setConfirmDelete(null)}>
+                            <button className="btn btn-sm btn-secondary" onClick={() => setConfirmDelete(null)} disabled={deleting === p.id}>
                               No
                             </button>
                           </div>
@@ -216,18 +258,77 @@ import type { PolicyDocument, AppRole } from "../types";
           onError={setError}
         />
       )}
+
+      {showEdit && (
+        <EditModal
+          policy={showEdit}
+          onClose={() => setShowEdit(null)}
+          onSave={(newTitle) => handleEdit(showEdit.id, newTitle)}
+          embedding={embedding === showEdit.id}
+        />
+      )}
+    </div>
+  );
+}
+
+/* Edit Title Modal */
+function EditModal({
+  policy,
+  onClose,
+  onSave,
+  embedding,
+}: {
+  policy: PolicyDocument;
+  onClose: () => void;
+  onSave: (title: string) => void;
+  embedding: boolean;
+}) {
+  const [title, setTitle] = useState(policy.title);
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 440 }}>
+        <div className="modal-header">
+          <h3 className="modal-title">Edit Policy Title</h3>
+          <button className="btn btn-sm btn-secondary" onClick={onClose} disabled={embedding}>X</button>
+        </div>
+        <div className="modal-body">
+          <div style={{ fontSize: 12, color: "var(--color-text-muted)", marginBottom: 8 }}>
+            {policy.filename}
+          </div>
+          <div style={{ marginBottom: 12 }}>
+            <label className="policy-field-label">Title</label>
+            <input
+              className="input"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              disabled={embedding}
+              autoFocus
+            />
+          </div>
+          {embedding && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--color-text-muted)", fontSize: 13 }}>
+              <div className="spinner" style={{ width: 14, height: 14 }} />
+              Re-embedding document...
+            </div>
+          )}
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-secondary" onClick={onClose} disabled={embedding}>Cancel</button>
+          <button
+            className="btn btn-primary"
+            onClick={() => onSave(title)}
+            disabled={!title.trim() || embedding || title === policy.title}
+          >
+            {embedding ? "Saving..." : "Save & Re-embed"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
 
 /* Upload Modal */
-/** Modal overlay for uploading a new policy file via drag-and-drop or file picker.
- *
- * Supports .md, .pdf, .txt files up to 10 MB.
- *
- * @example
- * <UploadModal onClose={() => setShowModal(false)} onUploaded={refreshList} onError={(m) => alert(m)} />
- */
 function UploadModal({
   onClose,
   onUploaded,
@@ -327,11 +428,18 @@ function UploadModal({
               placeholder="Auto-generated from filename if empty"
             />
           </div>
+
+          {uploading && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12, color: "var(--color-text-muted)", fontSize: 13 }}>
+              <div className="spinner" style={{ width: 14, height: 14 }} />
+              Uploading &amp; embedding document...
+            </div>
+          )}
         </div>
         <div className="modal-footer">
-          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          <button className="btn btn-secondary" onClick={onClose} disabled={uploading}>Cancel</button>
           <button className="btn btn-primary" onClick={handleUpload} disabled={!file || uploading}>
-            {uploading ? "Uploading..." : "Upload"}
+            {uploading ? "Uploading & Indexing..." : "Upload"}
           </button>
         </div>
       </div>

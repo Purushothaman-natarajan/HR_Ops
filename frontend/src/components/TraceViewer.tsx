@@ -1,5 +1,7 @@
 import { useState, useMemo } from "react";
 import type { TraceEvent } from "../types";
+import { Icon } from "./Icons";
+import type { IconName } from "./Icons";
 
 interface Props {
   events?: TraceEvent[];
@@ -15,14 +17,14 @@ const agentColors: Record<string, string> = {
   compliance_veto: "#ef4444",
 };
 
-const agentIcons: Record<string, string> = {
-  supervisor: "\u2605",
-  policy: "\u2696",
-  action: "\u2692",
-  anomaly: "\u26A0",
-  compliance: "\u2714",
-  anomaly_detection: "\u26A0",
-  compliance_veto: "\u2718",
+const agentIcons: Record<string, IconName> = {
+  supervisor: "supervisor",
+  policy: "policy",
+  action: "action",
+  anomaly: "anomaly",
+  compliance: "compliance",
+  anomaly_detection: "anomaly",
+  compliance_veto: "compliance-veto",
 };
 
 type SortKey = "order" | "duration" | "cost";
@@ -62,7 +64,7 @@ export function TraceViewer({ events }: Props) {
   if (!events || events.length === 0) {
     return (
       <div className="empty-state">
-        <div className="empty-state-icon">\u2601</div>
+        <Icon name="cloud" size={48} className="empty-state-icon" />
         <div className="empty-state-text">No trace events yet. Submit a query to see execution traces.</div>
       </div>
     );
@@ -130,7 +132,7 @@ export function TraceViewer({ events }: Props) {
         )}
         {filtered.map((evt, i) => {
           const color = agentColors[evt.agent_role] || "#64748b";
-          const icon = agentIcons[evt.agent_role] || "\u25CF";
+          const icon = agentIcons[evt.agent_role] || "cloud";
           const isExpanded = expanded[i];
           const originalIndex = events.indexOf(evt);
 
@@ -141,7 +143,7 @@ export function TraceViewer({ events }: Props) {
                 onClick={() => toggle(originalIndex)}
               >
                 <div className="trace-node-icon" style={{ background: `${color}15`, color }}>
-                  {icon}
+                  <Icon name={icon} size={14} />
                 </div>
                 <div className="trace-node-name">
                   {evt.node}
@@ -156,7 +158,7 @@ export function TraceViewer({ events }: Props) {
                     <span>${evt.cost_usd.toFixed(5)}</span>
                   )}
                   <span style={{ fontSize: 10, color: "var(--color-text-muted)" }}>
-                    {isExpanded ? "\u25B2" : "\u25BC"}
+                    <Icon name={isExpanded ? "chevron-up" : "chevron-down"} size={10} />
                   </span>
                 </div>
               </div>

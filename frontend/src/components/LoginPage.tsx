@@ -41,8 +41,8 @@ export function LoginPage() {
     <div className="login-page">
       <div className="login-card">
         <div className="login-logo">HR</div>
-        <h1 className="login-title">HR Ops Platform</h1>
-        <p className="login-subtitle">Self-Healing Multi-Agent System</p>
+        <h1 className="login-title">HR Buddy</h1>
+        <p className="login-subtitle">Your AI-Powered HR Assistant</p>
 
         <form onSubmit={handleSubmit} className="login-form">
           <div className="login-field">

@@ -46,6 +46,18 @@ class AnomalyResult:
 
 
 @dataclass
+class Activity:
+    """A sub-activity within a node execution (e.g., DB search, tool call, LLM call)."""
+
+    type: str  # "search", "tool_call", "llm_call", "decision", "cache_check", "rerank", "guardrail"
+    label: str  # Human-readable label: "Searching vector DB"
+    detail: str = ""  # Additional info: "Found 4 documents"
+    status: str = "completed"  # "running", "completed", "failed"
+    duration_ms: float = 0.0
+    metadata: dict = field(default_factory=dict)  # Extra data: doc count, tool args, etc.
+
+
+@dataclass
 class TraceEntry:
     """A single trace log entry recording a node execution in the agent graph."""
 
@@ -64,6 +76,7 @@ class TraceEntry:
     alternatives: list[dict] = field(default_factory=list)
     retrieved_docs: list[dict] = field(default_factory=list)
     tool_call: dict = field(default_factory=dict)
+    activities: list[Activity] = field(default_factory=list)
 
 
 @dataclass

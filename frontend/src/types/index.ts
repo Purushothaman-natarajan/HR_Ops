@@ -18,6 +18,17 @@ export interface TraceEvent {
   alternatives?: Array<{ agent: string; score: number }>;
   retrieved_docs?: Array<{ source: string; score: number; chunk: string }>;
   tool_call?: Record<string, unknown>;
+  activities?: ActivityEvent[];
+}
+
+/** A sub-activity within a node execution (DB search, tool call, LLM call, etc.). */
+export interface ActivityEvent {
+  type: "search" | "tool_call" | "llm_call" | "decision" | "cache_check" | "rerank" | "guardrail";
+  label: string;
+  detail: string;
+  status: "running" | "completed" | "failed";
+  duration_ms?: number;
+  metadata?: Record<string, unknown>;
 }
 
 /** Summary of a trace run for listing (GET /trace/runs). */
@@ -25,8 +36,8 @@ export interface TraceRunSummary {
   run_id: string;
   query: string;
   timestamp: string;
-  duration_ms: number;
-  cost_usd: number;
+  duration_ms?: number;
+  cost_usd?: number;
   trace_events?: TraceEvent[];
 }
 
@@ -86,6 +97,19 @@ export interface ConversationMessage {
   content: string;
   node?: string;
   cost?: number;
+  liveEvents?: Array<{
+    node: string;
+    agent_role: string;
+    duration_ms: number;
+    output_text: string;
+    input_text: string;
+    cost_usd: number;
+    model_used: string;
+    activities?: ActivityEvent[];
+    reasoning?: string;
+    retrieved_docs?: Array<{ source: string; score: number; chunk: string }>;
+    tool_call?: Record<string, unknown>;
+  }>;
 }
 
 /** A multi-turn conversation session with message history and metadata.
