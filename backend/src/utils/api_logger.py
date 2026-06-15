@@ -1,6 +1,5 @@
 """FastAPI middleware for logging HTTP request/response metadata with timing and request IDs."""
 
-import logging
 import time
 import uuid
 from collections.abc import Callable
@@ -8,20 +7,17 @@ from collections.abc import Callable
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from backend.src.utils.logger import get_logger
+
 
 class RequestLog(BaseHTTPMiddleware):
     """FastAPI middleware that logs every request's method, path, status, duration, and body snippet."""
 
     def __init__(self, app, log_level: str = "INFO"):
         super().__init__(app)
-        self.logger = logging.getLogger("hr_ops.api")
+        self.logger = get_logger("hr_ops.api")
+        import logging
         self.logger.setLevel(getattr(logging, log_level.upper(), logging.INFO))
-        handler = logging.StreamHandler()
-        handler.setFormatter(
-            logging.Formatter("%(asctime)s | %(name)s | %(levelname)s | %(message)s")
-        )
-        if not self.logger.handlers:
-            self.logger.addHandler(handler)
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """Intercept an incoming request, time its execution, log the result, and attach an X-Request-ID header."""

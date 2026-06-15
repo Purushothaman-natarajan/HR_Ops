@@ -14,6 +14,7 @@ class Settings(BaseSettings):
 
     environment: Literal["development", "production"] = "development"
     log_level: str = "INFO"
+    log_file: str = "./logs/hr_ops.log"
     agui_timeout_seconds: int = 300
     app_role: str = "admin"
 

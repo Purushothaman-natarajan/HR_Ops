@@ -10,47 +10,47 @@
 #   top_p               — nucleus sampling threshold (0.0–1.0)
 
 default_provider: nvidia
-default_model: nvidia/deepseek-ai/deepseek-v4-flash
+default_model: nvidia/meta/llama-3.1-8b-instruct
 
 agents:
   triage:
-    primary: nvidia/deepseek-ai/deepseek-v4-flash
-    fallback: nvidia/z-ai/glm-5.1
+    primary: nvidia/meta/llama-3.1-8b-instruct
+    fallback: nvidia/meta/llama-3.1-70b-instruct
     cost_floor: 0.001
     reasoning_effort: none
     top_p: 0.95
 
   rag:
-    primary: nvidia/deepseek-ai/deepseek-v4-flash
-    fallback: nvidia/z-ai/glm-5.1
+    primary: nvidia/meta/llama-3.1-8b-instruct
+    fallback: nvidia/meta/llama-3.1-70b-instruct
     cost_floor: 0.001
     reasoning_effort: none
     top_p: 0.95
 
   narrative:
-    primary: nvidia/deepseek-ai/deepseek-v4-flash
-    fallback: nvidia/z-ai/glm-5.1
+    primary: nvidia/meta/llama-3.1-8b-instruct
+    fallback: nvidia/meta/llama-3.1-70b-instruct
     cost_floor: 0.01
     reasoning_effort: none
     top_p: 0.95
 
   compliance:
-    primary: nvidia/deepseek-ai/deepseek-v4-flash
-    fallback: nvidia/z-ai/glm-5.1
+    primary: nvidia/meta/llama-3.1-8b-instruct
+    fallback: nvidia/meta/llama-3.1-70b-instruct
     cost_floor: 0.001
     reasoning_effort: none
     top_p: 0.95
 
   anomaly:
-    primary: nvidia/deepseek-ai/deepseek-v4-flash
-    fallback: nvidia/z-ai/glm-5.1
+    primary: nvidia/meta/llama-3.1-8b-instruct
+    fallback: nvidia/meta/llama-3.1-70b-instruct
     cost_floor: 0.002
     reasoning_effort: none
     top_p: 0.95
 
   supervisor:
-    primary: nvidia/deepseek-ai/deepseek-v4-flash
-    fallback: nvidia/z-ai/glm-5.1
+    primary: nvidia/meta/llama-3.1-8b-instruct
+    fallback: nvidia/meta/llama-3.1-70b-instruct
     cost_floor: 0.01
     reasoning_effort: none
     top_p: 0.95

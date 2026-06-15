@@ -38,13 +38,13 @@ cost_tiers:
   # The model router selects the cheapest tier that satisfies the query's cost_floor.
   cheap:
     max_cost_usd: 0.01
-    preferred_model: nvidia/deepseek-ai/deepseek-v4-flash
+    preferred_model: nvidia/meta/llama-3.1-8b-instruct
   standard:
     max_cost_usd: 0.05
-    preferred_model: nvidia/deepseek-ai/deepseek-v4-flash
+    preferred_model: nvidia/meta/llama-3.1-8b-instruct
   premium:
     max_cost_usd: 0.50
-    preferred_model: nvidia/deepseek-ai/deepseek-v4-flash
+    preferred_model: nvidia/meta/llama-3.1-8b-instruct
 
 cost_weights:
   input_token: 1.0            # Multiplier for input token costs

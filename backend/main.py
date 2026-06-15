@@ -7,7 +7,6 @@ handlers for HR-specific and generic errors, and includes all API routers.
 """
 
 import asyncio
-import logging
 import os
 import warnings
 
@@ -39,9 +38,10 @@ from backend.src.core.response import (
 from backend.src.middleware.metrics_middleware import RequestMetricsMiddleware, metrics_store
 from backend.src.utils.api_logger import RequestLog
 from backend.src.utils.docs_page import get_redoc_html
+from backend.src.utils.logger import get_logger
 from backend.src.utils.model_router import close_nvidia_http_client
 
-logger = logging.getLogger("hr_ops")
+logger = get_logger("hr_ops")
 
 
 async def _warmup_embeddings():
@@ -62,7 +62,9 @@ async def _warmup_embeddings():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan: warmup models on startup, clean up clients on shutdown."""
+    logger.info("Starting HR Ops Platform")
     await _warmup_embeddings()
+    logger.info("HR Ops Platform started successfully")
     yield
     await close_nvidia_http_client()
     logger.info("Shutdown complete")
@@ -190,9 +192,6 @@ async def redoc_custom():
 
 
 if __name__ == "__main__":
-    logging.basicConfig(
-        level=getattr(logging, settings.log_level.upper(), logging.INFO)
-    )
     uvicorn.run(
-        "backend.main:app", host="0.0.0.0", port=8000, reload=True
+        "backend.main:app", host="0.0.0.0", port=8000, reload=True, log_config=None
     )
