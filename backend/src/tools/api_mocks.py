@@ -4,7 +4,7 @@ import logging
 import random
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 from tenacity import retry, stop_after_attempt, wait_exponential
 
@@ -22,16 +22,18 @@ def _db_has_data() -> bool:
     if _DB_LOADED:
         return True
     try:
-        from backend.src.database.connection import SessionLocal
         from sqlalchemy import text
+
+        from backend.src.database.connection import SessionLocal
         with SessionLocal() as session:
             result = session.execute(text("SELECT COUNT(*) FROM employees"))
-            return result.scalar() > 0
+            count = result.scalar()
+            return (count or 0) > 0
     except Exception:
         return False
 
 
-def _try_db_lookup(employee_id: str) -> Optional[dict]:
+def _try_db_lookup(employee_id: str) -> dict | None:
     """Attempt to load an employee from SQLite. Returns None if unavailable or not found."""
     try:
         emp = _db_query_employee(employee_id)

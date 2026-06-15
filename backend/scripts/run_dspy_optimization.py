@@ -3,7 +3,10 @@
 
 import logging
 
-from backend.src.intelligence.dspy_optimizer import optimize_triage, load_optimized_module
+from backend.src.intelligence.dspy_optimizer import (
+    load_optimized_module,
+    optimize_triage,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(name)s | %(levelname)s | %(message)s")
 logger = logging.getLogger("scripts.dspy_optimization")

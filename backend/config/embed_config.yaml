@@ -52,3 +52,20 @@ reranker:
   enabled: false                       # false to skip re-ranking and use raw cosine similarity
   model: nvidia/rerank-qa-mistral-4b   # NVIDIA cross-encoder for second-pass re-ranking
   top_k: 4                             # docs to return after re-ranking
+  timeout_seconds: 2.0                 # max wait for re-ranking; falls back to original order on timeout
+
+trace_sampling:
+  enabled: true                        # false to store all traces
+  success_sample_rate: 0.1             # 10% of successful runs stored; 100% of errors stored
+
+pii_redaction:
+  enabled: true                        # false to skip PII redaction
+  patterns:                            # regex patterns replaced in trace text fields
+    - "\\b[\\w.-]+@[\\w.-]+\\.\\w+\\b"  # emails
+    - "\\b\\d{3}-\\d{2}-\\d{4}\\b"      # SSNs (XXX-XX-XXXX)
+    - "\\b\\d{9}\\b"                     # 9-digit IDs
+
+alerting:
+  enabled: true
+  p99_threshold_ms: 10000              # alert if p99 > 10s
+  error_rate_threshold_pct: 10.0       # alert if error rate > 10%

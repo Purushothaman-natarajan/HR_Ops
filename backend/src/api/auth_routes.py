@@ -4,7 +4,11 @@ import logging
 
 from fastapi import APIRouter, Request
 
-from backend.src.core.response import error_response, get_correlation_id, success_response
+from backend.src.core.response import (
+    error_response,
+    get_correlation_id,
+    success_response,
+)
 from backend.src.utils.auth import VALID_ROLES, create_token
 
 logger = logging.getLogger("hr_ops.auth_routes")
@@ -12,7 +16,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/login")
-async def login(payload: dict, request: Request | None = None):
+async def login(payload: dict, request: Request = None):  # type: ignore[assignment]
     """Authenticate a user by role and password.
 
     For now, password must equal the role name (e.g., role='admin', password='admin').

@@ -18,9 +18,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
-import json
 import time
-from typing import Any, Optional
 
 import numpy as np
 
@@ -59,11 +57,11 @@ class SemanticCache:
         """Cosine similarity between two embedding vectors (1.0 = identical direction)."""
         if not a or not b:
             return 0.0
-        a = np.array(a)
-        b = np.array(b)
-        return float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-10))
+        a_arr = np.array(a)
+        b_arr = np.array(b)
+        return float(np.dot(a_arr, b_arr) / (np.linalg.norm(a_arr) * np.linalg.norm(b_arr) + 1e-10))
 
-    def get(self, query: str) -> Optional[str]:
+    def get(self, query: str) -> str | None:
         """Find a cached response whose embedding is above the similarity threshold.
 
         Returns None on cache miss (caller proceeds to LLM).

@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Optional
 
 
 class AgentRole(str, Enum):
@@ -56,11 +55,15 @@ class TraceEntry:
     output_text: str
     timestamp: datetime
     duration_ms: float
-    guardrail_result: Optional[GuardrailResult] = None
+    guardrail_result: GuardrailResult | None = None
     cache_hit: bool = False
     model_used: str = ""
     cost_usd: float = 0.0
     metadata: dict = field(default_factory=dict)
+    reasoning: str = ""
+    alternatives: list[dict] = field(default_factory=list)
+    retrieved_docs: list[dict] = field(default_factory=list)
+    tool_call: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -72,7 +75,7 @@ class HITLRequest:
     context: dict
     status: str = "pending"
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    resolved_at: Optional[datetime] = None
+    resolved_at: datetime | None = None
     response: str = ""
     assigned_role: str = "hr_manager"
 
@@ -89,7 +92,7 @@ class SharedState:
     current_agent: AgentRole | str = ""
     trace_log: list[TraceEntry] = field(default_factory=list)
     langfuse_trace_id: str = ""
-    hitl_request: Optional[HITLRequest] = None
+    hitl_request: HITLRequest | None = None
     hitl_needed: bool = False
     hitl_resolved: bool = False
     anomaly_results: list[AnomalyResult] = field(default_factory=list)

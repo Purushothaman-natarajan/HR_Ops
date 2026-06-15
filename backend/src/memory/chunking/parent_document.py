@@ -23,13 +23,13 @@ class ParentDocumentChunking(ChunkingStrategy):
             chunk_size=child_chunk_size, chunk_overlap=child_overlap
         )
 
-    def chunk(self, text: str, **kwargs) -> list[Chunk]:
+    async def chunk(self, text: str, **kwargs) -> list[Chunk]:
         """Split text into parent chunks, then each parent into child chunks with back-references."""
-        parents = self._parent_strategy.chunk(text)
+        parents = await self._parent_strategy.chunk(text)
         all_chunks = []
         child_idx = 0
         for parent in parents:
-            children = self._child_strategy.chunk(parent.text)
+            children = await self._child_strategy.chunk(parent.text)
             for child in children:
                 child.metadata["parent_index"] = parent.index
                 child.metadata["parent_text"] = parent.text[:200]

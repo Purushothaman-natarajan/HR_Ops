@@ -19,7 +19,7 @@ router = APIRouter(prefix="/trace", tags=["trace"])
 
 
 @router.get("/runs")
-async def list_runs(limit: int = 50, request: Request | None = None):
+async def list_runs(limit: int = 50, request: Request = None):  # type: ignore[assignment]
     """List recent graph execution runs with summary metadata.
 
     ---
@@ -48,7 +48,7 @@ async def list_runs(limit: int = 50, request: Request | None = None):
 
 
 @router.get("/runs/{run_id}")
-async def get_run(run_id: str, request: Request | None = None):
+async def get_run(run_id: str, request: Request = None):  # type: ignore[assignment]
     """Get full detail for a single graph execution run by ID.
 
     ---
@@ -87,7 +87,7 @@ async def get_run(run_id: str, request: Request | None = None):
 
 
 @router.get("/compare")
-async def compare_runs(run_ids: str, request: Request | None = None):
+async def compare_runs(run_ids: str, request: Request = None):  # type: ignore[assignment]
     """Compare two or more runs side-by-side. Provide run_ids as comma-separated query param.
 
     ---

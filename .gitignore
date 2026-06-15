@@ -16,10 +16,6 @@ env/
 backend/data/chroma_db/
 !backend/data/policies/*.md
 
-# DSPy
-dspy_optimized/*
-!dspy_optimized/.gitkeep
-
 # Node
 node_modules/
 dist/
@@ -37,6 +33,7 @@ Thumbs.db
 
 # Logs
 *.log
+server_test.log
 
 # Testing
 .pytest_cache/

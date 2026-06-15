@@ -1,8 +1,8 @@
 """Tests the multi-turn conversation orchestrator."""
 
 from fastapi.testclient import TestClient
+
 from backend.main import app
-from backend.src.services.conversation_service import session_store
 
 client = TestClient(app)
 

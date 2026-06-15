@@ -1,19 +1,61 @@
 """Model routing with NVIDIA NIM direct API path and litellm fallback, plus config-driven cost estimation."""
 
 import logging
+import sys
 from typing import Any
 
-try:
-    import litellm
+import httpx
+
+if "litellm" in sys.modules:
+    litellm = sys.modules["litellm"]
     _LITELLM_AVAILABLE = True
-except ImportError:
-    litellm = None
-    _LITELLM_AVAILABLE = False
-from backend.src.core.exceptions import ModelNotAvailableError
+else:
+    try:
+        import litellm
+        _LITELLM_AVAILABLE = True
+    except ImportError:
+        litellm = None  # type: ignore[assignment]
+        _LITELLM_AVAILABLE = False
+
 from backend.config.settings import settings
+from backend.src.core.exceptions import ModelNotAvailableError
 from backend.src.guardrails.registry import guardrail_registry
 
 logger = logging.getLogger("hr_ops.model_router")
+
+# Connection pool for NVIDIA API (reuses HTTP connections)
+_NVIDIA_HTTP_CLIENT: httpx.AsyncClient | None = None
+
+
+def _get_nvidia_http_client() -> httpx.AsyncClient:
+    """Get or create a shared httpx client for NVIDIA API with connection pooling."""
+    global _NVIDIA_HTTP_CLIENT
+    if _NVIDIA_HTTP_CLIENT is None or _NVIDIA_HTTP_CLIENT.is_closed:
+        timeout = httpx.Timeout(
+            connect=10.0,
+            read=settings.agui_timeout_seconds or 300.0,
+            write=10.0,
+            pool=5.0,
+        )
+        limits = httpx.Limits(
+            max_connections=20,
+            max_keepalive_connections=10,
+            keepalive_expiry=30.0,
+        )
+        _NVIDIA_HTTP_CLIENT = httpx.AsyncClient(
+            timeout=timeout,
+            limits=limits,
+            http2=True,
+        )
+    return _NVIDIA_HTTP_CLIENT
+
+
+async def close_nvidia_http_client() -> None:
+    """Close the shared NVIDIA HTTP client (call on shutdown)."""
+    global _NVIDIA_HTTP_CLIENT
+    if _NVIDIA_HTTP_CLIENT is not None and not _NVIDIA_HTTP_CLIENT.is_closed:
+        await _NVIDIA_HTTP_CLIENT.aclose()
+        _NVIDIA_HTTP_CLIENT = None
 
 
 def _get_agent_config(agent_name: str) -> dict:
@@ -81,7 +123,7 @@ def _estimate_cost(model: str, tokens: int, direction: str) -> float:
     return (tokens / 1000) * 0.001
 
 
-def _call_nvidia(
+async def _call_nvidia(
     agent_name: str,
     model: str,
     messages: list[dict],
@@ -90,51 +132,42 @@ def _call_nvidia(
     reasoning_effort: str = "high",
     top_p: float = 1.0,
 ) -> tuple[str, float]:
-    """Call NVIDIA NIM chat completions via the OpenAI-compatible API with streaming."""
-    from openai import OpenAI
+    """Call NVIDIA NIM chat completions via the OpenAI-compatible API with streaming (connection pooled)."""
+    from openai import AsyncOpenAI
 
-    client = OpenAI(
+    http_client = _get_nvidia_http_client()
+    client = AsyncOpenAI(
         api_key=settings.nvidia_api_key,
         base_url="https://integrate.api.nvidia.com/v1",
+        http_client=http_client,
     )
     model_name = model.removeprefix("nvidia/")
 
     extra_body = {}
-    if reasoning_effort:
-        extra_body["reasoning_effort"] = reasoning_effort
+    if reasoning_effort and reasoning_effort != "none":
+        extra_body["chat_template_kwargs"] = {
+            "thinking": True,
+            "reasoning_effort": reasoning_effort,
+        }
 
-    response = client.chat.completions.create(
+    response = await client.chat.completions.create(
         model=model_name,
-        messages=messages,
+        messages=messages,  # type: ignore[arg-type]
         max_tokens=max_tokens,
         temperature=temperature,
         top_p=top_p,
-        stream=True,
+        stream=False,
         extra_body=extra_body,
     )
 
-    text_parts: list[str] = []
-    for chunk in response:
-        if chunk.choices:
-            delta = chunk.choices[0].delta
-            if delta and delta.content:
-                text_parts.append(delta.content)
-
-    text = "".join(text_parts)
-
-    # If streaming returned no content (e.g. reasoning_effort="high" on Mistral),
-    # fall back to a single non-streaming call.
-    if not text:
-        response = client.chat.completions.create(
-            model=model_name,
-            messages=messages,
-            max_tokens=max_tokens,
-            temperature=temperature,
-            top_p=top_p,
-            stream=False,
-            extra_body=extra_body,
-        )
-        text = response.choices[0].message.content or ""
+    message = response.choices[0].message  # type: ignore[union-attr]
+    reasoning = (
+        getattr(message, "reasoning", None)
+        or getattr(message, "reasoning_content", None)
+    )
+    if reasoning:
+        logger.debug("nvidia_call reasoning agent=%s model=%s reasoning=%s", agent_name, model, reasoning)
+    text = message.content or ""
     input_tokens = sum(len(m.get("content", "")) // 4 for m in messages)
     output_tokens = len(text) // 4
     cost = _estimate_cost(model, input_tokens, "input")
@@ -185,7 +218,7 @@ def _litellm_call(
         raise
 
 
-def llm_call(
+async def llm_call(
     agent_name: str,
     prompt: str,
     system_prompt: str = "",
@@ -222,15 +255,15 @@ def llm_call(
         raise ModelNotAvailableError(f"Model guardrail blocked: {model_gr.message}")
 
     if model.startswith("nvidia/"):
-        return _call_nvidia_with_fallback(
+        return await _call_nvidia_with_fallback(
             agent_name, model, fallback_model, messages, temperature, max_tokens,
             reasoning_effort, top_p, kwargs,
         )
 
-    return _call_with_retry(agent_name, model, fallback_model, messages, temperature, max_tokens, kwargs)
+    return await _call_with_retry(agent_name, model, fallback_model, messages, temperature, max_tokens, kwargs)
 
 
-def _call_nvidia_with_fallback(
+async def _call_nvidia_with_fallback(
     agent_name: str,
     model: str,
     fallback_model: str,
@@ -244,7 +277,7 @@ def _call_nvidia_with_fallback(
     """Call NVIDIA NIM; on failure retry once, then fall back to agent fallback model via litellm."""
     last_error: Exception | None = None
     try:
-        return _call_nvidia(agent_name, model, messages, temperature, max_tokens, reasoning_effort, top_p)
+        return await _call_nvidia(agent_name, model, messages, temperature, max_tokens, reasoning_effort, top_p)
     except Exception as e:
         last_error = e
         err_str = str(e).lower()
@@ -254,29 +287,47 @@ def _call_nvidia_with_fallback(
 
         logger.warning("nvidia_call failed, retrying agent=%s model=%s error=%s", agent_name, model, e)
         try:
-            return _call_nvidia(agent_name, model, messages, temperature, max_tokens, reasoning_effort, top_p)
+            return await _call_nvidia(agent_name, model, messages, temperature, max_tokens, reasoning_effort, top_p)
         except Exception as e2:
             last_error = e2
             logger.error("nvidia_call retry also failed agent=%s model=%s error=%s", agent_name, model, e2)
 
-    if fallback_model and not fallback_model.startswith("nvidia/"):
-        if _is_provider_available(fallback_model):
+    if fallback_model:
+        if not _is_provider_available(fallback_model):
+            logger.warning("Fallback provider unavailable for agent=%s, fallback=%s", agent_name, fallback_model)
+        elif fallback_model.startswith("nvidia/"):
+            logger.warning("NVIDIA primary unavailable for agent=%s, falling back to %s", agent_name, fallback_model)
+            try:
+                return await _call_nvidia(
+                    agent_name,
+                    fallback_model,
+                    messages,
+                    temperature,
+                    max_tokens,
+                    "none",
+                    top_p,
+                )
+            except Exception as fallback_error:
+                logger.error(
+                    "nvidia fallback failed agent=%s model=%s error=%s",
+                    agent_name, fallback_model, fallback_error,
+                )
+                last_error = fallback_error
+        else:
             logger.warning("NVIDIA unavailable for agent=%s, falling back to %s", agent_name, fallback_model)
             try:
-                return _call_with_retry(agent_name, fallback_model, "", messages, temperature, max_tokens, kwargs)
+                return await _call_with_retry(agent_name, fallback_model, "", messages, temperature, max_tokens, kwargs)
             except ModelNotAvailableError as mae:
                 if not _LITELLM_AVAILABLE:
                     raise ModelNotAvailableError(_MSG_NVIDIA_LITELLM_FALLBACK) from mae
                 raise
-        else:
-            logger.warning("Fallback provider unavailable for agent=%s, fallback=%s", agent_name, fallback_model)
 
     raise ModelNotAvailableError(
         f"{_MSG_RETRY_FAILURE} (agent={agent_name}, model={model})"
     ) from last_error
 
 
-def _call_with_retry(
+async def _call_with_retry(
     agent_name: str,
     model: str,
     fallback_model: str,

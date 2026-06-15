@@ -1,9 +1,10 @@
 """Tests the feedback service and RL feedback endpoints."""
 
 from fastapi.testclient import TestClient
+
 from backend.main import app
-from backend.src.services.feedback_service import feedback_store
 from backend.src.intelligence.rl_layer import rl_agent
+from backend.src.services.feedback_service import feedback_store
 
 client = TestClient(app)
 

@@ -6,9 +6,11 @@ Supports starting a session (standard or advanced mode), sending messages,
 retrieving / deleting sessions, and listing all recent sessions.
 """
 
+import json
 import logging
 
 from fastapi import APIRouter, Request
+from fastapi.responses import StreamingResponse
 
 from backend.src.core.exceptions import ModelNotAvailableError
 from backend.src.core.response import (
@@ -82,6 +84,68 @@ async def api_start_conversation(body: dict, request: Request):
     )
 
 
+async def _stream_events(session_id: str, query: str):
+    """Async generator that yields SSE-formatted events from the graph execution."""
+    try:
+        async for event in session_store.stream_turn_async(session_id, query):
+            if event.get("event") == "complete":
+                yield f"event: complete\ndata: {json.dumps(event)}\n\n"
+            else:
+                yield f"event: node_complete\ndata: {json.dumps(event)}\n\n"
+    except ModelNotAvailableError as e:
+        yield f"event: error_event\ndata: {json.dumps({'message': e.message})}\n\n"
+    except Exception as e:
+        yield f"event: error_event\ndata: {json.dumps({'message': str(e)})}\n\n"
+
+
+@router.get("/stream/start")
+async def api_stream_start(query: str, request: Request, mode: str = "standard"):
+    """Create a new session and stream each graph node event via SSE.
+
+    ---
+    Request:
+        GET /conversation/stream/start?query=What+is+leave+policy%3F&mode=advanced
+
+    Response 200 (SSE stream):
+        event: node_complete
+        data: {"node":"triage","agent_role":"supervisor","duration_ms":420,"output_text":"Classified as policy"}
+
+        event: node_complete
+        data: {"node":"policy","agent_role":"policy","duration_ms":1500,"output_text":"The leave policy allows..."}
+
+        event: complete
+        data: {"event":"complete","session_id":"sess_abc","turn_number":1,"response":"...","trace_events":[...],"total_cost_usd":0.003}
+    """
+    correlation_id = get_correlation_id(request)
+
+    if not query or not query.strip():
+        return error_response(
+            message="query is required",
+            correlation_id=correlation_id,
+            status_code=400,
+        )
+    if mode not in ("standard", "advanced"):
+        return error_response(
+            message="mode must be 'standard' or 'advanced'",
+            correlation_id=correlation_id,
+            status_code=400,
+        )
+
+    session = session_store.create_session(query, mode=mode)
+    session_id = session["session_id"]
+
+    return StreamingResponse(
+        _stream_events(session_id, query),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Correlation-ID": correlation_id,
+            "X-Session-ID": session_id,
+        },
+    )
+
+
 @router.post("/{session_id}/send")
 async def api_send_message(session_id: str, body: dict, request: Request):
     """Send a user message within an existing session.
@@ -137,6 +201,52 @@ async def api_send_message(session_id: str, body: dict, request: Request):
     return success_response(
         data={**result, "mode": session["mode"]},
         correlation_id=correlation_id,
+    )
+
+
+@router.get("/{session_id}/stream/send")
+async def api_stream_send(session_id: str, query: str, request: Request):
+    """Stream each graph node event via SSE for a follow-up message in an existing session.
+
+    ---
+    Request:
+        GET /conversation/sess_abc/stream/send?query=What+about+sick+leave%3F
+
+    Response 200 (SSE stream):
+        event: node_complete
+        data: {"node":"triage",...}
+
+        event: node_complete
+        data: {"node":"policy",...}
+
+        event: complete
+        data: {"event":"complete","session_id":"sess_abc","turn_number":2,...}
+    """
+    correlation_id = get_correlation_id(request)
+
+    if not query or not query.strip():
+        return error_response(
+            message="query is required",
+            correlation_id=correlation_id,
+            status_code=400,
+        )
+
+    session = session_store.get_session(session_id)
+    if not session:
+        return error_response(
+            message="Session not found",
+            correlation_id=correlation_id,
+            status_code=404,
+        )
+
+    return StreamingResponse(
+        _stream_events(session_id, query),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Correlation-ID": correlation_id,
+        },
     )
 
 

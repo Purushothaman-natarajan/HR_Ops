@@ -1,7 +1,6 @@
 """Pydantic models for AG-UI (human-in-the-loop) interaction request/response payloads."""
 
 from datetime import datetime, timezone
-from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 

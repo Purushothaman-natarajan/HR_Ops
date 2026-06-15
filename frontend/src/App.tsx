@@ -10,14 +10,15 @@ import { TraceQueryPanel } from "./components/TraceQueryPanel";
 import { TraceList } from "./components/TraceList";
 import { RLDashboard } from "./components/RLDashboard";
 import { CostDashboard } from "./components/CostDashboard";
+import { PerformanceDashboard } from "./components/PerformanceDashboard";
 import { PolicyManager } from "./components/PolicyManager";
 import { LoginPage } from "./components/LoginPage";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
 import type { AppRole } from "./types";
 
-type Page = "dashboard" | "query" | "hitl" | "trace" | "tracequery" | "rl" | "cost" | "policies";
+type Page = "dashboard" | "query" | "hitl" | "trace" | "tracequery" | "rl" | "cost" | "policies" | "performance";
 
-const ADMIN_PAGES: Page[] = ["dashboard", "query", "hitl", "trace", "tracequery", "rl", "cost", "policies"];
+const ADMIN_PAGES: Page[] = ["dashboard", "query", "hitl", "trace", "tracequery", "rl", "cost", "policies", "performance"];
 const HR_PAGES: Page[] = ["dashboard", "query", "hitl", "policies", "cost"];
 const EMPLOYEE_PAGES: Page[] = ["dashboard", "query", "policies"];
 
@@ -81,6 +82,8 @@ function AppInner() {
                   return <RLDashboard />;
                 case "cost":
                   return <CostDashboard />;
+                case "performance":
+                  return <PerformanceDashboard />;
                 case "policies":
                   return <PolicyManager role={role} />;
               }

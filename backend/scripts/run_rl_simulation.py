@@ -9,12 +9,36 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(name)s | %(level
 logger = logging.getLogger("scripts.rl_simulation")
 
 SCENARIOS = [
-    {"query": "What is the leave policy?", "classification": "policy", "expected": "policy"},
-    {"query": "Update salary for EMP0001 to 75000", "classification": "action", "expected": "action"},
-    {"query": "Check for anomalies in payroll", "classification": "anomaly", "expected": "anomaly"},
-    {"query": "Is EMP0002 compliant?", "classification": "compliance", "expected": "compliance"},
-    {"query": "How many sick days do I have?", "classification": "policy", "expected": "policy"},
-    {"query": "Approve termination for EMP0003", "classification": "compliance", "expected": "compliance"},
+    {
+        "query": "How many annual leave days accrue each month, and how many can carry forward?",
+        "classification": "policy",
+        "expected": "policy",
+    },
+    {
+        "query": "What approvals are needed for remote work beyond 3 days per week?",
+        "classification": "policy",
+        "expected": "policy",
+    },
+    {
+        "query": "Escalate an off-cycle salary adjustment request for EMP0003 for VP-level approval.",
+        "classification": "action",
+        "expected": "action",
+    },
+    {
+        "query": "Investigate employees with more than 3 unscheduled absences this quarter.",
+        "classification": "anomaly",
+        "expected": "anomaly",
+    },
+    {
+        "query": "Check if sharing EMP0002 HR records with an external vendor is compliant.",
+        "classification": "compliance",
+        "expected": "compliance",
+    },
+    {
+        "query": "Review whether a retroactive salary adjustment for EMP0001 is allowed.",
+        "classification": "compliance",
+        "expected": "compliance",
+    },
 ]
 
 

@@ -8,7 +8,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from langchain_core.documents import Document
-from backend.src.memory.vector_store import index_documents, get_vector_store
+
+from backend.src.memory.vector_store import get_vector_store, index_documents
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("scripts.index_policies")

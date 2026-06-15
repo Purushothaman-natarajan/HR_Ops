@@ -91,13 +91,15 @@ def error_response(
     return JSONResponse(status_code=status_code, content=content)
 
 
-def get_correlation_id(request: Request) -> str:
+def get_correlation_id(request: Request | None) -> str:
     """Extracts the correlation ID from the request header or generates a new one.
 
     Args:
-        request: The incoming FastAPI request.
+        request: The incoming FastAPI request, or None if unavailable.
 
     Returns:
         str: Correlation ID from X-Correlation-ID header or a new UUID fragment.
     """
+    if request is None:
+        return str(uuid.uuid4())[:12]
     return request.headers.get("X-Correlation-ID", str(uuid.uuid4())[:12])

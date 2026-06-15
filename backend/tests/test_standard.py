@@ -2,22 +2,22 @@
 
 import pytest
 
-from backend.src.guardrails.registry import guardrail_registry
 from backend.src.guardrails.input_validator import input_guardrail
-from backend.src.guardrails.output_validator import output_guardrail
-from backend.src.guardrails.tool_validator import tool_guardrail
 from backend.src.guardrails.model_guardrails import (
     model_cost_guardrail,
     model_timeout_guardrail,
 )
+from backend.src.guardrails.output_validator import output_guardrail
+from backend.src.guardrails.registry import guardrail_registry
+from backend.src.guardrails.tool_validator import tool_guardrail
+from backend.src.memory.cache import semantic_cache
+from backend.src.memory.chunking.factory import get_strategy
+from backend.src.memory.chunking.recursive import RecursiveChunking
 from backend.src.tools.api_mocks import (
     execute_tool,
-    lookup_employee,
     load_employees_from_csv,
+    lookup_employee,
 )
-from backend.src.memory.chunking.recursive import RecursiveChunking
-from backend.src.memory.chunking.factory import get_strategy
-from backend.src.memory.cache import semantic_cache
 
 
 class TestInputGuardrails:
@@ -103,22 +103,25 @@ class TestTools:
 
 
 class TestChunking:
-    def test_recursive_produces_chunks(self):
+    @pytest.mark.asyncio
+    async def test_recursive_produces_chunks(self):
         text = "Policy A. Policy B. Policy C. Policy D." * 50
         recursive = RecursiveChunking(chunk_size=200, chunk_overlap=20)
-        chunks = recursive.chunk(text)
+        chunks = await recursive.chunk(text)
         assert len(chunks) > 1
 
-    def test_factory_returns_strategy(self):
+    @pytest.mark.asyncio
+    async def test_factory_returns_strategy(self):
         text = "Policy A. Policy B. Policy C. Policy D." * 50
         factory = get_strategy("recursive")
-        chunks = factory.chunk(text)
+        chunks = await factory.chunk(text)
         assert len(chunks) > 1
 
-    def test_fixed_size_works(self):
+    @pytest.mark.asyncio
+    async def test_fixed_size_works(self):
         text = "Policy A. Policy B. Policy C. Policy D." * 50
         factory = get_strategy("fixed_size")
-        chunks = factory.chunk(text)
+        chunks = await factory.chunk(text)
         assert len(chunks) > 1
 
 

@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Optional
 
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
@@ -30,7 +29,7 @@ from backend.config.settings import settings
 
 logger = logging.getLogger("hr_ops.vector_store")
 
-_EMBEDDING_MODEL: Optional[Embeddings] = None
+_EMBEDDING_MODEL: Embeddings | None = None
 
 
 def _get_embeddings() -> Embeddings:

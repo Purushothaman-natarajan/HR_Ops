@@ -11,7 +11,6 @@ import logging
 import uuid
 from datetime import datetime, timezone
 from threading import Lock
-from typing import Any, Optional
 
 from backend.config.settings import settings
 from backend.src.intelligence.rl_layer import rl_agent
@@ -95,7 +94,7 @@ class FeedbackStore:
                 source="auto",
             )
 
-    def record_hitl_reward(self, interaction_id: str, action: str) -> Optional[dict]:
+    def record_hitl_reward(self, interaction_id: str, action: str) -> dict | None:
         """Record a human-in-the-loop reward: +0.5 for approve, -0.3 otherwise."""
         rating = 0.5 if action == "approve" else -0.3
         return self.record_feedback(

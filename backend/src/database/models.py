@@ -1,7 +1,6 @@
 """SQLAlchemy ORM models for the HR Ops database."""
 
-from sqlalchemy import Column, Float, ForeignKey, Integer, String, Text
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, Float, ForeignKey, Integer, String
 
 from backend.src.database.connection import Base
 

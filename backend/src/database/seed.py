@@ -4,7 +4,6 @@ import csv
 import logging
 
 from backend.src.database.connection import Base, SessionLocal, engine
-from backend.src.database.models import ALL_MODELS
 
 logger = logging.getLogger("hr_ops.database.seed")
 

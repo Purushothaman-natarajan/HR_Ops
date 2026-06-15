@@ -1,7 +1,6 @@
 """JWT token creation and verification helpers for role-based auth."""
 
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 
 from fastapi import Header, HTTPException
 from jose import JWTError, jwt
@@ -26,7 +25,7 @@ def create_token(role: str, employee_id: str = "") -> str:
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 
-def verify_token(token: str) -> Optional[dict]:
+def verify_token(token: str) -> dict | None:
     """Decode and validate a JWT token. Returns the payload dict on success, None on failure."""
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])

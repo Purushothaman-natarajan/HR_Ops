@@ -1,14 +1,13 @@
 """Factory for instantiating chunking strategies by name with config overrides."""
 
-from backend.src.memory.chunking.base import ChunkingStrategy
-from backend.src.memory.chunking.recursive import RecursiveChunking
-from backend.src.memory.chunking.fixed_size import FixedSizeChunking
-from backend.src.memory.chunking.semantic import SemanticChunking
-from backend.src.memory.chunking.parent_document import ParentDocumentChunking
-from backend.src.memory.chunking.agentic import AgenticChunking
-from backend.src.memory.chunking.late_chunking import LateChunking
 from backend.config.settings import settings
-
+from backend.src.memory.chunking.agentic import AgenticChunking
+from backend.src.memory.chunking.base import ChunkingStrategy
+from backend.src.memory.chunking.fixed_size import FixedSizeChunking
+from backend.src.memory.chunking.late_chunking import LateChunking
+from backend.src.memory.chunking.parent_document import ParentDocumentChunking
+from backend.src.memory.chunking.recursive import RecursiveChunking
+from backend.src.memory.chunking.semantic import SemanticChunking
 
 _strategies: dict[str, type[ChunkingStrategy]] = {
     "recursive": RecursiveChunking,

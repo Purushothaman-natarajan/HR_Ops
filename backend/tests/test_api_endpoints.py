@@ -1,11 +1,9 @@
 """Tests the API endpoints using FastAPI TestClient."""
 
-from pathlib import Path
 
-import pytest
 from fastapi.testclient import TestClient
+
 from backend.main import app
-from backend.src.services.policy_service import POLICIES_DIR
 
 client = TestClient(app)
 

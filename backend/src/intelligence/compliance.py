@@ -1,7 +1,6 @@
 """Compliance checking utilities: hard veto rules and policy reference validation."""
 
 import logging
-from typing import Any
 
 from backend.config.settings import settings
 

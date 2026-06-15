@@ -1,18 +1,19 @@
-"""Top-level LangGraph assembly for the full HR agent workflow with supervisor routing."""
+"""Top-level LangGraph assembly for the full HR agent workflow with supervisor routing and parallel background checks."""
 
 import logging
-from typing import Literal
 
-from langgraph.graph import StateGraph, END, CompiledStateGraph
+from langgraph.graph import END, StateGraph
+from langgraph.graph.state import CompiledStateGraph
 
 from backend.config.settings import settings
-from backend.src.agents.state import SharedState
 from backend.src.agents.advanced.supervisor import supervisor_decision
-from backend.src.agents.nodes.policy_node import policy_node
 from backend.src.agents.nodes.action_node import action_node
 from backend.src.agents.nodes.anomaly_node import anomaly_node
 from backend.src.agents.nodes.compliance_node import compliance_node
 from backend.src.agents.nodes.hitl_escalation_node import hitl_escalation_node
+from backend.src.agents.nodes.parallel_check_node import parallel_check_node
+from backend.src.agents.nodes.policy_node import policy_node
+from backend.src.agents.state import SharedState
 
 logger = logging.getLogger("hr_ops.graph")
 
@@ -36,7 +37,13 @@ def _route_from_supervisor(state: SharedState) -> str:
 
 
 def build_full_graph() -> CompiledStateGraph:
-    """Build and compile the full LangGraph with supervisor, agent nodes, and HITL escalation."""
+    """Build and compile the full LangGraph with supervisor, agent nodes, parallel checks, and HITL escalation.
+
+    Flow:
+      supervisor → policy/action → parallel_check (anomaly + compliance concurrently) → HITL/END
+      supervisor → anomaly → HITL/END  (standalone)
+      supervisor → compliance → HITL/END  (standalone)
+    """
     graph = StateGraph(SharedState)
 
     graph.add_node("supervisor", supervisor_decision)
@@ -44,6 +51,7 @@ def build_full_graph() -> CompiledStateGraph:
     graph.add_node("action", action_node)
     graph.add_node("anomaly", anomaly_node)
     graph.add_node("compliance", compliance_node)
+    graph.add_node("parallel_check", parallel_check_node)
     graph.add_node("hitl", hitl_escalation_node)
 
     graph.set_entry_point("supervisor")
@@ -59,8 +67,16 @@ def build_full_graph() -> CompiledStateGraph:
         },
     )
 
-    for node in ("policy", "action", "anomaly", "compliance"):
+    # Policy and action fan out to parallel background checks (anomaly + compliance run concurrently)
+    for node in ("policy", "action"):
+        graph.add_edge(node, "parallel_check")
+
+    # Standalone anomaly/compliance (when routed directly from supervisor) go straight to HITL check
+    for node in ("anomaly", "compliance"):
         graph.add_conditional_edges(node, _should_continue, {"hitl": "hitl", END: END})
+
+    # Parallel check completes with HITL decision
+    graph.add_conditional_edges("parallel_check", _should_continue, {"hitl": "hitl", END: END})
 
     graph.add_edge("hitl", END)
 

@@ -6,7 +6,6 @@ import logging
 import uuid
 from datetime import datetime, timezone
 from threading import Lock
-from typing import Any, Optional
 
 logger = logging.getLogger("hr_ops.trace_store")
 
@@ -31,7 +30,7 @@ class TraceStore:
         logger.info("Trace saved: run_id=%s", run_id)
         return run_id
 
-    def get_run(self, run_id: str) -> Optional[dict]:
+    def get_run(self, run_id: str) -> dict | None:
         """Retrieve a trace run by its run_id, or None if not found."""
         return self._runs.get(run_id)
 
@@ -45,7 +44,7 @@ class TraceStore:
             )
             return sorted_runs[:limit]
 
-    def compare(self, run_ids: list[str]) -> list[Optional[dict]]:
+    def compare(self, run_ids: list[str]) -> list[dict | None]:
         """Return the trace runs for the given list of run_ids in the same order (None for missing IDs)."""
         return [self._runs.get(rid) for rid in run_ids]
 

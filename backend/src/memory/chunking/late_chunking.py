@@ -14,9 +14,9 @@ class LateChunking(ChunkingStrategy):
             chunk_size=base_chunk_size, chunk_overlap=overlap
         )
 
-    def chunk(self, text: str, **kwargs) -> list[Chunk]:
+    async def chunk(self, text: str, **kwargs) -> list[Chunk]:
         """Split text and augment each chunk with boundary context from neighbors."""
-        base = self._base.chunk(text)
+        base = await self._base.chunk(text)
         merged = []
         i = 0
         while i < len(base):

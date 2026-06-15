@@ -1,6 +1,6 @@
 import type { AppRole } from "../types";
 
-type Page = "dashboard" | "query" | "hitl" | "trace" | "tracequery" | "rl" | "cost" | "policies";
+type Page = "dashboard" | "query" | "hitl" | "trace" | "tracequery" | "rl" | "cost" | "policies" | "performance";
 
 interface Props {
   activePage: Page;
@@ -26,6 +26,7 @@ const navItems: NavItem[] = [
   { id: "policies", label: "Policy Manager", icon: "\u25A1", section: "Knowledge", roles: ["admin", "hr", "employee"] },
   { id: "rl", label: "RL Dashboard", icon: "\u25B3", section: "Insights", roles: ["admin"] },
   { id: "cost", label: "Cost Monitor", icon: "\u0024", section: "Insights", roles: ["admin", "hr"] },
+  { id: "performance", label: "Performance", icon: "\u26A1", section: "Observability", roles: ["admin"] },
 ];
 
 const sectionOrder = ["Main", "Observability", "Knowledge", "Insights"];

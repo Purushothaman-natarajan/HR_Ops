@@ -6,7 +6,6 @@ import logging
 import uuid
 from datetime import datetime, timezone
 from threading import Lock
-from typing import Any, Optional
 
 logger = logging.getLogger("hr_ops.store")
 
@@ -32,7 +31,7 @@ class BaseStore:
         logger.debug("%s saved: %s", self._name, obj_id)
         return obj_id
 
-    def get(self, item_id: str) -> Optional[dict]:
+    def get(self, item_id: str) -> dict | None:
         """Retrieve an item by ID, or None if not found."""
         return self._items.get(item_id)
 

@@ -8,7 +8,7 @@ plain dicts for JSON API responses.
 
 from typing import Any
 
-from backend.src.agents.state import TraceEntry, AnomalyResult
+from backend.src.agents.state import AnomalyResult, TraceEntry
 
 
 def _serialize_trace_events(trace_log: Any) -> list[dict]:
@@ -25,6 +25,10 @@ def _serialize_trace_events(trace_log: Any) -> list[dict]:
             "cost_usd": t.cost_usd,
             "cache_hit": t.cache_hit,
             "model_used": t.model_used,
+            "reasoning": t.reasoning,
+            "alternatives": t.alternatives,
+            "retrieved_docs": t.retrieved_docs[:3],
+            "tool_call": t.tool_call,
         }
         for t in trace_log
         if isinstance(t, TraceEntry)

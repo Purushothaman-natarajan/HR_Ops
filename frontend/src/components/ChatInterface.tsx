@@ -5,6 +5,27 @@ import type { ConversationMessage, TraceEvent, ConversationSession } from "../ty
 
 type Mode = "standard" | "advanced";
 
+const MODE_TEMPLATES: Record<Mode, { description: string; placeholder: string; examples: string[] }> = {
+  standard: {
+    description: "Ask focused questions against the stored leave, attendance, compensation, and compliance policies.",
+    placeholder: "Ask about leave, attendance, compensation, or compliance policy...",
+    examples: [
+      "How many annual leave days accrue each month, and how many can carry forward?",
+      "When is a medical certificate required for sick leave?",
+      "What approvals are needed for remote work beyond 3 days per week?",
+    ],
+  },
+  advanced: {
+    description: "Use RL routing for policy checks, compliance review, HRIS actions, and anomaly investigations.",
+    placeholder: "Ask for routing, compliance review, anomaly detection, or an employee action...",
+    examples: [
+      "Review whether a retroactive salary adjustment for EMP0001 is allowed under compensation policy.",
+      "Check if sharing EMP0002 HR records with an external vendor is compliant.",
+      "Investigate employees with more than 3 unscheduled absences this quarter and explain the policy risk.",
+    ],
+  },
+};
+
 interface ChatInterfaceProps {
   /** When scoping queries to a specific employee (employee role). */
   employeeId?: string;
@@ -18,6 +39,32 @@ interface ChatInterfaceProps {
  * @example
  * <ChatInterface />
  */
+interface NodeEvent {
+  node: string;
+  agent_role: string;
+  duration_ms: number;
+  output_text: string;
+  input_text: string;
+  cost_usd: number;
+  model_used: string;
+}
+
+const NODE_ICONS: Record<string, string> = {
+  supervisor: "\u2699",
+  triage: "\u2699",
+  policy: "\uD83D\uDCC4",
+  action: "\u2692",
+  anomaly: "\u26A0",
+  compliance: "\u2712",
+  parallel_check: "\u26A1",
+  hitl: "\uD83D\uDC64",
+};
+
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
 export function ChatInterface({ employeeId = "" }: ChatInterfaceProps) {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ConversationMessage[]>([]);
@@ -29,57 +76,103 @@ export function ChatInterface({ employeeId = "" }: ChatInterfaceProps) {
   const [showTrace, setShowTrace] = useState(false);
   const [totalCost, setTotalCost] = useState(0);
   const [ratedTurns, setRatedTurns] = useState<Record<number, 1 | 0 | -1>>({});
+  const [liveEvents, setLiveEvents] = useState<NodeEvent[]>([]);
+  const esRef = useRef<EventSource | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const modeTemplate = MODE_TEMPLATES[mode];
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, liveEvents]);
 
-  const handleSend = useCallback(async () => {
+  useEffect(() => {
+    return () => {
+      esRef.current?.close();
+    };
+  }, []);
+
+  const handleSend = useCallback(() => {
     const q = input.trim();
     if (!q || loading) return;
     setInput("");
     setError("");
+    setLiveEvents([]);
 
     const userMsg: ConversationMessage = { role: "user", content: q };
     setMessages((prev) => [...prev, userMsg]);
 
     setLoading(true);
-    try {
-      let res: Awaited<ReturnType<typeof api.conversation.send>>;
-      if (!sessionId) {
-        res = await api.conversation.start(q, mode, employeeId);
-        setSessionId(res.data.session_id);
-      } else {
-        res = await api.conversation.send(sessionId, q, employeeId);
+
+    // Close any previous EventSource
+    esRef.current?.close();
+
+    const url = sessionId
+      ? api.conversation.streamSendUrl(sessionId, q)
+      : api.conversation.streamStartUrl(q, mode);
+
+    const es = new EventSource(url);
+    esRef.current = es;
+
+    es.addEventListener("node_complete", (e: MessageEvent) => {
+      try {
+        const eventData: NodeEvent = JSON.parse(e.data);
+        setLiveEvents((prev) => [...prev, eventData]);
+      } catch {
+        // ignore parse errors
       }
-      const d = res.data as ConversationSession & { total_cost_usd?: number; trace_events?: TraceEvent[]; mode?: string };
-      const assistantMsg: ConversationMessage = {
-        role: "assistant",
-        content: d.response || "",
-        node: d.mode || mode,
-      };
-      setMessages((prev) => [...prev, assistantMsg]);
-      setTotalCost((prev) => prev + (d.total_cost_usd || 0));
-      if (d.trace_events) {
-        setTraceEvents(d.trace_events);
+    });
+
+    es.addEventListener("complete", (e: MessageEvent) => {
+      try {
+        const eventData = JSON.parse(e.data);
+        const response = eventData.response || "";
+        const newSessionId: string = eventData.session_id || "";
+        const cost: number = eventData.total_cost_usd || 0;
+        const events: TraceEvent[] = eventData.trace_events || [];
+
+        setSessionId((prev) => prev || newSessionId);
+
+        const assistantMsg: ConversationMessage = {
+          role: "assistant",
+          content: response,
+          node: mode,
+        };
+        setMessages((prev) => [...prev, assistantMsg]);
+        setTotalCost((prev) => prev + cost);
+        if (events.length > 0) {
+          setTraceEvents(events);
+        }
+      } catch {
+        setError("Failed to parse response");
+      } finally {
+        setLoading(false);
+        es.close();
+        esRef.current = null;
       }
-    } catch (e) {
-      const msg = String(e);
-      const isModelError =
-        msg.toLowerCase().includes("model") ||
-        msg.toLowerCase().includes("litellm") ||
-        msg.toLowerCase().includes("api key") ||
-        msg.toLowerCase().includes("ai model");
-      if (isModelError) {
-        setError("⚠️ " + msg + "\n\nPlease contact the administrator to fix this issue.");
-      } else {
-        setError(msg);
+    });
+
+    es.addEventListener("error", () => {
+      // EventSource auto-reconnects on network errors; if already closed ignore
+      if (es.readyState === EventSource.CLOSED) {
+        setError("Connection lost. Please try again.");
+        setLoading(false);
+        esRef.current = null;
       }
-    } finally {
+    });
+
+    // Handle non-SSE error events from our backend
+    es.addEventListener("error_event", (e: MessageEvent) => {
+      try {
+        const errData = JSON.parse(e.data);
+        setError(errData.message || "An error occurred");
+      } catch {
+        setError("An error occurred");
+      }
       setLoading(false);
-    }
-  }, [input, loading, sessionId, mode]);
+      es.close();
+      esRef.current = null;
+    });
+  }, [input, loading, sessionId, mode, employeeId]);
 
   const handleRating = async (turnIndex: number, rating: 1 | 0 | -1) => {
     if (ratedTurns[turnIndex] !== undefined) return;
@@ -94,9 +187,12 @@ export function ChatInterface({ employeeId = "" }: ChatInterfaceProps) {
   };
 
   const handleNewSession = () => {
+    esRef.current?.close();
+    esRef.current = null;
     setSessionId(null);
     setMessages([]);
     setTraceEvents([]);
+    setLiveEvents([]);
     setTotalCost(0);
     setRatedTurns({});
     setError("");
@@ -152,14 +248,10 @@ export function ChatInterface({ employeeId = "" }: ChatInterfaceProps) {
             <div className="chat-welcome">
               <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>HR Ops Assistant</div>
               <div style={{ fontSize: 13, color: "var(--color-text-muted)", maxWidth: 400 }}>
-                Ask HR policy questions, request employee actions, or explore workforce data.
+                {modeTemplate.description}
               </div>
               <div className="chat-examples">
-                {[
-                  "What is the leave policy?",
-                  "Update salary for EMP0001 to 75000",
-                  "Check for anomalies in payroll",
-                ].map((ex) => (
+                {modeTemplate.examples.map((ex) => (
                   <button
                     key={ex}
                     className="btn btn-sm btn-secondary"
@@ -217,9 +309,46 @@ export function ChatInterface({ employeeId = "" }: ChatInterfaceProps) {
           {loading && (
             <div className="chat-bubble chat-bubble-assistant">
               <div className="chat-bubble-role">Agent</div>
-              <div className="chat-loading">
-                <div className="spinner" />
-                <span>Processing...</span>
+              <div className="chat-live-timeline">
+                {liveEvents.length === 0 && (
+                  <div className="chat-loading">
+                    <div className="spinner" />
+                    <span>Starting...</span>
+                  </div>
+                )}
+                {liveEvents.map((evt, i) => (
+                  <div key={i} className="chat-timeline-row">
+                    <div className="chat-timeline-dot completed" />
+                    <div className="chat-timeline-icon">
+                      {NODE_ICONS[evt.node] || evt.node.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="chat-timeline-info">
+                      <span className="chat-timeline-node">
+                        {evt.agent_role || evt.node}
+                      </span>
+                      <span className="chat-timeline-ms">
+                        {formatDuration(evt.duration_ms)}
+                      </span>
+                      {evt.output_text && (
+                        <span className="chat-timeline-output">
+                          {evt.output_text.length > 60
+                            ? evt.output_text.slice(0, 60) + "..."
+                            : evt.output_text}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {liveEvents.length > 0 && (
+                  <div className="chat-timeline-row">
+                    <div className="chat-timeline-dot active" />
+                    <div className="chat-timeline-icon">...</div>
+                    <div className="chat-timeline-info">
+                      <span className="chat-timeline-node">Processing</span>
+                      <div className="spinner" style={{ width: 14, height: 14 }} />
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -249,7 +378,7 @@ export function ChatInterface({ employeeId = "" }: ChatInterfaceProps) {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Type your HR request..."
+              placeholder={modeTemplate.placeholder}
               disabled={loading}
             />
             <button className="btn btn-primary" onClick={handleSend} disabled={loading || !input.trim()}>

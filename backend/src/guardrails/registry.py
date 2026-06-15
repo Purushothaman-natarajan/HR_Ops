@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable
+from collections.abc import Callable
 
 from backend.src.agents.state import GuardrailResult
 

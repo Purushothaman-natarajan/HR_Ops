@@ -69,7 +69,7 @@ async def run_graph_endpoint(payload: dict, request: Request):
         )
 
     try:
-        result = run_graph(query)
+        result = await run_graph(query)
     except ModelNotAvailableError as e:
         return error_response(message=e.message, correlation_id=correlation_id, status_code=503)
     except GraphExecutionError as e:

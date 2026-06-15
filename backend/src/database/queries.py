@@ -1,20 +1,24 @@
 """Query helpers for graph nodes — fetch employee data from SQLAlchemy ORM sessions."""
 
-from datetime import datetime, timedelta
-from typing import Optional
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from backend.src.database.connection import SessionLocal
-from backend.src.database.models import Attendance, Employee, Leave, Payroll, Performance
+from backend.src.database.models import (
+    Attendance,
+    Employee,
+    Leave,
+    Payroll,
+    Performance,
+)
 
 
 def _get_session() -> Session:
     return SessionLocal()
 
 
-def query_employee(employee_id: str) -> Optional[dict]:
+def query_employee(employee_id: str) -> dict | None:
     """Fetch a single employee record by ID. Returns None if not found."""
     with _get_session() as session:
         emp = session.get(Employee, employee_id)
@@ -98,7 +102,7 @@ def query_performance(employee_id: str, limit: int = 5) -> list[dict]:
         return [{c.name: getattr(r, c.name) for c in Performance.__table__.columns} for r in rows]
 
 
-def query_employee_full(employee_id: str) -> Optional[dict]:
+def query_employee_full(employee_id: str) -> dict | None:
     """Return a comprehensive employee profile with all related data."""
     emp = query_employee(employee_id)
     if emp is None:

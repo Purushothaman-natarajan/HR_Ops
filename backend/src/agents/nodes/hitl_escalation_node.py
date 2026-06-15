@@ -3,7 +3,7 @@
 import logging
 from datetime import datetime, timezone
 
-from backend.src.agents.state import SharedState, HITLRequest, TraceEntry, AgentRole
+from backend.src.agents.state import AgentRole, SharedState, TraceEntry
 from backend.src.utils.agui_models import InteractionRequest
 
 logger = logging.getLogger("hr_ops.nodes.hitl")

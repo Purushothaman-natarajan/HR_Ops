@@ -6,37 +6,75 @@ Sets up the ASGI app with CORS, request logging middleware, exception
 handlers for HR-specific and generic errors, and includes all API routers.
 """
 
+import asyncio
 import logging
 import os
-import uuid
 import warnings
 
 warnings.filterwarnings("ignore", message="The default value of `allowed_objects`")
 
 import uvicorn
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 
 from backend.config.settings import settings
-from backend.src.core.exceptions import HROpsBaseError
-from backend.src.core.response import error_response, get_correlation_id, success_response
-from backend.src.utils.api_logger import RequestLog
-from backend.src.api.graph_routes import router as graph_router
 from backend.src.api.agui_routes import router as agui_router
-from backend.src.api.trace_routes import router as trace_router
-from backend.src.api.debug_routes import router as debug_router
-from backend.src.api.policy_routes import router as policy_router
-from backend.src.api.conversation_routes import router as conversation_router
-from backend.src.api.feedback_routes import router as feedback_router
-from backend.src.api.vector_routes import router as vector_router
-from backend.src.api.database_routes import router as database_router
 from backend.src.api.auth_routes import router as auth_router
+from backend.src.api.conversation_routes import router as conversation_router
+from backend.src.api.database_routes import router as database_router
+from backend.src.api.debug_routes import router as debug_router
+from backend.src.api.feedback_routes import router as feedback_router
+from backend.src.api.graph_routes import router as graph_router
+from backend.src.api.policy_routes import router as policy_router
+from backend.src.api.trace_routes import router as trace_router
+from backend.src.api.vector_routes import router as vector_router
+from backend.src.core.exceptions import HROpsBaseError
+from backend.src.core.response import (
+    error_response,
+    get_correlation_id,
+    success_response,
+)
+from backend.src.middleware.metrics_middleware import RequestMetricsMiddleware, metrics_store
+from backend.src.utils.api_logger import RequestLog
 from backend.src.utils.docs_page import get_redoc_html
+from backend.src.utils.model_router import close_nvidia_http_client
 
 logger = logging.getLogger("hr_ops")
 
-app = FastAPI(title="HR Ops Platform", version="1.0.0", redoc_url=None, docs_url="/docs")
+
+async def _warmup_embeddings():
+    """Pre-load embedding models on startup to avoid cold-start latency on first request."""
+    try:
+        from sentence_transformers import SentenceTransformer
+        model_name = settings.embed_config.get("embedding", {}).get("model_name", "all-MiniLM-L6-v2")
+        logger.info("Warming up embedding model: %s", model_name)
+        model = SentenceTransformer(model_name)
+        model.encode("warmup", normalize_embeddings=True)
+        logger.info("Embedding model warmup complete: %s", model_name)
+    except ImportError:
+        logger.info("sentence-transformers not available — skipping embedding warmup")
+    except Exception as e:
+        logger.warning("Embedding warmup failed: %s", e)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan: warmup models on startup, clean up clients on shutdown."""
+    await _warmup_embeddings()
+    yield
+    await close_nvidia_http_client()
+    logger.info("Shutdown complete")
+
+
+app = FastAPI(
+    title="HR Ops Platform",
+    version="1.0.0",
+    redoc_url=None,
+    docs_url="/docs",
+    lifespan=lifespan,
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -47,6 +85,7 @@ app.add_middleware(
 )
 
 app.add_middleware(RequestLog, log_level=settings.log_level)
+app.add_middleware(RequestMetricsMiddleware)
 
 app.include_router(graph_router)
 app.include_router(agui_router)

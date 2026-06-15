@@ -12,14 +12,13 @@ from pathlib import Path
 
 from fastapi import APIRouter, File, Form, Request, UploadFile
 from fastapi.responses import FileResponse
-from starlette.datastructures import Headers
 
+from backend.config.settings import settings
 from backend.src.core.response import (
     error_response,
     get_correlation_id,
     success_response,
 )
-from backend.config.settings import settings
 from backend.src.services.policy_service import (
     ALLOWED_EXTENSIONS,
     MAX_FILE_SIZE,

@@ -1,18 +1,14 @@
 """DSPy optimizer: compiles and loads optimized prompts for triage, RAG, and narrative."""
 
-import json
 import logging
 from pathlib import Path
-from typing import Any
 
 import dspy
 from dspy.teleprompt import MIPROv2
 
 from backend.src.core.exceptions import ConfigurationError
-from backend.src.intelligence.signatures.triage_signature import TriageSignature
-from backend.src.intelligence.signatures.rag_signature import RAGSignature
-from backend.src.intelligence.signatures.narrative_signature import NarrativeSignature
 from backend.src.intelligence.metrics.hr_metrics import approval_rate
+from backend.src.intelligence.signatures.triage_signature import TriageSignature
 
 logger = logging.getLogger("hr_ops.dspy")
 
@@ -35,14 +31,38 @@ def _ensure_llm():
 def build_training_data() -> list[dspy.Example]:
     """Return a small set of labelled HR query examples for DSPy optimization."""
     return [
-        dspy.Example(query="What is the leave policy?", classification="policy").with_inputs("query"),
-        dspy.Example(query="Update salary for EMP0001 to 75000", classification="action").with_inputs("query"),
-        dspy.Example(query="Check for salary anomalies last month", classification="anomaly").with_inputs("query"),
-        dspy.Example(query="Is employee EMP0002 compliant?", classification="compliance").with_inputs("query"),
-        dspy.Example(query="How many sick days do I have?", classification="policy").with_inputs("query"),
-        dspy.Example(query="Approve termination for EMP0003", classification="compliance").with_inputs("query"),
-        dspy.Example(query="Run anomaly detection on payroll", classification="anomaly").with_inputs("query"),
-        dspy.Example(query="Change department for EMP0004 to Engineering", classification="action").with_inputs("query"),
+        dspy.Example(
+            query="How many annual leave days accrue each month, and how many can carry forward?",
+            classification="policy",
+        ).with_inputs("query"),
+        dspy.Example(
+            query="When is a medical certificate required for sick leave?",
+            classification="policy",
+        ).with_inputs("query"),
+        dspy.Example(
+            query="What approvals are needed for remote work beyond 3 days per week?",
+            classification="policy",
+        ).with_inputs("query"),
+        dspy.Example(
+            query="Review whether a retroactive salary adjustment for EMP0001 is allowed under compensation policy.",
+            classification="compliance",
+        ).with_inputs("query"),
+        dspy.Example(
+            query="Check if sharing EMP0002 HR records with an external vendor is compliant.",
+            classification="compliance",
+        ).with_inputs("query"),
+        dspy.Example(
+            query="Investigate employees with more than 3 unscheduled absences this quarter and explain the policy risk.",
+            classification="anomaly",
+        ).with_inputs("query"),
+        dspy.Example(
+            query="Escalate an off-cycle salary adjustment request for EMP0003 for VP-level approval.",
+            classification="action",
+        ).with_inputs("query"),
+        dspy.Example(
+            query="Look up EMP0004 before reviewing eligibility for a spot award under the compensation policy.",
+            classification="action",
+        ).with_inputs("query"),
     ]
 
 

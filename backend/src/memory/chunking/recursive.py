@@ -1,6 +1,5 @@
 """Recursive chunking that splits on descending separator priority."""
 
-import re
 from backend.src.memory.chunking.base import Chunk, ChunkingStrategy
 
 
@@ -12,7 +11,7 @@ class RecursiveChunking(ChunkingStrategy):
         self.chunk_overlap = chunk_overlap
         self.separators = separators or ["\n\n", "\n", ".", " "]
 
-    def chunk(self, text: str, **kwargs) -> list[Chunk]:
+    async def chunk(self, text: str, **kwargs) -> list[Chunk]:
         """Split text into chunks using recursive separator matching."""
         chunks = []
         start = 0

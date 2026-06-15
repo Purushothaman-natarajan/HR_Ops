@@ -1,7 +1,8 @@
 """Pydantic schemas for tool-call payloads, tool results, and mock-HRIS input/output models."""
 
-from pydantic import BaseModel, Field
 from typing import Any
+
+from pydantic import BaseModel, Field
 
 
 class ToolCall(BaseModel):

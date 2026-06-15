@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
-
-from backend.src.guardrails.patterns import PII_PATTERNS, INJECTION_PATTERNS
+from backend.src.guardrails.patterns import INJECTION_PATTERNS, PII_PATTERNS
 from backend.src.guardrails.registry import guardrail_registry
 
 BLOCKED_TOPICS: list[str] = []

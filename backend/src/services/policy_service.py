@@ -12,7 +12,6 @@ import mimetypes
 import re
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
 
 from langchain_core.documents import Document
 
@@ -105,7 +104,7 @@ def list_policies() -> list[dict]:
     return policies
 
 
-def get_policy(policy_id: str) -> Optional[dict]:
+def get_policy(policy_id: str) -> dict | None:
     """Retrieve a single policy's metadata and full text content by its slug ID."""
     for path in POLICIES_DIR.iterdir():
         if path.suffix.lower() in ALLOWED_EXTENSIONS and path.is_file():
@@ -116,7 +115,7 @@ def get_policy(policy_id: str) -> Optional[dict]:
     return None
 
 
-def get_policy_path(policy_id: str) -> Optional[Path]:
+def get_policy_path(policy_id: str) -> Path | None:
     """Resolve a policy slug ID to its filesystem Path, or None if not found."""
     for path in POLICIES_DIR.iterdir():
         if path.suffix.lower() in ALLOWED_EXTENSIONS and path.is_file():
@@ -149,7 +148,7 @@ def _reindex_all():
     logger.info("Re-indexed %d policy documents", len(docs))
 
 
-def create_policy(filename: str, content: bytes, title: Optional[str] = None) -> dict:
+def create_policy(filename: str, content: bytes, title: str | None = None) -> dict:
     """Write a new policy file to disk and re-index the vector store.
 
     Args:
@@ -182,7 +181,7 @@ def create_policy(filename: str, content: bytes, title: Optional[str] = None) ->
     return info
 
 
-def update_policy(policy_id: str, title: Optional[str] = None) -> Optional[dict]:
+def update_policy(policy_id: str, title: str | None = None) -> dict | None:
     """Update a policy's title (first-line heading) and re-index the vector store."""
     path = get_policy_path(policy_id)
     if not path:

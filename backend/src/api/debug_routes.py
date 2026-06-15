@@ -10,14 +10,16 @@ import logging
 
 from fastapi import APIRouter, Request
 
+from backend.src.agents.state import SharedState
 from backend.src.api.serializers import serialize_graph_result
 from backend.src.core.response import (
     error_response,
     get_correlation_id,
     success_response,
 )
-from backend.src.agents.state import SharedState
 from backend.src.graph import build_full_graph
+from backend.src.middleware.metrics_middleware import metrics_store
+from backend.src.utils.alerting import check_alert_rules
 from backend.src.utils.request_store import request_store
 
 logger = logging.getLogger("hr_ops.api.debug")
@@ -28,7 +30,7 @@ _graph = build_full_graph()
 
 
 @router.get("/requests")
-async def list_requests(limit: int = 50, request: Request | None = None):
+async def list_requests(limit: int = 50, request: Request = None):  # type: ignore[assignment]
     """List recent API request entries stored for debugging.
 
     ---
@@ -56,8 +58,74 @@ async def list_requests(limit: int = 50, request: Request | None = None):
     )
 
 
+@router.get("/metrics")
+async def get_metrics(request: Request = None):  # type: ignore[assignment]
+    """Return per-endpoint latency histograms (p50/p95/p99) and error rates.
+
+    ---
+    Request:
+        GET /debug/metrics
+
+    Response 200:
+        {
+          "success": true,
+          "data": {
+            "total_requests": 42,
+            "total_errors": 1,
+            "endpoints": {
+              "POST /graph/run": {
+                "count": 10, "errors": 0, "error_rate_pct": 0.0,
+                "p50_ms": 1245.3, "p95_ms": 3200.1, "p99_ms": 4100.5,
+                "min_ms": 890.2, "max_ms": 4200.0, "avg_ms": 1500.4
+              }
+            }
+          },
+          "message": "OK",
+          "correlation_id": "abc123"
+        }
+    """
+    correlation_id = get_correlation_id(request) if request else ""
+    return success_response(
+        data={
+            "total_requests": metrics_store.total_requests,
+            "total_errors": metrics_store.total_errors,
+            "endpoints": metrics_store.snapshot(),
+        },
+        correlation_id=correlation_id,
+    )
+
+
+@router.get("/alerts")
+async def get_alerts(request: Request = None):  # type: ignore[assignment]
+    """Return active alerts based on p99 and error rate thresholds.
+
+    ---
+    Request:
+        GET /debug/alerts
+
+    Response 200:
+        {
+          "success": true,
+          "data": {
+            "alerts": [
+              {"endpoint": "POST /graph/run", "rule": "p99_latency", "value": 12300, "threshold": 10000, "message": "..."}
+            ],
+            "count": 1
+          },
+          "message": "OK",
+          "correlation_id": "abc123"
+        }
+    """
+    correlation_id = get_correlation_id(request) if request else ""
+    alerts = check_alert_rules(metrics_store.snapshot())
+    return success_response(
+        data={"alerts": alerts, "count": len(alerts)},
+        correlation_id=correlation_id,
+    )
+
+
 @router.post("/replay/{request_id}")
-async def replay_request(request_id: str, request: Request | None = None):
+async def replay_request(request_id: str, request: Request = None):  # type: ignore[assignment]
     """Re-run a previous request through the graph for debugging purposes.
 
     ---

@@ -14,6 +14,10 @@ export interface TraceEvent {
   cost_usd?: number;
   cache_hit?: boolean;
   model_used?: string;
+  reasoning?: string;
+  alternatives?: Array<{ agent: string; score: number }>;
+  retrieved_docs?: Array<{ source: string; score: number; chunk: string }>;
+  tool_call?: Record<string, unknown>;
 }
 
 /** Summary of a trace run for listing (GET /trace/runs). */

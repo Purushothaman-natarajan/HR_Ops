@@ -14,7 +14,7 @@ class AgenticChunking(ChunkingStrategy):
         self.llm_model = llm_model
         self.max_iterations = max_iterations
 
-    def chunk(self, text: str, **kwargs) -> list[Chunk]:
+    async def chunk(self, text: str, **kwargs) -> list[Chunk]:
         """Split text via LLM call, falling back to RecursiveChunking on failure."""
         if len(text) < 200:
             return [Chunk(text=text.strip(), index=0)]
@@ -27,7 +27,7 @@ class AgenticChunking(ChunkingStrategy):
                 "Do not add any commentary.\n\n"
                 f"{text}"
             )
-            response, _ = llm_call(
+            response, _ = await llm_call(
                 agent_name="rag",
                 prompt=prompt,
                 system_prompt="You are a text chunking assistant.",
@@ -41,4 +41,4 @@ class AgenticChunking(ChunkingStrategy):
             logger.warning("AgenticChunking failed, falling back: %s", e)
             from backend.src.memory.chunking.recursive import RecursiveChunking
 
-            return RecursiveChunking().chunk(text)
+            return await RecursiveChunking().chunk(text)

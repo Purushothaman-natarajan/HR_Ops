@@ -21,6 +21,6 @@ class ChunkingStrategy(ABC):
         pass
 
     @abstractmethod
-    def chunk(self, text: str, **kwargs) -> list[Chunk]:
+    async def chunk(self, text: str, **kwargs) -> list[Chunk]:
         """Split text into a list of Chunks. Subclasses must implement this."""
         ...

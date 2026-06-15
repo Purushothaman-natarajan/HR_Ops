@@ -2,6 +2,30 @@ import type { APIResponse, GraphRunResponse, PendingItem, PolicyDocument, Conver
 
 const BASE_URL = import.meta.env.VITE_API_URL || "";
 
+interface APIMetric {
+  path: string;
+  method: string;
+  duration_ms: number;
+  status: number;
+  timestamp: number;
+}
+
+const apiMetrics: APIMetric[] = [];
+const MAX_METRICS = 500;
+
+function recordMetric(path: string, method: string, duration_ms: number, status: number) {
+  apiMetrics.push({ path, method, duration_ms, status, timestamp: Date.now() });
+  if (apiMetrics.length > MAX_METRICS) apiMetrics.shift();
+}
+
+export function getApiMetrics(): APIMetric[] {
+  return [...apiMetrics];
+}
+
+export function clearApiMetrics() {
+  apiMetrics.length = 0;
+}
+
 function getAuthToken(): string | null {
   try {
     const raw = localStorage.getItem("hr_ops_auth");
@@ -23,19 +47,30 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
   }
-  const res = await fetch(`${BASE_URL}${path}`, {
-    headers: { ...headers, ...(options?.headers as Record<string, string> | undefined) },
-    ...options,
-  });
-  if (!res.ok) {
-    let msg = `HTTP ${res.status}: ${res.statusText}`;
-    try {
-      const body = await res.json();
-      if (body?.message) msg = body.message;
-    } catch { /* ignore parse failures */ }
-    throw new Error(msg);
+  const start = performance.now();
+  let status = 0;
+  try {
+    const res = await fetch(`${BASE_URL}${path}`, {
+      headers: { ...headers, ...(options?.headers as Record<string, string> | undefined) },
+      ...options,
+    });
+    status = res.status;
+    const duration = performance.now() - start;
+    recordMetric(path, options?.method || "GET", duration, status);
+    if (!res.ok) {
+      let msg = `HTTP ${res.status}: ${res.statusText}`;
+      try {
+        const body = await res.json();
+        if (body?.message) msg = body.message;
+      } catch { /* ignore parse failures */ }
+      throw new Error(msg);
+    }
+    return res.json();
+  } catch (err) {
+    const duration = performance.now() - start;
+    if (!status) recordMetric(path, options?.method || "GET", duration, 0);
+    throw err;
   }
-  return res.json();
 }
 
 export const api = {
@@ -149,6 +184,24 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ query, mode, employee_id }),
       }),
+
+    /** SSE streaming URL to start a new session and stream node events.
+     *
+     * @example
+     * const es = new EventSource(api.conversation.streamStartUrl("What is leave policy?", "advanced"));
+     * // es.addEventListener("node_complete", ...)
+     * // es.addEventListener("complete", ...)
+     */
+    streamStartUrl: (query: string, mode: string = "standard") =>
+      `${BASE_URL}/conversation/stream/start?query=${encodeURIComponent(query)}&mode=${encodeURIComponent(mode)}`,
+
+    /** SSE streaming URL to send a follow-up message and stream node events.
+     *
+     * @example
+     * const es = new EventSource(api.conversation.streamSendUrl("sess_abc123", "What about sick leave?"));
+     */
+    streamSendUrl: (sessionId: string, query: string) =>
+      `${BASE_URL}/conversation/${encodeURIComponent(sessionId)}/stream/send?query=${encodeURIComponent(query)}`,
 
     /** Send a follow-up message within an existing session.
      *

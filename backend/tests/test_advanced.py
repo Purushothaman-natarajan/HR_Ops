@@ -2,20 +2,16 @@
 
 from datetime import datetime, timezone
 
-import pytest
-
 from backend.src.agents.state import (
-    SharedState,
-    AgentRole,
-    TriggerType,
     AnomalyResult,
+    SharedState,
     TraceEntry,
 )
-from backend.src.intelligence.rl_layer import rl_agent
-from backend.src.intelligence.anomaly import run_anomaly_detection
 from backend.src.graph import build_full_graph
-from backend.src.utils.agui_store import agui_store
+from backend.src.intelligence.anomaly import run_anomaly_detection
+from backend.src.intelligence.rl_layer import rl_agent
 from backend.src.utils.agui_models import InteractionRequest
+from backend.src.utils.agui_store import agui_store
 
 
 class TestGraphTopology:

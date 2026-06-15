@@ -5,13 +5,13 @@ import logging
 from datetime import datetime, timezone
 
 from backend.src.agents.state import SharedState, TraceEntry
-from backend.src.utils.model_router import llm_call
 from backend.src.intelligence.compliance import check_veto
+from backend.src.utils.model_router import llm_call
 
 logger = logging.getLogger("hr_ops.nodes.compliance")
 
 
-def compliance_node(state: SharedState) -> dict:
+async def compliance_node(state: SharedState) -> dict:
     """Evaluate the query for compliance via LLM and check hard veto rules."""
     start = datetime.now(timezone.utc)
     prompt = (
@@ -19,7 +19,7 @@ def compliance_node(state: SharedState) -> dict:
         f"Query: {state.query}\n\n"
         f"Reply with JSON: {{\"compliant\": true/false, \"reason\": \"...\"}}"
     )
-    response, cost = llm_call("compliance", prompt, max_tokens=256, temperature=0)
+    response, cost = await llm_call("compliance", prompt, max_tokens=256, temperature=0)
     try:
         result = json.loads(response)
         veto = check_veto("", state.query)

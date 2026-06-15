@@ -1,14 +1,15 @@
 """Integration test: Runs the full LangGraph with a real query and checks output."""
 
-import json
 import sys
 from pathlib import Path
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from backend.src.agents.state import SharedState
-from backend.src.graph import build_full_graph
 from backend.src.core.exceptions import ModelNotAvailableError
+from backend.src.graph import build_full_graph
 from backend.src.utils.model_router import _LITELLM_AVAILABLE
 
 PASS = 0
@@ -22,10 +23,10 @@ def check(name: str, condition: bool, detail: str = ""):
         print(f"  [PASS] {name}")
     else:
         FAIL += 1
-        print(f"  [FAIL] {name} — {detail}")
+        print(f"  [FAIL] {name} \u2014 {detail}")
 
 
-def run_query(query: str, trigger: str = "reactive") -> dict:
+async def run_query(query: str, trigger: str = "reactive") -> dict:
     from backend.src.agents.state import TriggerType
 
     state = SharedState(
@@ -33,19 +34,20 @@ def run_query(query: str, trigger: str = "reactive") -> dict:
         trigger_type=TriggerType.SCHEDULED if trigger == "scheduled" else TriggerType.REACTIVE,
     )
     graph = build_full_graph()
-    return graph.invoke(state)
+    return await graph.ainvoke(state)
 
 
-def _try_run_query(query: str, trigger: str = "reactive") -> dict | None:
+async def _try_run_query(query: str, trigger: str = "reactive") -> dict | None:
     """Run query and return result, or None if model is unavailable."""
     try:
-        return run_query(query, trigger)
+        return await run_query(query, trigger)
     except ModelNotAvailableError:
         return None
 
 
-def test_policy_query():
-    result = _try_run_query("What is the annual leave policy?")
+@pytest.mark.asyncio
+async def test_policy_query():
+    result = await _try_run_query("What is the annual leave policy?")
     if result is None:
         check("policy: litellm unavailable (expected)", not _LITELLM_AVAILABLE)
         return
@@ -56,8 +58,9 @@ def test_policy_query():
     check("policy: supervisor in trace", "supervisor" in roles or "policy" in roles)
 
 
-def test_action_query():
-    result = _try_run_query("Update salary for EMP0001 to 75000")
+@pytest.mark.asyncio
+async def test_action_query():
+    result = await _try_run_query("Update salary for EMP0001 to 75000")
     if result is None:
         check("action: litellm unavailable (expected)", not _LITELLM_AVAILABLE)
         return
@@ -65,10 +68,11 @@ def test_action_query():
     check("action: final_response not empty", bool(result.get("final_response")))
 
 
-def test_anomaly_scheduled():
+@pytest.mark.asyncio
+async def test_anomaly_scheduled():
     from backend.src.tools.api_mocks import load_employees_from_csv
     load_employees_from_csv()
-    result = _try_run_query("Run anomaly detection", trigger="scheduled")
+    result = await _try_run_query("Run anomaly detection", trigger="scheduled")
     if result is None:
         check("anomaly: litellm unavailable (expected)", not _LITELLM_AVAILABLE)
         return
@@ -77,8 +81,9 @@ def test_anomaly_scheduled():
     check("anomaly: at least one anomaly or empty ok", True)
 
 
-def test_compliance_query():
-    result = _try_run_query("Approve termination for EMP0003")
+@pytest.mark.asyncio
+async def test_compliance_query():
+    result = await _try_run_query("Approve termination for EMP0003")
     if result is None:
         check("compliance: litellm unavailable (expected)", not _LITELLM_AVAILABLE)
         return
@@ -88,11 +93,12 @@ def test_compliance_query():
     check("compliance: compliance agent ran", "compliance" in roles)
 
 
-def test_multi_turn():
+@pytest.mark.asyncio
+async def test_multi_turn():
     graph = build_full_graph()
     state = SharedState(query="What is the leave policy?")
     try:
-        r1 = graph.invoke(state)
+        r1 = await graph.ainvoke(state)
         check("multi: first turn response", bool(r1.get("final_response")))
     except ModelNotAvailableError:
         check("multi: first turn (litellm unavailable)", not _LITELLM_AVAILABLE)
@@ -100,7 +106,7 @@ def test_multi_turn():
 
     state2 = SharedState(query="How many sick days do I have?")
     try:
-        r2 = graph.invoke(state2)
+        r2 = await graph.ainvoke(state2)
         check("multi: second turn response", bool(r2.get("final_response")))
     except ModelNotAvailableError:
         check("multi: second turn (litellm unavailable)", not _LITELLM_AVAILABLE)

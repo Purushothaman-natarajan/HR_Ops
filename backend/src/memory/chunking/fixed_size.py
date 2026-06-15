@@ -10,7 +10,7 @@ class FixedSizeChunking(ChunkingStrategy):
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
 
-    def chunk(self, text: str, **kwargs) -> list[Chunk]:
+    async def chunk(self, text: str, **kwargs) -> list[Chunk]:
         """Split text into fixed-length chunks with configurable overlap."""
         chunks = []
         start = 0

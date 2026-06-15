@@ -2,7 +2,6 @@
 
 import logging
 import statistics
-from typing import Any
 
 from backend.src.agents.state import AnomalyResult
 

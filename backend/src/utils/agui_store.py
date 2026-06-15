@@ -3,11 +3,14 @@
 import logging
 from datetime import datetime, timezone
 from threading import Lock
-from typing import Optional
 
-from backend.src.utils.agui_models import InteractionRequest, InteractionResponse, PendingRequest
 from backend.config.settings import settings
 from backend.src.services.feedback_service import feedback_store
+from backend.src.utils.agui_models import (
+    InteractionRequest,
+    InteractionResponse,
+    PendingRequest,
+)
 
 logger = logging.getLogger("hr_ops.agui_store")
 
@@ -65,7 +68,7 @@ class AGUIStore:
             feedback_store.record_hitl_reward(interaction_id, action)
         return True
 
-    def get_response(self, interaction_id: str) -> Optional[InteractionResponse]:
+    def get_response(self, interaction_id: str) -> InteractionResponse | None:
         """Retrieve the stored response for a given interaction, or None if not yet resolved."""
         return self._responses.get(interaction_id)
 

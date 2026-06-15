@@ -1,9 +1,10 @@
 """Application settings loaded from environment variables and supplementary YAML configs with in-memory caching."""
 
-from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import Literal
-import yaml
 from pathlib import Path
+from typing import Literal
+
+import yaml
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):

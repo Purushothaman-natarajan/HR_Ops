@@ -5,14 +5,14 @@ import logging
 from datetime import datetime, timezone
 
 from backend.src.agents.state import SharedState, TraceEntry
-from backend.src.utils.model_router import llm_call
-from backend.src.tools.api_mocks import execute_tool
 from backend.src.guardrails.registry import guardrail_registry
+from backend.src.tools.api_mocks import execute_tool
+from backend.src.utils.model_router import llm_call
 
 logger = logging.getLogger("hr_ops.nodes.action")
 
 
-def action_node(state: SharedState) -> dict:
+async def action_node(state: SharedState) -> dict:
     """Parse a tool call from the query, run it through guardrails, and execute it."""
     start = datetime.now(timezone.utc)
     prompt = (
@@ -24,17 +24,21 @@ def action_node(state: SharedState) -> dict:
         f"Query: {state.query}\n\n"
         f"Reply with JSON: {{\"name\": \"tool_name\", \"args\": {{...}}}}"
     )
-    response, cost = llm_call("action", prompt, max_tokens=256, temperature=0)
+    response, cost = await llm_call("action", prompt, max_tokens=256, temperature=0)
+    tool_call_info = {}
     try:
         call = json.loads(response)
+        tool_call_info = {"tool": call.get("name", ""), "args": call.get("args", {})}
         gr = guardrail_registry.check_tool({"tool_name": call.get("name", ""), "args": call.get("args", {})})
         if not gr.passed:
             result_text = f"Tool guardrail blocked: {gr.message}"
         else:
             result = execute_tool(call["name"], **call["args"])
             result_text = json.dumps(result, indent=2)
+            tool_call_info["result"] = result
     except Exception as e:
         result_text = f"Error: {e}"
+        tool_call_info["error"] = str(e)
     elapsed = (datetime.now(timezone.utc) - start).total_seconds() * 1000
     return {
         "executed_actions": [result_text],
@@ -48,6 +52,7 @@ def action_node(state: SharedState) -> dict:
                 node="action_node", agent_role="action",
                 input_text=state.query, output_text=result_text,
                 timestamp=start, duration_ms=elapsed, cost_usd=cost, model_used="model_router",
+                tool_call=tool_call_info,
             )
         ],
     }

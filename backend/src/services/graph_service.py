@@ -9,7 +9,6 @@ result serialisation helpers, and a Langfuse error-scoring utility.
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Optional
 
 from backend.src.agents.state import SharedState, TriggerType
 from backend.src.api.serializers import serialize_graph_result
@@ -17,6 +16,8 @@ from backend.src.core.exceptions import GraphExecutionError, ModelNotAvailableEr
 from backend.src.graph import build_full_graph
 from backend.src.services.feedback_service import feedback_store
 from backend.src.utils.langfuse_setup import create_trace, get_langfuse_client
+from backend.src.utils.pii_redaction import redact_run_data
+from backend.src.utils.trace_sampling import should_sample
 from backend.src.utils.trace_store import trace_store
 
 logger = logging.getLogger("hr_ops.services.graph")
@@ -32,7 +33,7 @@ def _get_graph():
     return _graph_instance
 
 
-def run_graph(query: str, trigger: str = "reactive", existing_state: Optional[SharedState] = None) -> dict:
+async def run_graph(query: str, trigger: str = "reactive", existing_state: SharedState | None = None) -> dict:
     """Execute the full LangGraph pipeline for a given query.
 
     Creates or reuses a SharedState, invokes the graph, records auto-rewards,
@@ -75,7 +76,7 @@ def run_graph(query: str, trigger: str = "reactive", existing_state: Optional[Sh
 
     try:
         graph = _get_graph()
-        result = graph.invoke(state)
+        result = await graph.ainvoke(state)
     except ModelNotAvailableError:
         raise
     except Exception as e:
@@ -86,7 +87,14 @@ def run_graph(query: str, trigger: str = "reactive", existing_state: Optional[Sh
     feedback_store.record_auto_rewards(result)
 
     serialized = serialize_graph_result(result, run_id, langfuse_trace_id)
-    trace_store.save_run(serialized)
+
+    redact_run_data(serialized)
+
+    if should_sample(serialized):
+        trace_store.save_run(serialized)
+    else:
+        logger.debug("Trace sampling skipped: run_id=%s", run_id)
+
     return serialized
 
 
@@ -101,7 +109,9 @@ def _log_langfuse_error(trace_id: str, error: str):
         client = get_langfuse_client()
         if client is None:
             return
-        from langfuse.api.ingestion.types.ingestion_event import IngestionEvent_ScoreCreate
+        from langfuse.api.ingestion.types.ingestion_event import (
+            IngestionEvent_ScoreCreate,
+        )
         from langfuse.api.ingestion.types.score_body import ScoreBody
         event = IngestionEvent_ScoreCreate(
             id=str(uuid.uuid4()),

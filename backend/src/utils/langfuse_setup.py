@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from langfuse import Langfuse
 from langfuse.api.ingestion.types.ingestion_event import IngestionEvent_TraceCreate
 from langfuse.api.ingestion.types.trace_body import TraceBody
+
 from backend.config.settings import settings
 
 logger = logging.getLogger("hr_ops.langfuse")

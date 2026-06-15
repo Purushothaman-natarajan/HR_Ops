@@ -4,19 +4,31 @@ Builds a linear LangGraph with triage, policy, and action nodes.
 """
 
 import logging
+import sys
 from datetime import datetime, timezone
+from pathlib import Path
 
-from langgraph.graph import StateGraph, END, CompiledStateGraph
+# Allow running as script: add project root to sys.path
+if __name__ == "__main__":
+    _p = Path(__file__).resolve()
+    for _parent in _p.parents:
+        if (_parent / "backend").is_dir():
+            sys.path.insert(0, str(_parent))
+            break
+
+from langgraph.graph import END, StateGraph
+from langgraph.graph.state import CompiledStateGraph
+
 from backend.config.settings import settings
-from backend.src.agents.state import SharedState, AgentRole, TraceEntry
-from backend.src.utils.model_router import llm_call
+from backend.src.agents.state import AgentRole, SharedState, TraceEntry
 from backend.src.guardrails.registry import guardrail_registry
 from backend.src.tools.api_mocks import execute_tool
+from backend.src.utils.model_router import llm_call
 
 logger = logging.getLogger("hr_ops.standard_orchestrator")
 
 
-def _triage_node(state: SharedState) -> dict:
+async def _triage_node(state: SharedState) -> dict:
     """Classify the incoming HR query into policy, action, anomaly, or compliance."""
     start = datetime.now(timezone.utc)
     prompt = (
@@ -44,7 +56,7 @@ def _triage_node(state: SharedState) -> dict:
                     )
                 ],
             }
-    classification, cost = llm_call("triage", prompt, max_tokens=20, temperature=0)
+    classification, cost = await llm_call("triage", prompt, max_tokens=20, temperature=0)
     classification = classification.strip().lower()
     if classification not in ("policy", "action", "anomaly", "compliance"):
         classification = "policy"
@@ -63,7 +75,7 @@ def _triage_node(state: SharedState) -> dict:
     }
 
 
-def _policy_node(state: SharedState) -> dict:
+async def _policy_node(state: SharedState) -> dict:
     """Answer an HR policy question by retrieving relevant policies and generating a response."""
     start = datetime.now(timezone.utc)
     from backend.src.memory.vector_store import similarity_search
@@ -76,7 +88,7 @@ def _policy_node(state: SharedState) -> dict:
         f"Question: {state.query}\n\n"
         f"Provide a clear, actionable answer."
     )
-    answer, cost = llm_call("rag", prompt, max_tokens=512)
+    answer, cost = await llm_call("rag", prompt, max_tokens=512)
     elapsed = (datetime.now(timezone.utc) - start).total_seconds() * 1000
     return {
         "final_response": answer,
@@ -91,7 +103,7 @@ def _policy_node(state: SharedState) -> dict:
     }
 
 
-def _action_node(state: SharedState) -> dict:
+async def _action_node(state: SharedState) -> dict:
     """Parse a tool call from the query and execute it (lookup, modify, or escalate)."""
     start = datetime.now(timezone.utc)
     prompt = (
@@ -102,7 +114,7 @@ def _action_node(state: SharedState) -> dict:
         f"Query: {state.query}\n\n"
         f"Reply with a JSON object: {{\"name\": \"tool_name\", \"args\": {{...}}}}"
     )
-    response, cost = llm_call("action", prompt, max_tokens=256, temperature=0)
+    response, cost = await llm_call("action", prompt, max_tokens=256, temperature=0)
     import json
 
     try:
@@ -130,7 +142,7 @@ def _route_after_triage(state: SharedState) -> str:
     return state.current_agent or "policy"
 
 
-def build_standard_graph() -> StateGraph:
+def build_standard_graph() -> CompiledStateGraph:
     """Build and compile the standard LangGraph with triage, policy, and action nodes."""
     graph = StateGraph(SharedState)
     graph.add_node("triage", _triage_node)
@@ -144,3 +156,82 @@ def build_standard_graph() -> StateGraph:
     graph.add_edge("policy", END)
     graph.add_edge("action", END)
     return graph.compile()
+
+
+if __name__ == "__main__":
+    import argparse
+    import asyncio
+    import json
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    )
+
+    parser = argparse.ArgumentParser(description="Run the standard HR orchestrator with a sample query.")
+    parser.add_argument("query", nargs="?", default="What is the annual leave policy?",
+                        help="HR query to process")
+    parser.add_argument("--mock", action="store_true", default=None,
+                        help="Use mock LLM responses (auto-detected when no API key is set)")
+    args = parser.parse_args()
+
+    async def main():
+        from backend.src.tools.api_mocks import load_employees_from_csv
+
+        load_employees_from_csv()
+
+        query = args.query
+        use_mock = args.mock if args.mock is not None else not settings.llm_is_configured
+
+        if use_mock:
+            print("Using mock LLM responses (no API keys configured)")
+
+            # Heuristic mock: triage returns "action" if query mentions tool-like keywords
+            def _mock_triage(query):
+                kw = {"lookup", "update", "modify", "employee", "salary", "EMP", "escalate"}
+                return ("action", 0.0) if kw & set(query.lower().split()) else ("policy", 0.0)
+
+            _mock_responses = {
+                "action": (
+                    '{"name": "lookup_employee", "args": {"employee_id": "EMP0001"}}', 0.0,
+                ),
+            }
+
+            async def _mock_llm_call(agent_name, prompt, **kwargs):
+                if agent_name == "triage":
+                    resp = _mock_triage(prompt.split("Query:")[-1].strip())
+                else:
+                    resp = _mock_responses.get(agent_name, ("This is a mock response about HR policies.", 0.0))
+                print(f"  [mock] {agent_name} <- {resp[0][:80]}...")
+                return resp
+
+            # Patch the llm_call reference used by the orchestrator module
+            orchestrator_mod = sys.modules.get(__name__) or sys.modules.get("backend.src.agents.standard.orchestrator")
+            if orchestrator_mod:
+                orchestrator_mod.llm_call = _mock_llm_call
+
+        print(f"\nQuery: {query}\n{'-' * 60}")
+        state = SharedState(query=query)
+        graph = build_standard_graph()
+
+        try:
+            result = await graph.ainvoke(state)
+        except Exception as e:
+            print(f"\nError running graph: {e}")
+            sys.exit(1)
+
+        print(f"\nResults:\n{'-' * 60}")
+        if result.get("final_response"):
+            print(f"Final response: {result['final_response']}")
+        if result.get("executed_actions"):
+            print(f"Executed actions: {json.dumps(result['executed_actions'], indent=2)}")
+        if result.get("retrieved_policies"):
+            print(f"Retrieved policies ({len(result['retrieved_policies'])}):")
+            for p in result["retrieved_policies"]:
+                print(f"  - {p[:100]}...")
+        if result.get("trace_log"):
+            print(f"Trace log ({len(result['trace_log'])} entries):")
+            for t in result["trace_log"]:
+                print(f"  [{t.node}] role={t.agent_role} duration={t.duration_ms:.0f}ms")
+
+    asyncio.run(main())

@@ -43,10 +43,10 @@ class SemanticChunking(ChunkingStrategy):
         self.min_chunk_size = min_chunk_size
         self.max_chunk_size = max_chunk_size
 
-    def chunk(self, text: str, **kwargs) -> list[Chunk]:
+    async def chunk(self, text: str, **kwargs) -> list[Chunk]:
         """Split text into semantically coherent chunks using sentence embeddings."""
         if _ENCODER is None:
-            return self._fallback(text)
+            return await self._fallback(text)
         sentences = self._split_sentences(text)
         if len(sentences) <= 1:
             return [Chunk(text=text.strip(), index=0)]
@@ -88,6 +88,6 @@ class SemanticChunking(ChunkingStrategy):
         parts = re.split(r"(?<=[.!?])\s+", text)
         return [p.strip() for p in parts if p.strip()]
 
-    def _fallback(self, text: str) -> list[Chunk]:
+    async def _fallback(self, text: str) -> list[Chunk]:
         """Fallback to RecursiveChunking when sentence encoder is unavailable."""
-        return RecursiveChunking().chunk(text)
+        return await RecursiveChunking().chunk(text)
