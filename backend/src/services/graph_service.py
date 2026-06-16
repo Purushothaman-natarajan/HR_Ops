@@ -66,7 +66,7 @@ async def run_graph(query: str, trigger: str = "reactive", existing_state: Share
         state.langfuse_trace_id = langfuse_trace_id
     else:
         trigger_type = (
-            TriggerType.SCHEDULED if trigger == "scheduled" else TriggerType.REACTIVE
+            TriggerType.SCHEDULED if trigger == "scheduled" else (TriggerType.SYSTEM if trigger == "system" else TriggerType.REACTIVE)
         )
         state = SharedState(
             query=query,

@@ -7,6 +7,7 @@ from backend.src.agents.state import Activity, SharedState, TraceEntry
 from backend.src.intelligence.anomaly import run_anomaly_detection
 from backend.src.tools.api_mocks import _EMPLOYEES
 from backend.src.utils.model_router import llm_call
+from backend.src.memory.episodic_memory import episodic_memory
 
 logger = logging.getLogger("hr_ops.nodes.anomaly")
 
@@ -46,7 +47,12 @@ async def anomaly_node(state: SharedState) -> dict:
         detail=f"Summarizing {anomaly_count} anomalies for HR management",
         status="running",
     ))
-    narrative = await _generate_narrative(results)
+    past_incidents = episodic_memory.recall_similar_incidents(state.query, k=2)
+    if past_incidents:
+        past_context = "\n".join([f"Past Incident: {inc['content']}" for inc in past_incidents])
+        narrative = await _generate_narrative(results) + "\n\nRelated Past Incidents:\n" + past_context
+    else:
+        narrative = await _generate_narrative(results)
     activities[-1].status = "completed"
     activities[-1].detail = f"Generated {len(narrative)}-char narrative"
 
