@@ -35,7 +35,16 @@ logger = logging.getLogger("hr_ops.standard_orchestrator")
 async def _triage_node(state: SharedState) -> dict:
     """Classify the incoming HR query into policy, action, anomaly, or compliance."""
     start = datetime.now(timezone.utc)
+    history = state.messages
+    history_context = ""
+    if history:
+        recent = history[-4:]
+        history_context = "Conversation history:\n" + "\n".join(
+            f"{m['role']}: {m['content'][:200]}" for m in recent
+        ) + "\n\n"
+
     prompt = (
+        f"{history_context}"
         f"Classify the following HR query into one of:\n"
         f"- policy (ask about HR policies, rules, benefits, etc. from documents)\n"
         f"- action (query, count, retrieve, or modify employee database records/details)\n"

@@ -80,14 +80,16 @@ _NAME_LOOKUP_PATTERNS = [
 ]
 
 _FORBIDDEN_NAME_WORDS = {
-    "policy", "leave", "holiday", "vacation", "rules", "guidelines", "handbook",
+    "policy", "leave", "leaves", "holiday", "vacation", "rules", "guidelines", "handbook",
     "schema", "table", "database", "query", "record", "system", "hr", "ops",
     "payroll", "salary", "bonus", "attendance", "performance", "training",
     "safety", "employee", "staff", "person", "info", "information", "data", "all",
     "and", "or", "but", "show", "list", "get", "find", "search", "who", "whom", 
     "whose", "what", "where", "when", "why", "how", "their", "his", "her", "its", 
     "them", "they", "him", "she", "me", "my", "your", "our", "us", "department", 
-    "dept", "office", "location", "role", "title", "position", "manager", "boss"
+    "dept", "office", "location", "role", "title", "position", "manager", "boss",
+    "more", "some", "any", "other", "extra", "another", "new", "add", "delete",
+    "update", "create", "insert", "apply", "request", "an", "is", "can", "to", "for"
 }
 
 _EMP_ID_PATTERN = re.compile(r"\b(EMP\d{4,})\b", re.IGNORECASE)
