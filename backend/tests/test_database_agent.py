@@ -130,3 +130,13 @@ def test_tool_guardrail_allows_database_tools():
     res_blocked = tool_guardrail({"tool_name": "drop_tables_xyz"})
     assert res_blocked[0] is False
     assert "not in the allowed list" in res_blocked[1]
+
+def test_execute_db_query_with_parameters():
+    """Verify that execute_db_query securely executes queries with parameters."""
+    query = "SELECT Employee_ID, Employee_Name FROM employees WHERE Employee_Name LIKE ? LIMIT 3;"
+    parameters = ["%Alice%"]
+    res = execute_db_query(query, parameters)
+    assert res.get("success") is True
+    assert res.get("type") == "read"
+    assert len(res.get("rows", [])) > 0
+    assert "Alice" in res.get("rows", [])[0]["Employee_Name"]

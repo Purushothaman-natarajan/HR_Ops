@@ -178,7 +178,7 @@ def get_database_schema(db_name: str = "hr_ops") -> dict:
         return {"success": False, "error": str(e)}
 
 
-def execute_db_query(sql_query: str, db_name: str = "hr_ops") -> dict:
+def execute_db_query(sql_query: str, parameters: list | dict | None = None, db_name: str = "hr_ops") -> dict:
     """Execute an arbitrary raw SQL query against the active database.
     
     Supports both read (SELECT) and write (UPDATE, INSERT, DELETE) statements.
@@ -200,7 +200,10 @@ def execute_db_query(sql_query: str, db_name: str = "hr_ops") -> dict:
         query_strip = sql_query.strip().upper()
         is_write = any(query_strip.startswith(kw) for kw in ["UPDATE", "INSERT", "DELETE", "CREATE", "DROP", "ALTER", "REPLACE"])
         
-        cur.execute(sql_query)
+        if parameters:
+            cur.execute(sql_query, parameters)
+        else:
+            cur.execute(sql_query)
         
         if is_write:
             conn.commit()
