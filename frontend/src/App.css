@@ -1448,17 +1448,12 @@
 }
 
 .chat-examples {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   margin-top: 28px;
   width: 100%;
-}
-
-@media (max-width: 680px) {
-  .chat-examples {
-    grid-template-columns: 1fr;
-  }
+  max-width: 480px;
 }
 
 .chat-examples button.btn {
