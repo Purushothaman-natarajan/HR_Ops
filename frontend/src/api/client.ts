@@ -385,6 +385,7 @@ export const api = {
         available: boolean;
         collection: string;
         document_count: number;
+        chunk_count: number;
         embedding_model: string;
         dimension: number;
         persist_dir: string;
