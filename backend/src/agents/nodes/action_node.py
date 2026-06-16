@@ -28,19 +28,18 @@ logger = logging.getLogger("hr_ops.nodes.action")
 def _parse_tool_json(response: str) -> dict | None:
     """Try to extract a valid JSON tool call from LLM response.
 
-    Handles:
-    - Clean JSON: {"name": "...", "args": {...}}
-    - Markdown-fenced JSON: ```json {...} ```
-    - JSON embedded in text
+    Supports direct JSON, markdown-fences, and embedded JSON in conversational preambles.
     """
     if not response or not response.strip():
         return None
 
-    # Strip markdown code fences
-    stripped = re.sub(r"```(?:json)?\s*", "", response, flags=re.IGNORECASE).strip()
-    stripped = stripped.rstrip("`").strip()
+    # Try simple direct parse of the stripped response
+    stripped = response.strip()
+    # Strip markdown code fences if present
+    stripped = re.sub(r"^```(?:json)?\s*", "", stripped, flags=re.IGNORECASE)
+    stripped = re.sub(r"\s*```$", "", stripped)
+    stripped = stripped.strip()
 
-    # Try to parse directly
     try:
         obj = json.loads(stripped)
         if isinstance(obj, dict) and "name" in obj:
@@ -48,15 +47,20 @@ def _parse_tool_json(response: str) -> dict | None:
     except json.JSONDecodeError:
         pass
 
-    # Find first JSON object in the text
-    match = re.search(r'\{[^{}]*"name"[^{}]*\}', stripped, re.DOTALL)
-    if match:
-        try:
-            obj = json.loads(match.group())
-            if isinstance(obj, dict) and "name" in obj:
-                return obj
-        except json.JSONDecodeError:
-            pass
+    # Find the first occurrences of '{' and scan for a valid JSON object
+    start_idx = response.find("{")
+    while start_idx != -1:
+        # Try to find matching closing bracket by parsing substrings of increasing length
+        for end_idx in range(len(response), start_idx, -1):
+            try:
+                candidate = response[start_idx:end_idx]
+                obj = json.loads(candidate)
+                if isinstance(obj, dict) and "name" in obj:
+                    return obj
+            except json.JSONDecodeError:
+                continue
+        # Find next occurrence of '{'
+        start_idx = response.find("{", start_idx + 1)
 
     return None
 
@@ -189,8 +193,17 @@ async def action_node(state: SharedState) -> dict:
         from backend.src.services.db_schema_store import get_schema_understanding
         schema_understanding = await get_schema_understanding()
 
+        history = state.messages
+        history_context = ""
+        if history:
+            recent = history[-4:]
+            history_context = "Conversation history:\n" + "\n".join(
+                f"{m['role']}: {m['content'][:200]}" for m in recent
+            ) + "\n\n"
+
         prompt = (
-            "Extract a tool call from the HR query.\n"
+            f"{history_context}"
+            "Extract a tool call from the HR query. Use the conversation history to resolve pronouns (e.g. 'he', 'she', 'their') or contextual references.\n"
             "Available tools:\n"
             "  search_employee_by_name(name)           ← USE THIS for any name/person lookup\n"
             "  lookup_employee(employee_id)             ← USE THIS only when you have an EMP ID\n"

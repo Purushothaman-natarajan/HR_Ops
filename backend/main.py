@@ -31,6 +31,7 @@ from backend.src.api.integration_routes import router as integration_router
 from backend.src.api.policy_routes import router as policy_router
 from backend.src.api.trace_routes import router as trace_router
 from backend.src.api.vector_routes import router as vector_router
+from backend.src.api.webhook_routes import router as webhook_router
 from backend.src.core.exceptions import HROpsBaseError
 from backend.src.core.response import (
     error_response,
@@ -152,6 +153,7 @@ app.include_router(vector_router)
 app.include_router(database_router)
 app.include_router(auth_router)
 app.include_router(integration_router)
+app.include_router(webhook_router)
 
 
 @app.exception_handler(HROpsBaseError)

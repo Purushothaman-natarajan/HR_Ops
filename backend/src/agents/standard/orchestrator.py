@@ -157,8 +157,17 @@ async def _action_node(state: SharedState) -> dict:
     from backend.src.services.db_schema_store import get_schema_understanding
     schema_understanding = await get_schema_understanding()
 
+    history = state.messages
+    history_context = ""
+    if history:
+        recent = history[-4:]
+        history_context = "Conversation history:\n" + "\n".join(
+            f"{m['role']}: {m['content'][:200]}" for m in recent
+        ) + "\n\n"
+
     prompt = (
-        f"Extract the tool call from the query. Valid tools:\n"
+        f"{history_context}"
+        f"Extract the tool call from the query. Use the conversation history to resolve pronouns (e.g. 'he', 'she', 'their') or contextual references. Valid tools:\n"
         f"- get_database_schema()\n"
         f"- execute_db_query(sql_query, parameters)\n"
         f"- lookup_employee(employee_id: str)\n"
@@ -176,29 +185,45 @@ async def _action_node(state: SharedState) -> dict:
     def _parse_tool_json(s: str) -> dict | None:
         if not s or not s.strip():
             return None
-        stripped = re.sub(r"```(?:json)?\s*", "", s, flags=re.IGNORECASE).strip().rstrip("`").strip()
+
+        # Try simple direct parse of the stripped response
+        stripped = s.strip()
+        # Strip markdown code fences if present
+        stripped = re.sub(r"^```(?:json)?\s*", "", stripped, flags=re.IGNORECASE)
+        stripped = re.sub(r"\s*```$", "", stripped)
+        stripped = stripped.strip()
+
         try:
             obj = json.loads(stripped)
             if isinstance(obj, dict) and "name" in obj:
                 return obj
         except json.JSONDecodeError:
             pass
-        match = re.search(r'\{[^{}]*"name"[^{}]*\}', stripped, re.DOTALL)
-        if match:
-            try:
-                obj = json.loads(match.group())
-                if isinstance(obj, dict) and "name" in obj:
-                    return obj
-            except json.JSONDecodeError:
-                pass
+
+        # Find the first occurrences of '{' and scan for a valid JSON object
+        start_idx = s.find("{")
+        while start_idx != -1:
+            # Try to find matching closing bracket by parsing substrings of increasing length
+            for end_idx in range(len(s), start_idx, -1):
+                try:
+                    candidate = s[start_idx:end_idx]
+                    obj = json.loads(candidate)
+                    if isinstance(obj, dict) and "name" in obj:
+                        return obj
+                except json.JSONDecodeError:
+                    continue
+            # Find next occurrence of '{'
+            start_idx = s.find("{", start_idx + 1)
+
         return None
 
     try:
         call = _parse_tool_json(response)
         if call is None:
             # Fallback: try name search
-            name_m = re.search(r"named?\s+['\"]?([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)['\"]?", state.query, re.IGNORECASE)
-            if name_m:
+            name_m = re.search(r"named?\s+['\"]?([A-Za-z]+(?:\s+[A-Za-z]+)*)['\"]?", state.query, re.IGNORECASE)
+            from backend.src.agents.nodes.action_node import _is_valid_name
+            if name_m and _is_valid_name(name_m.group(1).strip()):
                 name = name_m.group(1).strip()
                 call = {"name": "execute_db_query", "args": {"sql_query": "SELECT * FROM employees WHERE Employee_Name LIKE ? LIMIT 10;", "parameters": [f"%{name}%"]}}
             else:

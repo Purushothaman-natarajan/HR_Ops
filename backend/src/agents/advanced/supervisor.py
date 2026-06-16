@@ -115,7 +115,7 @@ async def supervisor_decision(state: SharedState) -> dict:
                 f"Options:\n"
                 f"- policy: questions about HR policies, rules, benefits, guidelines, or general documentation.\n"
                 f"- action: queries seeking to retrieve, count, search, or modify employee details, databases, or records.\n"
-                f"- anomaly: tasks investigating data discrepancies, outliers, errors, or anomalies.\n"
+                f"- anomaly: tasks investigating data discrepancies, outliers, errors, or anomalies. ALSO choose this option for instructions requesting to 'run anomaly detection', 'run scan', 'check for anomalies', or generate anomaly reports across datasets.\n"
                 f"- compliance: tasks checking if actions or queries comply with rules/regulations.\n\n"
                 f"Query: {state.query}\n"
                 f"Reply with exactly one word from the options."
@@ -170,9 +170,19 @@ async def supervisor_decision(state: SharedState) -> dict:
     activities[-1].detail = f"RL selected: {decision} (LLM suggested: {llm_decision})"
     reasoning_detail += f" | RL bandit selected '{decision}'"
 
+    # Override bandit if LLM detected a specialized system execution task (anomaly or compliance)
+    if llm_decision in ("anomaly", "compliance") and decision != llm_decision:
+        logger.info("Supervisor override: routing specialized task '%s' directly (bandit chose '%s')", llm_decision, decision)
+        decision = llm_decision
+        activities.append(Activity(
+            type="decision", label="Specialized task override",
+            detail=f"Routing directly to '{llm_decision}' instead of bandit's choice '{decision}'",
+            status="completed",
+        ))
+
     logger.info(
-        "Supervisor routed: query=%s -> rl=%s llm=%s",
-        state.query[:50], decision, llm_decision,
+        "Supervisor routed: query=%s -> final=%s rl=%s llm=%s",
+        state.query[:50], decision, rl_context.get("classification"), llm_decision,
     )
 
     elapsed = (datetime.now(timezone.utc) - start).total_seconds() * 1000

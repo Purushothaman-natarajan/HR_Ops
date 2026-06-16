@@ -80,7 +80,8 @@ An interactive version of the architecture diagram, trigger descriptions, and de
 | **Multi-Agent Orchestration** | LangGraph state graph with 6 agents: Supervisor, Policy, Action, Anomaly, Compliance, HITL |
 | **RL Routing** | LinUCB contextual bandit selects sub-agent per query; batch update from feedback |
 | **Policy Knowledge Base** | Full CRUD: upload/update/delete policies (PDF, MD, TXT), auto-re-index ChromaDB |
-| **Multi-Turn Conversation** | Server-side sessions, conversation history restored per turn |
+| **Multi-Turn Conversation** | Server-side sessions, conversation history restored per turn with pronoun context resolution (e.g., 'he', 'their') |
+| **DB Schema Understanding** | Generates database schema semantic explanation via LLM on connection/startup and caches it in memory for context-rich query framing |
 | **Feedback Layer** | Inline 👍/👎 ratings, auto-rewards from compliance/HITL, batch flush to RL bandit |
 | **DSPy Optimization** | MIPROv2 weekly prompt optimization from HITL feedback |
 | **AG-UI HITL** | Human-in-the-loop via AG-UI protocol with configurable timeout |

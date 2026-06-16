@@ -859,7 +859,7 @@ gcloud run deploy hr-ops-backend \
         },
         'supervisor': {
             title: 'Supervisor Node (Triage & Bandit)',
-            body: 'Classifies the query. Uses LLM-based triage logic, routes via the LinUCB bandit model to select the final action agent, utilizing context parameters (query size, keywords, urgency) to optimize selection over time.',
+            body: 'Classifies the query using LLM-based triage. Correctly routes query tasks (e.g. running anomaly scans or policy lookups) to standard or anomaly sub-graphs, then applies a LinUCB bandit model to choose the optimal path.',
             state: '["current_agent", "rl_selected_action", "rl_context", "trace_log"]'
         },
         'policy': {
@@ -869,7 +869,7 @@ gcloud run deploy hr-ops-backend \
         },
         'action': {
             title: 'Action Node (Tool Executor)',
-            body: 'Parses the employee query to extract target system calls. Inspects parameters against security guardrails before dispatching to API lookup or update mock tools.',
+            body: 'Extracts API/SQL operations from natural language query. Resolves pronoun context via conversation history, and frames parameterized queries against SQLite tables guided by the cached LLM DB Schema Understanding generated at startup.',
             state: '["final_response", "executed_actions", "trace_log"]'
         },
         'parallel': {

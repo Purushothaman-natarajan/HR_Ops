@@ -297,3 +297,72 @@ class TestSchedulerAPI:
         assert body["data"]["interval_seconds"] == 10
         assert body["data"]["running"] is False
 
+
+class TestVectorStoreAPI:
+    def test_vector_store_status(self):
+        r = client.get("/vector-store/status")
+        assert r.status_code == 200
+        body = r.json()
+        assert body["success"] is True
+        assert "available" in body["data"]
+        assert "collection" in body["data"]
+
+
+class TestWebhookAPI:
+    def test_webhook_alert_missing_query(self):
+        r = client.post("/webhook/alert", json={})
+        assert r.status_code == 400
+        assert r.json()["success"] is False
+
+    def test_webhook_alert_processing(self):
+        r = client.post("/webhook/alert", json={"query": "Run anomaly checks"})
+        assert r.status_code == 200
+        body = r.json()
+        assert body["success"] is True
+        assert body["data"]["status"] == "processing"
+
+
+class TestAuthAPI:
+    def test_login_successful_admin(self):
+        r = client.post("/auth/login", json={"role": "admin", "password": "admin"})
+        assert r.status_code == 200
+        body = r.json()
+        assert body["success"] is True
+        assert "token" in body["data"]
+        assert body["data"]["role"] == "admin"
+
+    def test_login_invalid_role(self):
+        r = client.post("/auth/login", json={"role": "invalid_role", "password": "abc"})
+        assert r.status_code == 400
+        assert r.json()["success"] is False
+
+    def test_login_invalid_password(self):
+        r = client.post("/auth/login", json={"role": "admin", "password": "wrongpassword"})
+        assert r.status_code == 401
+        assert r.json()["success"] is False
+
+    def test_login_employee_missing_id(self):
+        r = client.post("/auth/login", json={"role": "employee", "password": "employee"})
+        assert r.status_code == 400
+        assert r.json()["success"] is False
+
+
+class TestAGUIInteraction:
+    def test_respond_nonexistent_interaction(self):
+        r = client.post("/agui/respond/nonexistent_id", json={"interaction_id": "nonexistent_id", "response": "OK"})
+        assert r.status_code == 404
+        assert r.json()["success"] is False
+
+    def test_get_response_nonexistent_interaction(self):
+        r = client.get("/agui/response/nonexistent_id")
+        assert r.status_code == 404
+        assert r.json()["success"] is False
+
+    def test_get_status_nonexistent_interaction(self):
+        r = client.get("/agui/status/nonexistent_id")
+        assert r.status_code == 200
+        body = r.json()
+        assert body["success"] is True
+        assert body["data"]["interaction_id"] == "nonexistent_id"
+        assert "expired" in body["data"]
+
