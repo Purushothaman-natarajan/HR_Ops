@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -45,6 +46,13 @@ class Settings(BaseSettings):
     rl_alpha: float = 0.1
     rl_gamma: float = 0.9
     rl_batch_size: int = 10
+
+    @model_validator(mode="after")
+    def validate_production_secrets(self) -> "Settings":
+        """Ensure that default secrets are overridden in production."""
+        if self.environment == "production" and self.auth_secret_key == "change-me-in-production":
+            raise ValueError("auth_secret_key must be overridden in production environment.")
+        return self
 
     # ------------------------------------------------------------------
     # YAML loader — reads once, caches forever (per process)
