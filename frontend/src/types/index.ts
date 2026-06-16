@@ -191,3 +191,29 @@ export interface APIResponse<T = unknown> {
   message: string;
   correlation_id: string;
 }
+
+/** Scheduler status returned alongside scan outcomes. */
+export interface SchedulerStatus {
+  running: boolean;
+  interval_seconds: number;
+  run_count: number;
+  last_run_at: string | null;
+  last_error: string | null;
+}
+
+/** A single anomaly scan outcome stored by the alert store. */
+export interface ScanOutcome {
+  id: string;
+  trigger_type: "scheduled" | "manual";
+  created_at: string;
+  status: "completed" | "error";
+  final_response: string;
+  anomaly_results: AnomalyResult[];
+  total_anomalies: number;
+  compliance_veto: boolean;
+  compliance_reason: string;
+  executed_actions: string[];
+  retrieved_policies: string[];
+  total_cost_usd: number;
+  alert_status: "new" | "read";
+}

@@ -2,7 +2,7 @@ import type { AppRole } from "../types";
 import { Icon } from "./Icons";
 import type { IconName } from "./Icons";
 
-type Page = "dashboard" | "query" | "hitl" | "trace" | "tracequery" | "rl" | "cost" | "policies" | "performance" | "settings";
+type Page = "dashboard" | "query" | "hitl" | "trace" | "tracequery" | "rl" | "cost" | "policies" | "performance" | "settings" | "scans";
 
 interface Props {
   activePage: Page;
@@ -30,6 +30,7 @@ const navItems: NavItem[] = [
   { id: "policies", label: "Policy Manager", icon: "policy", section: "Knowledge", roles: ["admin", "hr", "employee"] },
   { id: "rl", label: "RL Dashboard", icon: "rl", section: "Insights", roles: ["admin"] },
   { id: "cost", label: "Cost Monitor", icon: "cost", section: "Insights", roles: ["admin", "hr"] },
+  { id: "scans", label: "Scan Outcomes", icon: "scan", section: "Insights", roles: ["admin", "hr"] },
   { id: "performance", label: "Performance", icon: "performance", section: "Observability", roles: ["admin"] },
 ];
 

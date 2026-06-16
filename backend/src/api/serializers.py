@@ -49,17 +49,24 @@ def serialize_trace_events(trace_log: Any) -> list[dict]:
 def _serialize_anomaly_results(anomalies: Any) -> list[dict]:
     if not isinstance(anomalies, list):
         return []
-    return [
-        {
-            "detected": a.detected,
-            "severity": a.severity,
-            "description": a.description,
-            "anomaly_field": a.anomaly_field,
-            "suggested_action": a.suggested_action,
-        }
-        for a in anomalies
-        if isinstance(a, AnomalyResult)
-    ]
+    results = []
+    for a in anomalies:
+        if isinstance(a, AnomalyResult):
+            results.append({
+                "detected": a.detected,
+                "severity": a.severity,
+                "confidence_score": a.confidence_score,
+                "description": a.description,
+                "anomaly_field": a.anomaly_field,
+                "anomaly_type": a.anomaly_type,
+                # prefer suggested_action; fall back to recommended_action
+                "suggested_action": a.suggested_action or a.recommended_action or "",
+                "recommended_action": a.recommended_action,
+            })
+        elif isinstance(a, dict):
+            # Already serialised (e.g. re-run from trace store) — pass through
+            results.append(a)
+    return results
 
 
 def serialize_graph_result(

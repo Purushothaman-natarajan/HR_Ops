@@ -25,6 +25,21 @@ async def mark_alert_read(alert_id: str, request: Request):
         return error_response(message="Alert not found", correlation_id=correlation_id, status_code=404)
     return success_response(data={"id": alert_id, "status": "read"}, correlation_id=correlation_id)
 
+
+@router.get("/scan-outcomes")
+async def get_scan_outcomes(request: Request):
+    """Return structured scan outcomes for the Scan Outcomes UI page."""
+    correlation_id = get_correlation_id(request)
+    outcomes = alert_store.get_scan_outcomes()
+    return success_response(
+        data={
+            "outcomes": outcomes,
+            "scheduler": scheduler.get_status(),
+        },
+        correlation_id=correlation_id,
+    )
+
+
 @router.get("/scheduler")
 async def get_scheduler_status(request: Request):
     correlation_id = get_correlation_id(request)
@@ -61,8 +76,15 @@ async def trigger_manual_scan(request: Request):
     """Trigger an immediate anomaly detection scan outside the scheduled cycle."""
     correlation_id = get_correlation_id(request)
     try:
-        result = await run_graph("Run anomaly detection across all HR datasets", trigger="manual")
+        # Use "scheduled" trigger so the supervisor routes deterministically to anomaly agent
+        result = await run_graph("Run anomaly detection across all HR datasets", trigger="scheduled")
         summary = result.get("final_response", "")[:200] if result else "Scan completed."
+        # Store so it appears in the Scan Outcomes page
+        alert_store.add_alert(
+            query="Run anomaly detection across all HR datasets",
+            trigger_type="manual",
+            result=result or {},
+        )
         return success_response(
             data={"triggered": True, "result_summary": summary},
             correlation_id=correlation_id,

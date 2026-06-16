@@ -1,4 +1,5 @@
-import type { APIResponse, GraphRunResponse, PendingItem, PolicyDocument, ConversationSession, FeedbackEntry, TraceRunSummary, TraceRunDetail } from "../types";
+import type { APIResponse, GraphRunResponse, PendingItem, PolicyDocument, ConversationSession, FeedbackEntry, TraceRunSummary, TraceRunDetail, ScanOutcome, SchedulerStatus } from "../types";
+
 
 const BASE_URL = import.meta.env.VITE_API_URL || "";
 
@@ -459,7 +460,7 @@ export const api = {
 
   alerts: {
     getScheduler: () =>
-      request<APIResponse<{ interval_seconds: number; running: boolean }>>("/alerts/scheduler"),
+      request<APIResponse<{ interval_seconds: number; running: boolean; run_count: number; last_run_at: string | null; last_error: string | null }>>("/alerts/scheduler"),
     updateScheduler: (interval_seconds: number, running?: boolean) =>
       request<APIResponse<{ interval_seconds: number; running: boolean }>>("/alerts/scheduler", {
         method: "POST",
@@ -469,7 +470,17 @@ export const api = {
       request<APIResponse<{ triggered: boolean; result_summary: string }>>("/alerts/scheduler/scan", {
         method: "POST",
       }),
+    /** Fetch all scan outcomes with scheduler status for the Scan Outcomes page. */
+    scanOutcomes: () =>
+      request<APIResponse<{ outcomes: ScanOutcome[]; scheduler: SchedulerStatus }>>("/alerts/scan-outcomes"),
+    /** Mark an alert as read. */
+    markRead: (id: string) =>
+      request<APIResponse<{ id: string; status: string }>>(`/alerts/${id}/read`, { method: "POST" }),
+    /** List all raw alerts (legacy). */
+    list: () =>
+      request<APIResponse<{ alerts: unknown[] }>>("/alerts/"),
   },
+
 
   debug: {
     /** List recent API request entries stored for debugging.

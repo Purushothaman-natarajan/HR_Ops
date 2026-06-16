@@ -15,14 +15,15 @@ import { CostDashboard } from "./components/CostDashboard";
 import { PerformanceDashboard } from "./components/PerformanceDashboard";
 import { PolicyManager } from "./components/PolicyManager";
 import { IntegrationsManager } from "./components/IntegrationsManager";
+import { ScanOutcomes } from "./components/ScanOutcomes";
 import { LoginPage } from "./components/LoginPage";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
 import type { AppRole } from "./types";
 
-type Page = "dashboard" | "query" | "hitl" | "trace" | "tracequery" | "rl" | "cost" | "policies" | "performance" | "settings";
+type Page = "dashboard" | "query" | "hitl" | "trace" | "tracequery" | "rl" | "cost" | "policies" | "performance" | "settings" | "scans";
 
-const ADMIN_PAGES: Page[] = ["dashboard", "query", "hitl", "trace", "tracequery", "rl", "cost", "policies", "performance", "settings"];
-const HR_PAGES: Page[] = ["dashboard", "query", "hitl", "policies", "cost"];
+const ADMIN_PAGES: Page[] = ["dashboard", "query", "hitl", "trace", "tracequery", "rl", "cost", "policies", "performance", "settings", "scans"];
+const HR_PAGES: Page[] = ["dashboard", "query", "hitl", "policies", "cost", "scans"];
 const EMPLOYEE_PAGES: Page[] = ["dashboard", "query", "policies"];
 
 function getAllowedPages(role: AppRole): Page[] {
@@ -121,6 +122,8 @@ function AppInner() {
                   return <PolicyManager role={role} />;
                 case "settings":
                   return <IntegrationsManager />;
+                case "scans":
+                  return <ScanOutcomes />;
               }
             })()}
           </div>
