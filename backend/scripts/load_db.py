@@ -36,37 +36,49 @@ def load_csv(csv_path: Path, db_path: Path):
             break
             
     if eid_col:
-        # Standardize ID column name to Employee_ID
-        df.rename(columns={eid_col: "Employee_ID"}, inplace=True)
-        # Ensure employee IDs are strings
-        df["Employee_ID"] = df["Employee_ID"].astype(str)
+        df.rename(columns={eid_col: "employee_id"}, inplace=True)
+    else:
+        if "Employee_ID" in df.columns:
+            df.rename(columns={"Employee_ID": "employee_id"}, inplace=True)
+            
+    # Normalize all column names to lowercase for SQLAlchemy compatibility
+    df.columns = [c.lower() for c in df.columns]
+    
+    # Rename employee_name to name
+    if "employee_name" in df.columns:
+        df.rename(columns={"employee_name": "name"}, inplace=True)
+        
+    # Ensure employee_id is string
+    if "employee_id" in df.columns:
+        df["employee_id"] = df["employee_id"].astype(str)
         
     # Auto-enhance with default attributes if they are missing
     import random
     random.seed(42)
     
-    if "Leaves_Accrued" not in df.columns:
-        logger.info("Columns 'Leaves_Accrued' missing, generating random accruals...")
-        df['Leaves_Accrued'] = [random.randint(20, 30) for _ in range(len(df))]
+    if "leaves_accrued" not in df.columns:
+        logger.info("Columns 'leaves_accrued' missing, generating random accruals...")
+        df['leaves_accrued'] = [random.randint(20, 30) for _ in range(len(df))]
         
-    if "Leaves_Taken" not in df.columns:
-        logger.info("Columns 'Leaves_Taken' missing, generating random usages...")
-        df['Leaves_Taken'] = [random.randint(0, 15) for _ in range(len(df))]
+    if "leaves_taken" not in df.columns:
+        logger.info("Columns 'leaves_taken' missing, generating random usages...")
+        df['leaves_taken'] = [random.randint(0, 15) for _ in range(len(df))]
         
-    if "Work_Location" not in df.columns:
-        logger.info("Columns 'Work_Location' missing, generating random locations...")
+    if "work_location" not in df.columns:
+        logger.info("Columns 'work_location' missing, generating random locations...")
         locations = ["New York", "Chicago", "San Francisco", "London", "Remote"]
-        df['Work_Location'] = [random.choice(locations) for _ in range(len(df))]
+        df['work_location'] = [random.choice(locations) for _ in range(len(df))]
         
-    if "Performance_Rating" not in df.columns:
-        logger.info("Columns 'Performance_Rating' missing, generating random ratings...")
-        df['Performance_Rating'] = [float(random.choice([3, 4, 5])) for _ in range(len(df))]
+    if "performance_rating" not in df.columns:
+        logger.info("Columns 'performance_rating' missing, generating random ratings...")
+        df['performance_rating'] = [float(random.choice([3, 4, 5])) for _ in range(len(df))]
         
-    if "Manager_ID" not in df.columns:
-        logger.info("Column 'Manager_ID' missing, generating manager assignments...")
-        emp_ids = df["Employee_ID"].tolist() if "Employee_ID" in df.columns else [str(i) for i in range(len(df))]
+    if "manager_id" not in df.columns:
+        logger.info("Column 'manager_id' missing, generating manager assignments...")
+        emp_ids = df["employee_id"].tolist() if "employee_id" in df.columns else [str(i) for i in range(len(df))]
         manager_pool = emp_ids[:min(5, len(emp_ids))]
-        df['Manager_ID'] = [random.choice(manager_pool) if eid not in manager_pool else "CEO" for eid in emp_ids]
+        df['manager_id'] = [random.choice(manager_pool) if eid not in manager_pool else "CEO" for eid in emp_ids]
+
         
     # Seed into SQL database
     db_path.parent.mkdir(parents=True, exist_ok=True)

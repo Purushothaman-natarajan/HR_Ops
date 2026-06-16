@@ -130,80 +130,7 @@ function SourcesPanel({ events }: { events: NodeEvent[] }) {
   );
 }
 
-/** Session history picker — lists past sessions for resumption. */
-function SessionPicker({
-  onSelect,
-  onClose,
-}: {
-  onSelect: (session: ConversationSession) => void;
-  onClose: () => void;
-}) {
-  const [sessions, setSessions] = useState<ConversationSession[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    api.conversation.list()
-      .then((r) => setSessions((r.data.sessions || []).slice(0, 20)))
-      .catch(() => setSessions([]))
-      .finally(() => setLoading(false));
-  }, []);
-
-  return (
-    <div style={{
-      position: "absolute",
-      top: "100%",
-      left: 0,
-      right: 0,
-      zIndex: 100,
-      background: "var(--color-card)",
-      border: "1px solid var(--color-border)",
-      borderRadius: 10,
-      boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
-      maxHeight: 320,
-      overflowY: "auto",
-      marginTop: 4,
-    }}>
-      <div style={{ padding: "10px 14px", display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--color-border)" }}>
-        <span style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text)" }}>Select a Previous Session</span>
-        <button style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-text-muted)", fontSize: 16, lineHeight: 1 }} onClick={onClose}>×</button>
-      </div>
-      {loading ? (
-        <div style={{ padding: 16, textAlign: "center" }}><div className="spinner" /></div>
-      ) : sessions.length === 0 ? (
-        <div style={{ padding: 16, fontSize: 13, color: "var(--color-text-muted)", textAlign: "center" }}>No previous sessions found.</div>
-      ) : (
-        sessions.map((s) => (
-          <button
-            key={s.session_id}
-            onClick={() => onSelect(s)}
-            style={{
-              display: "block",
-              width: "100%",
-              textAlign: "left",
-              padding: "10px 14px",
-              background: "none",
-              border: "none",
-              borderBottom: "1px solid var(--color-border)",
-              cursor: "pointer",
-              color: "var(--color-text)",
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-surface)")}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
-          >
-            <div style={{ fontSize: 12, fontWeight: 600 }}>
-              {s.session_id.slice(0, 14)}… &nbsp;
-              <span style={{ fontWeight: 400, color: "var(--color-text-muted)" }}>({s.mode || "standard"})</span>
-            </div>
-            <div style={{ fontSize: 11, color: "var(--color-text-muted)", marginTop: 2 }}>
-              {s.message_count ?? (s.messages?.length ?? 0)} messages
-              {s.updated_at ? ` · ${new Date(s.updated_at).toLocaleString()}` : ""}
-            </div>
-          </button>
-        ))
-      )}
-    </div>
-  );
-}
 
 export function ChatInterface({
   employeeId = "",
@@ -222,11 +149,9 @@ export function ChatInterface({
   const [totalCost, setTotalCost] = useState(0);
   const [ratedTurns, setRatedTurns] = useState<Record<number, 1 | 0 | -1>>({});
   const [liveEvents, setLiveEvents] = useState<NodeEvent[]>([]);
-  const [showSessionPicker, setShowSessionPicker] = useState(false);
   const [resumeLoading, setResumeLoading] = useState(!!resumeSessionId);
   const esRef = useRef<EventSource | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const headerRef = useRef<HTMLDivElement>(null);
   const modeTemplate = MODE_TEMPLATES[mode];
 
   // Load resumed session history on mount
@@ -261,25 +186,7 @@ export function ChatInterface({
     };
   }, []);
 
-  const handleSelectSession = useCallback(async (s: ConversationSession) => {
-    setShowSessionPicker(false);
-    setLoading(true);
-    try {
-      const res = await api.conversation.get(s.session_id);
-      setSessionId(s.session_id);
-      setMessages(res.data.messages || []);
-      if (res.data.mode) setMode(res.data.mode);
-      setTotalCost(res.data.total_cost ?? res.data.total_cost_usd ?? 0);
-      setRatedTurns({});
-      setTraceEvents([]);
-      setLiveEvents([]);
-      setError("");
-    } catch {
-      setError(`Failed to load session ${s.session_id}`);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+
 
   const handleSend = useCallback(() => {
     const q = input.trim();
@@ -440,20 +347,7 @@ export function ChatInterface({
               </span>
             </div>
           )}
-          {/* Session history button */}
-          <div style={{ position: "relative" }} ref={headerRef}>
-            <button
-              className="btn btn-sm btn-secondary"
-              onClick={() => setShowSessionPicker((prev) => !prev)}
-              title="Browse past sessions"
-            >
-              <Icon name="trace" size={14} />
-              &nbsp;History
-            </button>
-            {showSessionPicker && (
-              <SessionPicker onSelect={handleSelectSession} onClose={() => setShowSessionPicker(false)} />
-            )}
-          </div>
+
           {sessionId && (
             <button className="btn btn-sm btn-secondary" onClick={handleNewSession}>
               New Session

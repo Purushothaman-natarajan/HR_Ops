@@ -54,7 +54,11 @@ function shortId(id: string): string {
   return id.length > 10 ? id.slice(0, 10) : id;
 }
 
-export function TraceList() {
+export function TraceList({
+  onContinueSession,
+}: {
+  onContinueSession?: (sessionId: string, mode?: "standard" | "advanced") => void;
+}) {
   const [runs, setRuns] = useState<TraceRun[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -232,6 +236,7 @@ export function TraceList() {
                         eventCount={eventCount}
                         isExpanded={isExpanded}
                         onToggle={() => toggleExpand(run.run_id)}
+                        onContinueSession={onContinueSession}
                       />
                     );
                   })}
@@ -251,12 +256,14 @@ function TraceRow({
   eventCount,
   isExpanded,
   onToggle,
+  onContinueSession,
 }: {
   run: TraceRun;
   source: string;
   eventCount: number;
   isExpanded: boolean;
   onToggle: () => void;
+  onContinueSession?: (sessionId: string, mode?: "standard" | "advanced") => void;
 }) {
   return (
     <>
@@ -291,7 +298,7 @@ function TraceRow({
         <tr className="trace-detail-row">
           <td colSpan={7}>
             <div className="trace-detail">
-              <div className="trace-detail-header">
+              <div className="trace-detail-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div className="trace-detail-meta">
                   <span className="trace-detail-id">
                     <Icon name="trace" size={12} /> {run.run_id}
@@ -301,6 +308,19 @@ function TraceRow({
                   <span>{eventCount} event{eventCount !== 1 ? "s" : ""}</span>
                   <span>{formatTime(run.timestamp)}</span>
                 </div>
+                {run.session_id && onContinueSession && (
+                  <button
+                    className="btn btn-primary btn-sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      // Auto-detect mode from the run itself or default to advanced
+                      onContinueSession(run.session_id);
+                    }}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+                  >
+                    <Icon name="arrow" size={12} /> Continue Session
+                  </button>
+                )}
               </div>
 
               {run.final_response && (
@@ -322,3 +342,4 @@ function TraceRow({
     </>
   );
 }
+

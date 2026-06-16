@@ -106,7 +106,7 @@ function AppInner() {
                 case "hitl":
                   return <HITLPanel onContinueSession={handleContinueSession} />;
                 case "trace":
-                  return <TraceList />;
+                  return <TraceList onContinueSession={handleContinueSession} />;
                 case "tracequery":
                   return <TraceQueryPanel />;
                 case "rl":
