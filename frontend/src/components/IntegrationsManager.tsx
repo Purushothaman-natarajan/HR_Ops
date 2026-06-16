@@ -34,6 +34,7 @@ export function IntegrationsManager() {
   const [schedulerInterval, setSchedulerInterval] = useState<number>(3600);
   const [schedulerUnit, setSchedulerUnit] = useState<"seconds" | "minutes" | "hours">("hours");
   const [schedulerRunning, setSchedulerRunning] = useState<boolean>(true);
+  const [scanning, setScanning] = useState(false);
 
   useEffect(() => {
     // Load integrations config
@@ -96,6 +97,20 @@ export function IntegrationsManager() {
       setError(`Failed to save: ${e}`);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleScanNow = async () => {
+    setScanning(true);
+    setError("");
+    setSuccess("");
+    try {
+      const res = await api.alerts.triggerScan();
+      setSuccess(`Scan completed. ${res.data.result_summary || "Anomaly detection finished."}`);
+    } catch (e) {
+      setError(`Scan failed: ${e}`);
+    } finally {
+      setScanning(false);
     }
   };
 
@@ -179,7 +194,25 @@ export function IntegrationsManager() {
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
           <Icon name="clock" size={18} style={{ color: "var(--color-accent)" }} />
           <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0, color: "var(--color-text)" }}>Scheduled Anomaly Scan</h3>
-          <label style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+          <button
+            className="btn btn-sm btn-secondary"
+            onClick={handleScanNow}
+            disabled={scanning}
+            style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6, marginRight: 12 }}
+          >
+            {scanning ? (
+              <>
+                <div className="spinner" style={{ width: 12, height: 12 }} />
+                Scanning...
+              </>
+            ) : (
+              <>
+                <Icon name="search" size={13} />
+                Scan Now
+              </>
+            )}
+          </button>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
             <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{schedulerRunning ? "Active" : "Inactive"}</span>
             <div
               onClick={() => setSchedulerRunning(!schedulerRunning)}

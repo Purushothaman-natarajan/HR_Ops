@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from backend.src.core.response import get_correlation_id, success_response, error_response
 from backend.src.utils.alert_store import alert_store
 from backend.src.services.scheduler import scheduler
+from backend.src.services.graph_service import run_graph
 
 router = APIRouter(prefix="/alerts", tags=["alerts"])
 
@@ -54,3 +55,21 @@ async def update_scheduler_config(config: SchedulerConfig, request: Request):
         data=scheduler.get_status(),
         correlation_id=correlation_id,
     )
+
+@router.post("/scheduler/scan")
+async def trigger_manual_scan(request: Request):
+    """Trigger an immediate anomaly detection scan outside the scheduled cycle."""
+    correlation_id = get_correlation_id(request)
+    try:
+        result = await run_graph("Run anomaly detection across all HR datasets", trigger="manual")
+        summary = result.get("final_response", "")[:200] if result else "Scan completed."
+        return success_response(
+            data={"triggered": True, "result_summary": summary},
+            correlation_id=correlation_id,
+        )
+    except Exception as e:
+        return error_response(
+            message=f"Scan failed: {e}",
+            correlation_id=correlation_id,
+            status_code=500,
+        )

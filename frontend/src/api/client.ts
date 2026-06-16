@@ -465,6 +465,10 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ interval_seconds, running }),
       }),
+    triggerScan: () =>
+      request<APIResponse<{ triggered: boolean; result_summary: string }>>("/alerts/scheduler/scan", {
+        method: "POST",
+      }),
   },
 
   debug: {
