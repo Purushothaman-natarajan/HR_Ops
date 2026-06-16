@@ -1,4 +1,4 @@
-# Leave Policy
+# Updated Leave Policy Title
 
 **Effective Date:** January 1, 2026
 **Last Revised:** June 1, 2026
