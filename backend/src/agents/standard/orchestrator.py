@@ -21,6 +21,9 @@ from langgraph.graph.state import CompiledStateGraph
 
 from backend.config.settings import settings
 from backend.src.agents.state import AgentRole, SharedState, TraceEntry, Activity
+from backend.src.agents.nodes.action_node import (
+    _prescreen_query, _build_fallback, _parse_tool_json, _synthesise_response,
+)
 from backend.src.guardrails.registry import guardrail_registry
 from backend.src.tools.api_mocks import execute_tool
 from backend.src.utils.model_router import llm_call
@@ -152,122 +155,159 @@ async def _policy_node(state: SharedState) -> dict:
 
 
 async def _action_node(state: SharedState) -> dict:
-    """Parse a tool call from the query and execute it (lookup, modify, or escalate)."""
-    start = datetime.now(timezone.utc)
-    from backend.src.services.db_schema_store import get_schema_understanding
-    schema_understanding = await get_schema_understanding()
-
-    history = state.messages
-    history_context = ""
-    if history:
-        recent = history[-4:]
-        history_context = "Conversation history:\n" + "\n".join(
-            f"{m['role']}: {m['content'][:200]}" for m in recent
-        ) + "\n\n"
-
-    prompt = (
-        f"{history_context}"
-        f"Extract the tool call from the query. Use the conversation history to resolve pronouns (e.g. 'he', 'she', 'their') or contextual references. Valid tools:\n"
-        f"- get_database_schema()\n"
-        f"- execute_db_query(sql_query, parameters)\n"
-        f"- lookup_employee(employee_id: str)\n"
-        f"- modify_record(employee_id: str, field: str, value: any)\n"
-        f"- escalate_to_human(employee_id: str, reason: str)\n\n"
-        f"Use `execute_db_query` with parameterized SQLite queries to retrieve or modify records in the active database tables. ALWAYS use `?` placeholders for user inputs to prevent SQL injection and supply the values in the `parameters` list.\n\n"
-        f"Database Schema Understanding:\n{schema_understanding}\n\n"
-        f"Query: {state.query}\n\n"
-        f"Reply with a JSON object: {{\"name\": \"tool_name\", \"args\": {{...}}}}"
-    )
-    response, cost = await llm_call("action", prompt, max_tokens=256, temperature=0)
+    """Parse a tool call from the query, run it through guardrails, execute it, and synthesise a response."""
     import json
-    import re
 
-    def _parse_tool_json(s: str) -> dict | None:
-        if not s or not s.strip():
-            return None
+    start = datetime.now(timezone.utc)
+    activities = []
+    cost = 0.0
 
-        # Try simple direct parse of the stripped response
-        stripped = s.strip()
-        # Strip markdown code fences if present
-        stripped = re.sub(r"^```(?:json)?\s*", "", stripped, flags=re.IGNORECASE)
-        stripped = re.sub(r"\s*```$", "", stripped)
-        stripped = stripped.strip()
+    # ── Step 1: Pre-screen for direct lookup ────────────────────────────────
+    call = _prescreen_query(state.query)
+    if call:
+        activities.append(Activity(
+            type="decision", label="Direct lookup routing",
+            detail=f"Matched: {call['name']}({call['args']})",
+            status="completed",
+        ))
+        logger.info("_action_node: pre-screened as %s(%s)", call["name"], call["args"])
+    else:
+        # ── Step 2: LLM tool parsing ─────────────────────────────────────────
+        from backend.src.services.db_schema_store import get_schema_understanding
+        schema_understanding = await get_schema_understanding()
 
-        try:
-            obj = json.loads(stripped)
-            if isinstance(obj, dict) and "name" in obj:
-                return obj
-        except json.JSONDecodeError:
-            pass
+        history = state.messages
+        history_context = ""
+        if history:
+            recent = history[-4:]
+            history_context = "Conversation history:\n" + "\n".join(
+                f"{m['role']}: {m['content'][:200]}" for m in recent
+            ) + "\n\n"
 
-        # Find the first occurrences of '{' and scan for a valid JSON object
-        start_idx = s.find("{")
-        while start_idx != -1:
-            # Try to find matching closing bracket by parsing substrings of increasing length
-            for end_idx in range(len(s), start_idx, -1):
-                try:
-                    candidate = s[start_idx:end_idx]
-                    obj = json.loads(candidate)
-                    if isinstance(obj, dict) and "name" in obj:
-                        return obj
-                except json.JSONDecodeError:
-                    continue
-            # Find next occurrence of '{'
-            start_idx = s.find("{", start_idx + 1)
+        prompt = (
+            f"{history_context}"
+            "Extract a tool call from the HR query. Use the conversation history to resolve pronouns (e.g. 'he', 'she', 'their') or contextual references.\n"
+            "Available tools:\n"
+            "  search_employee_by_name(name)           ← USE THIS for any name/person lookup\n"
+            "  lookup_employee(employee_id)             ← USE THIS only when you have an EMP ID\n"
+            "  execute_db_query(sql_query, parameters)  ← for complex SQL queries\n"
+            "  modify_record(employee_id, field, value)\n"
+            "  escalate_to_human(employee_id, reason)\n"
+            "  get_database_schema()\n\n"
+            "RULES:\n"
+            "  - If the query mentions a person's name (like 'John', 'ALICE', 'find Bob'), "
+            "use search_employee_by_name with the name.\n"
+            "  - Do NOT use get_database_schema unless the user explicitly asks about schema.\n"
+            "  - Use ? placeholders in SQL, provide values in 'parameters' list.\n\n"
+            f"Database Schema Understanding:\n{schema_understanding}\n\n"
+            f"Query: {state.query}\n\n"
+            "Reply ONLY with valid JSON:\n"
+            '{"name": "tool_name", "args": {...}}'
+        )
 
-        return None
+        activities.append(Activity(
+            type="llm_call", label="Parsing tool call from query",
+            detail=f"Query: {state.query[:80]}...",
+            status="running",
+        ))
+        response, cost = await llm_call("action", prompt, max_tokens=256, temperature=0)
+        activities[-1].status = "completed"
 
-    try:
         call = _parse_tool_json(response)
         if call is None:
-            # Fallback: try name search
-            name_m = re.search(r"named?\s+['\"]?([A-Za-z]+(?:\s+[A-Za-z]+)*)['\"]?", state.query, re.IGNORECASE)
-            from backend.src.agents.nodes.action_node import _is_valid_name
-            if name_m and _is_valid_name(name_m.group(1).strip()):
-                name = name_m.group(1).strip()
-                call = {"name": "execute_db_query", "args": {"sql_query": "SELECT * FROM employees WHERE Employee_Name LIKE ? LIMIT 10;", "parameters": [f"%{name}%"]}}
-            else:
-                call = {"name": "get_database_schema", "args": {}}
-            logger.warning("_action_node: LLM returned non-JSON, using fallback tool: %s", call["name"])
-        tool_name = call.get("name", "unknown")
-        tool_args = call.get("args", {})
-        tool_result = execute_tool(tool_name, **tool_args)
-        from backend.src.utils.formatter import format_tool_result_to_markdown
-        result_text = format_tool_result_to_markdown(tool_result)
+            logger.warning("_action_node: LLM returned non-JSON, using fallback. response=%r", response[:200])
+            call = _build_fallback(state.query)
+            activities[-1].detail = f"Fallback: {call['name']} (LLM non-JSON)"
+        else:
+            activities[-1].detail = f"Parsed: {call.get('name')}({json.dumps(call.get('args', {}))})"
+
+        # Safety override: if LLM chose get_database_schema for a name query, re-route
+        if call.get("name") == "get_database_schema":
+            override = _build_fallback(state.query)
+            if override.get("name") != "get_database_schema":
+                logger.warning("_action_node: overriding LLM schema call with %s", override["name"])
+                call = override
+                activities.append(Activity(
+                    type="decision", label="Schema-call override",
+                    detail=f"Re-routed to {call['name']} — query is a lookup, not schema inspection",
+                    status="completed",
+                ))
+
+    tool_call_info: dict = {"tool": call.get("name", ""), "args": call.get("args", {})}
+    result_text = ""
+
+    # ── Step 3: Guardrail check ──────────────────────────────────────────────
+    try:
+        activities.append(Activity(
+            type="guardrail", label="Running guardrail check",
+            detail=f"Tool: {call.get('name', 'unknown')}",
+            status="running",
+        ))
+        gr = guardrail_registry.check_tool({"tool_name": call.get("name", ""), "args": call.get("args", {})})
+        if not gr.passed:
+            activities[-1].status = "completed"
+            activities[-1].detail = f"BLOCKED: {gr.message}"
+            result_text = f"Tool guardrail blocked: {gr.message}"
+        else:
+            activities[-1].status = "completed"
+            activities[-1].detail = "Guardrail PASSED"
+
+            # ── Step 4: Execute tool ─────────────────────────────────────────
+            activities.append(Activity(
+                type="tool_call", label=f"Executing {call.get('name', 'tool')}",
+                detail=f"Args: {json.dumps(call.get('args', {}))}",
+                status="running",
+            ))
+            tool_args = dict(call["args"])
+            if call["name"] == "escalate_to_human":
+                ctx = dict(tool_args.get("context") or {})
+                ctx["session_id"] = state.session_id
+                tool_args["context"] = ctx
+
+            raw_result = execute_tool(call["name"], **tool_args)
+            activities[-1].status = "completed"
+            activities[-1].detail = f"Tool returned: {json.dumps(raw_result)[:120]}"
+            tool_call_info["result"] = raw_result.get("result")
+
+            # ── Step 5: Synthesise readable response ─────────────────────────
+            inner = raw_result.get("result", raw_result)
+            activities.append(Activity(
+                type="llm_call", label="Synthesising human-readable response",
+                detail="Converting raw tool result to natural language",
+                status="running",
+            ))
+            result_text = await _synthesise_response(state.query, call["name"], inner)
+            activities[-1].status = "completed"
+            activities[-1].detail = f"Response: {result_text[:80]}..."
+
     except Exception as e:
-        tool_name = "unknown"
-        tool_args = {}
-        result_text = f"Error: {e}"
+        result_text = f"Error executing tool `{call.get('name', 'unknown')}`: {e}"
+        tool_call_info["error"] = str(e)
+        if activities and activities[-1].status == "running":
+            activities[-1].status = "failed"
+            activities[-1].detail = f"Error: {e}"
+        logger.exception("_action_node tool execution failed")
+
+    # Output guardrail (soft check)
+    output_gr = guardrail_registry.check_output({"text": result_text})
+    if not output_gr.passed:
+        logger.warning("Output guardrail flagged: %s", output_gr.message)
+
     elapsed = (datetime.now(timezone.utc) - start).total_seconds() * 1000
-
-    activities = [
-        Activity(
-            type="llm_call",
-            label="Parsing tool call with LLM",
-            detail=f"Parsed tool call: {response[:100]}",
-            status="completed",
-            duration_ms=elapsed,
-        ),
-        Activity(
-            type="tool_call",
-            label=f"Executing tool: {tool_name}",
-            detail=f"Args: {json.dumps(tool_args)}",
-            status="completed",
-            duration_ms=0.0,
-            metadata={"tool_name": tool_name, "args": tool_args},
-        )
-    ]
-
     return {
         "executed_actions": [result_text],
-        "final_response": f"Tool result: {result_text}",
+        "final_response": result_text,
+        "messages": state.messages + [
+            {"role": "user", "content": state.query},
+            {"role": "assistant", "content": result_text, "node": "action"},
+        ],
         "trace_log": (state.trace_log or []) + [
             TraceEntry(
                 node="action", agent_role=AgentRole.ACTION,
                 input_text=state.query, output_text=result_text,
                 timestamp=start, duration_ms=elapsed, cost_usd=cost, model_used="model_router",
+                tool_call=tool_call_info,
                 activities=activities,
-                tool_call={"tool": tool_name, "args": tool_args, "result": result_text},
             )
         ],
     }
