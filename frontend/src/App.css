@@ -1466,6 +1466,8 @@
   font-weight: 500;
   line-height: 1.5;
   text-align: left;
+  white-space: normal;
+  width: 100%;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: var(--shadow-sm);
