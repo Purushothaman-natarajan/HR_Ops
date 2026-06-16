@@ -1,18 +1,14 @@
-import os
 import sqlite3
-import pytest
 from pathlib import Path
 
-from backend.config.settings import settings
-from backend.src.tools.api_mocks import get_database_schema, execute_db_query
+import pytest
+
 from backend.src.guardrails.tool_validator import tool_guardrail
+from backend.src.tools.api_mocks import execute_db_query, get_database_schema
 
 
 def _get_active_db_path() -> Path:
     """Return the path to the active SQLite database."""
-    db_url = settings.database_url
-    if db_url.startswith("sqlite:///"):
-        return Path(db_url.replace("sqlite:///", ""))
     return Path("./backend/data/hr_ops.db")
 
 
@@ -40,9 +36,10 @@ def ensure_db_has_data():
 
     if needs_seed:
         # Create minimal seed data using load_csv
-        from backend.scripts.load_db import load_csv
-        import tempfile
         import csv
+        import tempfile
+
+        from backend.scripts.load_db import load_csv
         rows = [
             {"Employee_ID": "EMP0001", "Employee_Name": "Alice Chen", "Age": 30, "Country": "USA",
              "Department": "Engineering", "Position": "Engineer", "Salary": 80000, "Joining_Date": "2020-01-01"},
