@@ -51,7 +51,7 @@ export function VectorDBStatus() {
           : info && !info.available
             ? `Embeddings: unavailable`
             : info
-              ? `Embeddings: ${info.embedding_model} (${info.document_count} docs, ${info.chunk_count} chunks)`
+              ? `Embeddings: ${info.embedding_model} (${info.chunk_count} chunks and ${info.document_count} docs)`
               : "Embeddings: checking..."}
       </span>
     </div>
