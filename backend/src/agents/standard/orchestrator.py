@@ -168,11 +168,11 @@ async def _action_node(state: SharedState) -> dict:
     prompt = (
         f"Extract the tool call from the query. Valid tools:\n"
         f"- get_database_schema()\n"
-        f"- execute_db_query(sql_query)\n"
+        f"- execute_db_query(sql_query, parameters)\n"
         f"- lookup_employee(employee_id: str)\n"
         f"- modify_record(employee_id: str, field: str, value: any)\n"
         f"- escalate_to_human(employee_id: str, reason: str)\n\n"
-        f"Use `execute_db_query` with standard SQLite queries to retrieve or modify records in the active database tables.\n"
+        f"Use `execute_db_query` with parameterized SQLite queries to retrieve or modify records in the active database tables. ALWAYS use `?` placeholders for user inputs to prevent SQL injection and supply the values in the `parameters` list.\n"
         f"{schema_str}\n"
         f"Query: {state.query}\n\n"
         f"Reply with a JSON object: {{\"name\": \"tool_name\", \"args\": {{...}}}}"
@@ -208,7 +208,7 @@ async def _action_node(state: SharedState) -> dict:
             name_m = re.search(r"named?\s+['\"]?([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)['\"]?", state.query, re.IGNORECASE)
             if name_m:
                 name = name_m.group(1).strip()
-                call = {"name": "execute_db_query", "args": {"sql_query": f"SELECT * FROM employees WHERE Employee_Name LIKE '%{name}%' LIMIT 10;"}}
+                call = {"name": "execute_db_query", "args": {"sql_query": "SELECT * FROM employees WHERE Employee_Name LIKE ? LIMIT 10;", "parameters": [f"%{name}%"]}}
             else:
                 call = {"name": "get_database_schema", "args": {}}
             logger.warning("_action_node: LLM returned non-JSON, using fallback tool: %s", call["name"])
@@ -312,7 +312,7 @@ if __name__ == "__main__":
 
             _mock_responses = {
                 "action": (
-                    '{"name": "execute_db_query", "args": {"sql_query": "SELECT * FROM employees WHERE Employee_Name LIKE \'%John%\' LIMIT 10;"}}', 0.0,
+                    '{"name": "execute_db_query", "args": {"sql_query": "SELECT * FROM employees WHERE Employee_Name LIKE ? LIMIT 10;", "parameters": ["%John%"]}}', 0.0,
                 ),
             }
 

@@ -68,8 +68,8 @@ def _build_name_search_fallback(query: str, schema_tables: list[str]) -> dict:
         if match:
             name = match.group(1).strip()
             # Use LIKE for partial match
-            sql = f"SELECT * FROM {emp_table} WHERE Employee_Name LIKE '%{name}%' LIMIT 10;"
-            return {"name": "execute_db_query", "args": {"sql_query": sql}}
+            sql = f"SELECT * FROM {emp_table} WHERE Employee_Name LIKE ? LIMIT 10;"
+            return {"name": "execute_db_query", "args": {"sql_query": sql, "parameters": [f"%{name}%"]}}
 
     # Generic: try a broad search if keywords suggest a lookup
     kw_select = any(kw in query.lower() for kw in ["how many", "count", "list all", "show all", "all employees"])
@@ -102,12 +102,13 @@ async def action_node(state: SharedState) -> dict:
         f"Extract a tool call from the HR query.\n"
         f"Available tools:\n"
         f"  get_database_schema()\n"
-        f"  execute_db_query(sql_query)\n"
+        f"  execute_db_query(sql_query, parameters)\n"
         f"  lookup_employee(employee_id)\n"
         f"  modify_record(employee_id, field, value)\n"
         f"  escalate_to_human(employee_id, reason)\n\n"
-        f"Use `execute_db_query` with standard SQLite queries to retrieve or modify records in the active database tables.\n"
-        f"For name searches use: SELECT * FROM employees WHERE Employee_Name LIKE '%name%' LIMIT 10;\n"
+        f"Use `execute_db_query` with parameterized SQLite queries to retrieve or modify records. MUST always use `?` placeholders for user input to prevent SQL injection.\n"
+        f"Provide the values in the `parameters` list.\n"
+        f"Example: {{\"name\": \"execute_db_query\", \"args\": {{\"sql_query\": \"SELECT * FROM employees WHERE Employee_Name LIKE ? LIMIT 10;\", \"parameters\": [\"%name%\"]}}}}\n"
         f"{schema_str}\n"
         f"Query: {state.query}\n\n"
         f"IMPORTANT: Reply ONLY with valid JSON, no markdown, no explanation:\n"
