@@ -1,0 +1,200 @@
+# HR Ops Compliance Rules Engine
+# ─────────────────────────────────────────────────────────────────────────────
+# Each rule has:
+#   id          : unique rule identifier
+#   category    : grouping (leave | payroll | data_privacy | conduct | safety)
+#   severity    : low | medium | high | critical
+#   action      : what happens when this rule fires (veto | warn | flag | notify)
+#   description : human-readable rule text (shown in audit log)
+#   conditions  : list of key:value checks evaluated programmatically
+# ─────────────────────────────────────────────────────────────────────────────
+
+version: "1.0"
+
+rules:
+
+  # ── Leave Policy Rules ─────────────────────────────────────────────────────
+
+  - id: LEAVE_001
+    category: leave
+    severity: critical
+    action: veto
+    description: "Cannot approve leave that causes taken days to exceed accrued balance"
+    conditions:
+      field: leaves_taken
+      operator: gt
+      reference_field: leaves_accrued
+    keywords: ["grant leave", "approve leave", "extend leave"]
+
+  - id: LEAVE_002
+    category: leave
+    severity: high
+    action: flag
+    description: "Consecutive leave requests exceeding 14 calendar days require Director approval"
+    conditions:
+      field: leave_duration_days
+      operator: gte
+      value: 14
+    keywords: ["long leave", "extended leave", "two week leave"]
+
+  - id: LEAVE_003
+    category: leave
+    severity: medium
+    action: warn
+    description: "Employees on probation (< 6 months) are not entitled to annual leave"
+    conditions:
+      field: tenure_days
+      operator: lt
+      value: 180
+    keywords: ["probation leave", "new hire leave"]
+
+  - id: LEAVE_004
+    category: leave
+    severity: medium
+    action: warn
+    description: "Leave balance payout exceeding 20 days requires Finance approval"
+    conditions:
+      field: leaves_remaining
+      operator: gt
+      value: 20
+    keywords: ["leave encashment", "leave payout", "leave balance"]
+
+  - id: LEAVE_005
+    category: leave
+    severity: high
+    action: flag
+    description: "Sick leave taken more than 10 days in a single month triggers medical certificate requirement"
+    conditions:
+      field: sick_leave_days_month
+      operator: gt
+      value: 10
+    keywords: ["sick leave", "medical leave", "health leave"]
+
+  # ── Payroll Rules ──────────────────────────────────────────────────────────
+
+  - id: PAY_001
+    category: payroll
+    severity: critical
+    action: veto
+    description: "Salary modifications above 25% in a single cycle are prohibited without CHRO sign-off"
+    conditions:
+      field: salary_change_pct
+      operator: gt
+      value: 25
+    keywords: ["salary increase", "pay raise", "compensation change", "hike"]
+
+  - id: PAY_002
+    category: payroll
+    severity: critical
+    action: veto
+    description: "Backdated payroll adjustments beyond 90 days are not permitted"
+    conditions:
+      field: adjustment_days_back
+      operator: gt
+      value: 90
+    keywords: ["backdated pay", "retroactive salary", "back pay"]
+
+  - id: PAY_003
+    category: payroll
+    severity: high
+    action: flag
+    description: "Off-cycle bonus payments exceeding $10,000 require CFO approval"
+    conditions:
+      field: bonus_amount
+      operator: gt
+      value: 10000
+    keywords: ["bonus", "off-cycle payment", "spot award", "cash award"]
+
+  - id: PAY_004
+    category: payroll
+    severity: medium
+    action: warn
+    description: "Payroll for an employee who has been terminated must be frozen immediately"
+    conditions:
+      field: employment_status
+      operator: eq
+      value: "terminated"
+    keywords: ["terminated employee pay", "final pay", "termination payment"]
+
+  - id: PAY_005
+    category: payroll
+    severity: high
+    action: flag
+    description: "Duplicate payroll entries for the same employee and pay period are blocked"
+    conditions:
+      field: duplicate_payroll
+      operator: eq
+      value: true
+    keywords: ["duplicate payment", "double payment", "payroll error"]
+
+  # ── Data Privacy Rules ─────────────────────────────────────────────────────
+
+  - id: PRIVACY_001
+    category: data_privacy
+    severity: critical
+    action: veto
+    description: "Access to employee PII (SSN, bank details, medical records) requires DPO authorization"
+    keywords: ["SSN", "bank account", "medical record", "social security", "health record", "salary slip"]
+
+  - id: PRIVACY_002
+    category: data_privacy
+    severity: high
+    action: flag
+    description: "Bulk export of employee data (>50 records) must be logged and approved by IT Security"
+    conditions:
+      field: export_record_count
+      operator: gt
+      value: 50
+    keywords: ["bulk export", "download all", "export employees", "dump records"]
+
+  # ── Conduct & Ethics Rules ─────────────────────────────────────────────────
+
+  - id: CONDUCT_001
+    category: conduct
+    severity: critical
+    action: veto
+    description: "Performance Improvement Plans cannot be initiated without a formal 30-day written warning on file"
+    keywords: ["PIP", "performance improvement plan", "terminate for performance"]
+
+  - id: CONDUCT_002
+    category: conduct
+    severity: critical
+    action: veto
+    description: "Termination actions require at minimum two documented HR-reviewed incidents on file"
+    keywords: ["terminate employee", "dismissal", "fire employee", "let go"]
+
+  - id: CONDUCT_003
+    category: conduct
+    severity: high
+    action: flag
+    description: "Demotion actions require VP-level approval and must be documented in writing"
+    keywords: ["demotion", "downgrade position", "reduce role"]
+
+  # ── Safety & Training Rules ────────────────────────────────────────────────
+
+  - id: SAFETY_001
+    category: safety
+    severity: high
+    action: flag
+    description: "Employees assigned to hazardous-environment roles must have completed mandatory safety training"
+    keywords: ["safety training", "hazmat", "dangerous environment", "onsite risk"]
+
+  - id: SAFETY_002
+    category: safety
+    severity: medium
+    action: warn
+    description: "Annual compliance training completion is mandatory — employees overdue by >30 days are flagged"
+    conditions:
+      field: training_overdue_days
+      operator: gt
+      value: 30
+    keywords: ["compliance training", "mandatory training", "annual training"]
+
+# ── Hard veto keywords (legacy compatibility — always vetoed regardless of rule match) ──
+hard_veto_keywords:
+  - "delete all records"
+  - "bypass payroll"
+  - "override compliance"
+  - "skip background check"
+  - "falsify records"
+  - "manipulate attendance"

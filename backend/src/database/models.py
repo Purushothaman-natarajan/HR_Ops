@@ -16,6 +16,11 @@ class Employee(Base):
     position = Column("Position", String, default="Staff")
     salary = Column("Salary", Float, default=0.0)
     joining_date = Column("Joining_Date", String, default="")
+    leaves_accrued = Column("Leaves_Accrued", Integer, default=0)
+    leaves_taken = Column("Leaves_Taken", Integer, default=0)
+    work_location = Column("Work_Location", String, default="")
+    performance_rating = Column("Performance_Rating", Float, default=0.0)
+    manager_id = Column("Manager_ID", String, default="")
 
 
 class Attendance(Base):

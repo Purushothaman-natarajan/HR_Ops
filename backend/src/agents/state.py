@@ -39,9 +39,12 @@ class AnomalyResult:
 
     detected: bool
     severity: float
+    confidence_score: float = 0.75
     description: str = ""
     anomaly_field: str = ""
-    suggested_action: str = ""
+    anomaly_type: str = ""
+    suggested_action: str = ""          # kept for backward compat
+    recommended_action: str = "flag_for_review"
     supporting_data: dict = field(default_factory=dict)
 
 

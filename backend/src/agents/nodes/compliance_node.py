@@ -1,67 +1,108 @@
-"""Compliance node: checks HR queries against policy rules and hard veto conditions."""
+"""Compliance node: deterministic rules-engine check (no LLM) + optional narrative.
 
-import json
+Flow:
+  1. Run evaluate_action() against all compliance_rules.yaml rules.
+  2. Veto → block and return immediately.
+  3. Flag → HITL escalation.
+  4. Warn → pass with warning logged.
+  5. Clean → proceed normally.
+"""
+
 import logging
 from datetime import datetime, timezone
 
 from backend.src.agents.state import Activity, SharedState, TraceEntry
-from backend.src.intelligence.compliance import check_veto
-from backend.src.utils.model_router import llm_call
+from backend.src.intelligence.compliance import evaluate_action
 
 logger = logging.getLogger("hr_ops.nodes.compliance")
 
+# Action string severity mapping for audit logs
+_SEVERITY_EMOJI = {"critical": "CRITICAL", "high": "HIGH", "medium": "MEDIUM", "low": "LOW"}
+
 
 async def compliance_node(state: SharedState) -> dict:
-    """Evaluate the query for compliance via LLM and check hard veto rules."""
+    """Evaluate the query against all compliance rules and route accordingly."""
     start = datetime.now(timezone.utc)
     activities = []
 
     activities.append(Activity(
-        type="llm_call", label="Running LLM compliance check",
-        detail=f"Query: {state.query[:80]}...",
+        type="guardrail", label="Running compliance rules engine",
+        detail=f"Evaluating {len(state.query)} chars against compliance_rules.yaml",
         status="running",
     ))
-    prompt = (
-        f"Check if the following HR query complies with company policies.\n"
-        f"Query: {state.query}\n\n"
-        f"Reply with JSON: {{\"compliant\": true/false, \"reason\": \"...\"}}"
+
+    # Pass context from rl_context if available (e.g. leaves_taken, salary_change_pct)
+    ctx = dict(state.rl_context or {})
+    report = evaluate_action(state.query, context=ctx)
+
+    triggered = report.triggered_rules
+    activities[-1].status = "completed"
+    activities[-1].detail = (
+        f"{len(triggered)} rule(s) triggered — "
+        f"vetoed={report.vetoed}, flagged={report.flagged}, warned={report.warned}"
     )
-    response, cost = await llm_call("compliance", prompt, max_tokens=256, temperature=0)
-    activities[-1].status = "completed"
+    activities[-1].metadata = {
+        "vetoed": report.vetoed,
+        "flagged": report.flagged,
+        "warned": report.warned,
+        "triggered_count": len(triggered),
+        "highest_severity": report.highest_severity,
+        "rules_evaluated": len(report.results),
+    }
 
-    try:
-        result = json.loads(response)
-        activities[-1].detail = f"LLM result: {'COMPLIANT' if result.get('compliant') else 'NON-COMPLIANT'} — {result.get('reason', '')[:80]}"
-    except Exception as e:
-        result = {"compliant": False, "reason": str(e)}
-        activities[-1].detail = f"LLM parse error: {e}"
+    # Build audit trail for all triggered rules
+    if triggered:
+        rule_summary = "\n".join(
+            f"  [{_SEVERITY_EMOJI.get(r.severity, r.severity)}] {r.rule_id}: {r.reason}"
+            for r in triggered
+        )
+        activities.append(Activity(
+            type="guardrail", label="Compliance rule audit trail",
+            detail=rule_summary[:500],
+            status="completed",
+            metadata={"triggered_rules": [r.rule_id for r in triggered]},
+        ))
 
-    activities.append(Activity(
-        type="guardrail", label="Checking hard veto rules",
-        detail="Evaluating against compliance veto conditions",
-        status="running",
-    ))
-    veto = check_veto("", state.query)
-    if not veto[0]:
-        result = {"compliant": False, "reason": veto[1]}
-        activities[-1].detail = f"VETO triggered: {veto[1]}"
+    # Determine response text
+    if report.vetoed:
+        final_text = f"[COMPLIANCE VETO] Action blocked. {report.veto_reason}"
+        hitl_needed = False   # veto is hard block — no HITL needed
+    elif report.flagged:
+        flag_rules = [r.rule_id for r in triggered if r.action == "flag"]
+        final_text = f"[COMPLIANCE FLAG] Action requires human review. Rules triggered: {', '.join(flag_rules)}"
+        hitl_needed = True
+    elif report.warned:
+        warn_rules = [r.rule_id for r in triggered if r.action == "warn"]
+        final_text = f"[COMPLIANCE WARN] Proceeding with warnings. Rules: {', '.join(warn_rules)}"
+        hitl_needed = False
     else:
-        activities[-1].detail = "No veto triggered"
+        final_text = "Compliance check passed — no rules triggered."
+        hitl_needed = False
 
-    activities[-1].status = "completed"
     elapsed = (datetime.now(timezone.utc) - start).total_seconds() * 1000
-    compliance_veto = not result.get("compliant", True)
     return {
-        "compliance_veto": compliance_veto,
-        "compliance_reason": result.get("reason", ""),
-        "hitl_needed": compliance_veto,
-        "final_response": "Compliance check passed." if result.get("compliant") else f"Compliance veto: {result.get('reason')}",
+        "compliance_veto": report.vetoed,
+        "compliance_reason": report.veto_reason if report.vetoed else final_text,
+        "hitl_needed": hitl_needed,
+        "final_response": final_text,
+        "rl_context": {
+            **ctx,
+            "compliance_triggered": len(triggered),
+            "compliance_vetoed": report.vetoed,
+            "compliance_flagged": report.flagged,
+        },
         "trace_log": (state.trace_log or []) + [
             TraceEntry(
                 node="compliance_node", agent_role="compliance",
-                input_text=state.query, output_text=json.dumps(result),
-                timestamp=start, duration_ms=elapsed, cost_usd=cost, model_used="model_router",
+                input_text=state.query, output_text=final_text,
+                timestamp=start, duration_ms=elapsed,
                 activities=activities,
+                metadata={
+                    "vetoed": report.vetoed,
+                    "flagged": report.flagged,
+                    "warned": report.warned,
+                    "triggered_rules": [r.rule_id for r in triggered],
+                },
             )
         ],
     }

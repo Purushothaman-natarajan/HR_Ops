@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from threading import Lock
 
 from backend.config.settings import settings
-from backend.src.intelligence.rl_layer import rl_agent
+from backend.src.intelligence.rl_layer import anomaly_bandit, rl_agent
 
 logger = logging.getLogger("hr_ops.feedback_service")
 
@@ -105,6 +105,40 @@ class FeedbackStore:
             context=rl_context or {},
             source="hitl",
         )
+
+    def record_anomaly_bandit_reward(
+        self,
+        anomaly_context: dict,
+        selected_action: str,
+        reward: float,
+        session_id: str = "",
+    ) -> None:
+        """Record a reward for the AnomalyActionBandit and flush immediately.
+
+        Args:
+            anomaly_context: Feature dict (confidence_score, severity, anomaly_type, etc.)
+            selected_action:  The action the bandit chose.
+            reward:           Scalar reward signal (positive=good, negative=bad).
+            session_id:       Optional session ID for tracing.
+        """
+        anomaly_bandit.update(anomaly_context, selected_action, reward)
+        try:
+            anomaly_bandit.save()
+        except Exception as exc:
+            logger.warning("AnomalyBandit save failed: %s", exc)
+        # Also add to main feedback history for monitoring
+        entry = {
+            "id": str(__import__("uuid").uuid4())[:12],
+            "session_id": session_id,
+            "action": f"anomaly:{selected_action}",
+            "reward": reward,
+            "source": "anomaly_bandit",
+            "context": anomaly_context,
+            "timestamp": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
+        }
+        with self._lock:
+            self._history.append(entry)
+        logger.debug("AnomalyBandit reward recorded: action=%s reward=%.3f", selected_action, reward)
 
     def _flush(self):
         """Send all buffered feedback entries to the RL agent, save its state, and clear the buffer."""

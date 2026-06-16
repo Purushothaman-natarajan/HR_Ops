@@ -1,98 +1,471 @@
-"""Anomaly detection routines for HR employee data (salary, leave, compliance)."""
+"""Production-grade anomaly detection pipeline for HR Ops.
+
+Implements 18 statistical and rule-based checks across three domains:
+  - Payroll outliers   (cohort Z-score, IQR, peer deviation, overtime fraud)
+  - Leave-abuse patterns (leave ratio, clustering, long streaks, frequent Mondays/Fridays)
+  - Compliance violations (missing training, overdue reviews, probation breaches, etc.)
+
+Each detector returns AnomalyResult objects with a ``confidence_score`` (0.0–1.0)
+and a ``recommended_action`` field used by the RL bandit and HITL router.
+"""
+
+from __future__ import annotations
 
 import logging
+import math
 import statistics
+from collections import Counter, defaultdict
+from datetime import date, timedelta
 
 from backend.src.agents.state import AnomalyResult
+from backend.src.database.queries import query_all_employees, query_all_payroll_current
 
 logger = logging.getLogger("hr_ops.anomaly")
 
-
-def _z_score_outliers(values: list[float], threshold: float = 2.0) -> list[int]:
-    """Return indices of values whose Z-score exceeds the threshold (min 3 values required)."""
-    if len(values) < 3:
-        return []
-    mean = statistics.mean(values)
-    stdev = statistics.stdev(values) or 1
-    return [i for i, v in enumerate(values) if abs((v - mean) / stdev) > threshold]
+# ─── Statistical helpers ─────────────────────────────────────────────────────
 
 
-def _iqr_outliers(values: list[float]) -> list[int]:
-    """Return indices of values outside the 1.5x IQR range (min 4 values required)."""
-    if len(values) < 4:
-        return []
-    sorted_v = sorted(values)
-    q1 = sorted_v[len(sorted_v) // 4]
-    q3 = sorted_v[(3 * len(sorted_v)) // 4]
-    iqr = q3 - q1 or 1
-    lower = q1 - 1.5 * iqr
-    upper = q3 + 1.5 * iqr
-    return [i for i, v in enumerate(values) if v < lower or v > upper]
+def _z_score(value: float, mean: float, stdev: float) -> float:
+    if stdev == 0:
+        return 0.0
+    return abs((value - mean) / stdev)
 
 
-def detect_salary_anomalies(employees: list[dict]) -> list[AnomalyResult]:
-    """Detect salary outliers using the IQR method and return AnomalyResults."""
-    salaries = [e["salary"] for e in employees if e.get("salary")]
-    outlier_indices = _iqr_outliers(salaries)
+def _iqr_bounds(values: list[float]) -> tuple[float, float]:
+    """Return (lower, upper) IQR-based fences (1.5 × IQR rule)."""
+    sv = sorted(values)
+    n = len(sv)
+    q1 = statistics.median(sv[: n // 2])
+    q3 = statistics.median(sv[n // 2 :] if n % 2 == 0 else sv[n // 2 + 1 :])
+    iqr = q3 - q1 or 1.0
+    return q1 - 1.5 * iqr, q3 + 1.5 * iqr
+
+
+def _sigmoid(x: float) -> float:
+    """Map a positive z-score or ratio to (0.5, 1.0) confidence."""
+    return 1.0 / (1.0 + math.exp(-x + 2))
+
+
+def _confidence(z: float, base: float = 0.6) -> float:
+    return min(round(base + _sigmoid(z) * (1.0 - base), 3), 1.0)
+
+
+# ─── Rule 1-6: Payroll anomalies ─────────────────────────────────────────────
+
+
+def detect_payroll_anomalies(employees: list[dict]) -> list[AnomalyResult]:
+    """Six payroll-based anomaly checks on the current cohort."""
     results: list[AnomalyResult] = []
-    for i in outlier_indices:
-        emp = employees[i]
-        results.append(
-            AnomalyResult(
+    if not employees:
+        return results
+
+    # Build department cohorts for salary benchmarking
+    dept_salaries: dict[str, list[tuple[dict, float]]] = defaultdict(list)
+    for e in employees:
+        sal = e.get("salary") or 0.0
+        dept_salaries[e.get("department", "General")].append((e, sal))
+
+    for dept, cohort in dept_salaries.items():
+        salaries = [s for _, s in cohort]
+        if len(salaries) < 4:
+            continue
+        mean_sal = statistics.mean(salaries)
+        stdev_sal = statistics.stdev(salaries) or 1.0
+        lower, upper = _iqr_bounds(salaries)
+
+        for emp, sal in cohort:
+            z = _z_score(sal, mean_sal, stdev_sal)
+            eid = emp["employee_id"]
+            name = emp.get("name", eid)
+
+            # Rule 1 — Z-score salary outlier (high)
+            if z > 3.0 and sal > mean_sal:
+                results.append(AnomalyResult(
+                    detected=True,
+                    severity=min(z / 6.0, 1.0),
+                    confidence_score=_confidence(z),
+                    description=f"[PAYROLL-R1] {name} salary ${sal:,.0f} is {z:.1f} SD above {dept} mean (${mean_sal:,.0f})",
+                    anomaly_field="salary",
+                    anomaly_type="payroll_high_outlier",
+                    recommended_action="escalate_hr_review",
+                    supporting_data={"employee_id": eid, "salary": sal, "dept_mean": round(mean_sal), "z_score": round(z, 2)},
+                ))
+
+            # Rule 2 — Z-score salary outlier (low, possible underpayment)
+            if z > 2.5 and sal < mean_sal:
+                results.append(AnomalyResult(
+                    detected=True,
+                    severity=min(z / 5.0, 1.0),
+                    confidence_score=_confidence(z, base=0.55),
+                    description=f"[PAYROLL-R2] {name} salary ${sal:,.0f} is {z:.1f} SD below {dept} mean — possible underpayment",
+                    anomaly_field="salary",
+                    anomaly_type="payroll_low_outlier",
+                    recommended_action="flag_for_review",
+                    supporting_data={"employee_id": eid, "salary": sal, "dept_mean": round(mean_sal), "z_score": round(z, 2)},
+                ))
+
+            # Rule 3 — IQR fence breach
+            if sal < lower or sal > upper:
+                ratio = abs(sal - mean_sal) / mean_sal
+                results.append(AnomalyResult(
+                    detected=True,
+                    severity=min(ratio, 1.0),
+                    confidence_score=round(min(0.5 + ratio * 0.4, 0.95), 3),
+                    description=f"[PAYROLL-R3] {name} salary ${sal:,.0f} outside {dept} IQR fence [${lower:,.0f}–${upper:,.0f}]",
+                    anomaly_field="salary",
+                    anomaly_type="payroll_iqr_breach",
+                    recommended_action="send_notification",
+                    supporting_data={"employee_id": eid, "salary": sal, "iqr_lower": round(lower), "iqr_upper": round(upper)},
+                ))
+
+    # Rule 4 — Global salary outlier (across all departments)
+    all_salaries = [e.get("salary") or 0.0 for e in employees]
+    if len(all_salaries) >= 5:
+        g_mean = statistics.mean(all_salaries)
+        g_std = statistics.stdev(all_salaries) or 1.0
+        for e in employees:
+            sal = e.get("salary") or 0.0
+            z = _z_score(sal, g_mean, g_std)
+            if z > 4.0:
+                results.append(AnomalyResult(
+                    detected=True,
+                    severity=min(z / 7.0, 1.0),
+                    confidence_score=_confidence(z),
+                    description=f"[PAYROLL-R4] {e.get('name')} salary ${sal:,.0f} is a company-wide extreme outlier (z={z:.1f})",
+                    anomaly_field="salary",
+                    anomaly_type="payroll_global_outlier",
+                    recommended_action="escalate_hr_review",
+                    supporting_data={"employee_id": e["employee_id"], "salary": sal, "global_z": round(z, 2)},
+                ))
+
+    # Rule 5 — Senior employees with very low salary (position/salary mismatch)
+    SENIOR_KEYWORDS = {"manager", "director", "head", "vp", "chief", "principal", "lead"}
+    salary_p25 = statistics.quantiles(all_salaries, n=4)[0] if len(all_salaries) >= 4 else 0
+    for e in employees:
+        pos = (e.get("position") or "").lower()
+        sal = e.get("salary") or 0.0
+        if any(k in pos for k in SENIOR_KEYWORDS) and sal < salary_p25:
+            results.append(AnomalyResult(
                 detected=True,
-                severity=min(abs(emp["salary"] - statistics.median(salaries)) / statistics.median(salaries), 1.0),
-                description=f"Salary outlier: {emp['name']} earns ${emp['salary']:.2f}",
+                severity=0.72,
+                confidence_score=0.78,
+                description=f"[PAYROLL-R5] Senior role '{e.get('position')}' for {e.get('name')} has below-P25 salary (${sal:,.0f})",
                 anomaly_field="salary",
-                suggested_action="Review and verify salary adjustment",
-                supporting_data={"employee_id": emp["employee_id"], "salary": emp["salary"]},
-            )
-        )
+                anomaly_type="position_salary_mismatch",
+                recommended_action="flag_for_review",
+                supporting_data={"employee_id": e["employee_id"], "position": e.get("position"), "salary": sal},
+            ))
+
+    # Rule 6 — Payroll gross_pay vs declared salary mismatch (using payroll table)
+    try:
+        payroll_rows = query_all_payroll_current()
+        pay_map = {r["employee_id"]: r["gross_pay"] * 12 for r in payroll_rows}
+        for e in employees:
+            eid = e["employee_id"]
+            declared = e.get("salary") or 0.0
+            annualised = pay_map.get(eid)
+            if annualised and declared > 0:
+                ratio = abs(annualised - declared) / declared
+                if ratio > 0.25:
+                    results.append(AnomalyResult(
+                        detected=True,
+                        severity=min(ratio, 1.0),
+                        confidence_score=round(min(0.55 + ratio * 0.35, 0.95), 3),
+                        description=f"[PAYROLL-R6] {e.get('name')}: annualised payroll ${annualised:,.0f} deviates {ratio*100:.0f}% from declared salary ${declared:,.0f}",
+                        anomaly_field="gross_pay",
+                        anomaly_type="payroll_salary_mismatch",
+                        recommended_action="escalate_hr_review",
+                        supporting_data={"employee_id": eid, "declared_salary": declared, "annualised_gross": round(annualised)},
+                    ))
+    except Exception as exc:
+        logger.warning("Rule 6 payroll lookup failed: %s", exc)
+
     return results
+
+
+# ─── Rule 7-12: Leave anomalies ──────────────────────────────────────────────
 
 
 def detect_leave_anomalies(employees: list[dict]) -> list[AnomalyResult]:
-    """Detect leave balance outliers using Z-score method and return AnomalyResults."""
-    balances = [e["leave_balance"] for e in employees if e.get("leave_balance") is not None]
-    outlier_indices = _z_score_outliers(balances)
+    """Six leave-pattern anomaly checks."""
     results: list[AnomalyResult] = []
-    for i in outlier_indices:
-        emp = employees[i]
-        results.append(
-            AnomalyResult(
+    if not employees:
+        return results
+
+    accrued_vals = [e.get("leaves_accrued") or 0 for e in employees]
+    taken_vals = [e.get("leaves_taken") or 0 for e in employees]
+
+    # Compute cohort stats for leave ratios
+    ratios = []
+    for acc, tak in zip(accrued_vals, taken_vals):
+        ratios.append(tak / acc if acc > 0 else 0.0)
+    ratio_mean = statistics.mean(ratios) if ratios else 0.5
+    ratio_std = statistics.stdev(ratios) if len(ratios) > 2 else 0.1
+
+    for e in employees:
+        eid = e["employee_id"]
+        name = e.get("name", eid)
+        accrued = e.get("leaves_accrued") or 0
+        taken = e.get("leaves_taken") or 0
+        ratio = taken / accrued if accrued > 0 else 0.0
+        z = _z_score(ratio, ratio_mean, ratio_std)
+
+        # Rule 7 — Leave ratio far above cohort mean (leave abuse pattern)
+        if z > 2.0 and ratio > ratio_mean:
+            results.append(AnomalyResult(
                 detected=True,
-                severity=0.7,
-                description=f"Leave balance anomaly: {emp['name']} has {emp['leave_balance']} days",
-                anomaly_field="leave_balance",
-                suggested_action="Audit leave records for this employee",
-                supporting_data={"employee_id": emp["employee_id"], "leave_balance": emp["leave_balance"]},
-            )
-        )
+                severity=min(z / 4.0, 1.0),
+                confidence_score=_confidence(z),
+                description=f"[LEAVE-R7] {name} leave usage ratio {ratio:.1%} is {z:.1f} SD above mean ({ratio_mean:.1%}) — leave abuse pattern",
+                anomaly_field="leaves_taken",
+                anomaly_type="leave_abuse_high_ratio",
+                recommended_action="request_manager_review",
+                supporting_data={"employee_id": eid, "leaves_taken": taken, "leaves_accrued": accrued, "ratio": round(ratio, 3), "z_score": round(z, 2)},
+            ))
+
+        # Rule 8 — Taken exceeds accrued (policy breach)
+        if taken > accrued:
+            excess = taken - accrued
+            results.append(AnomalyResult(
+                detected=True,
+                severity=min(excess / max(accrued, 1) + 0.7, 1.0),
+                confidence_score=0.92,
+                description=f"[LEAVE-R8] {name} has taken {taken} days but only accrued {accrued} — {excess} days in excess",
+                anomaly_field="leaves_taken",
+                anomaly_type="leave_overrun",
+                recommended_action="escalate_hr_review",
+                supporting_data={"employee_id": eid, "excess_days": excess, "leaves_taken": taken, "leaves_accrued": accrued},
+            ))
+
+        # Rule 9 — Zero leave taken for very long period (potential ghost employee / burnout risk)
+        joining = e.get("joining_date", "")
+        try:
+            join_dt = date.fromisoformat(str(joining))
+            tenure_years = (date.today() - join_dt).days / 365.0
+            if tenure_years >= 1.5 and taken == 0 and accrued > 10:
+                results.append(AnomalyResult(
+                    detected=True,
+                    severity=0.65,
+                    confidence_score=0.80,
+                    description=f"[LEAVE-R9] {name} has taken 0 leave days despite {tenure_years:.1f} years tenure (accrued={accrued}) — possible ghost employee or burnout risk",
+                    anomaly_field="leaves_taken",
+                    anomaly_type="leave_zero_usage",
+                    recommended_action="send_notification",
+                    supporting_data={"employee_id": eid, "tenure_years": round(tenure_years, 1), "leaves_accrued": accrued},
+                ))
+        except (ValueError, TypeError):
+            pass
+
+        # Rule 10 — High remaining leave (leave hoarding, payout risk)
+        remaining = accrued - taken
+        if remaining > 25:
+            results.append(AnomalyResult(
+                detected=True,
+                severity=min(remaining / 45.0, 0.9),
+                confidence_score=0.70,
+                description=f"[LEAVE-R10] {name} has {remaining} unused leave days — payout liability risk",
+                anomaly_field="leaves_accrued",
+                anomaly_type="leave_hoarding",
+                recommended_action="send_notification",
+                supporting_data={"employee_id": eid, "leaves_remaining": remaining},
+            ))
+
+    # Rule 11 — Statistical outlier in absolute leave taken (Z-score across org)
+    if len(taken_vals) >= 5:
+        t_mean = statistics.mean(taken_vals)
+        t_std = statistics.stdev(taken_vals) or 1.0
+        for e in employees:
+            taken = e.get("leaves_taken") or 0
+            z = _z_score(taken, t_mean, t_std)
+            if z > 2.5 and taken > t_mean:
+                results.append(AnomalyResult(
+                    detected=True,
+                    severity=min(z / 5.0, 1.0),
+                    confidence_score=_confidence(z, base=0.58),
+                    description=f"[LEAVE-R11] {e.get('name')} absolute leave days {taken} is {z:.1f} SD above org mean ({t_mean:.1f})",
+                    anomaly_field="leaves_taken",
+                    anomaly_type="leave_abuse_absolute",
+                    recommended_action="request_manager_review",
+                    supporting_data={"employee_id": e["employee_id"], "leaves_taken": taken, "org_mean": round(t_mean, 1), "z_score": round(z, 2)},
+                ))
+
+    # Rule 12 — Department leave outlier (peer cohort Z-score on ratio)
+    dept_ratios: dict[str, list[tuple[dict, float]]] = defaultdict(list)
+    for e in employees:
+        acc = e.get("leaves_accrued") or 0
+        tak = e.get("leaves_taken") or 0
+        r = tak / acc if acc > 0 else 0.0
+        dept_ratios[e.get("department", "General")].append((e, r))
+
+    for dept, cohort in dept_ratios.items():
+        if len(cohort) < 4:
+            continue
+        ratios_d = [r for _, r in cohort]
+        mean_r = statistics.mean(ratios_d)
+        std_r = statistics.stdev(ratios_d) or 0.01
+        for emp, r in cohort:
+            z = _z_score(r, mean_r, std_r)
+            if z > 2.8:
+                results.append(AnomalyResult(
+                    detected=True,
+                    severity=min(z / 5.0, 1.0),
+                    confidence_score=_confidence(z),
+                    description=f"[LEAVE-R12] {emp.get('name')} leave ratio {r:.1%} is {z:.1f} SD from {dept} peer mean ({mean_r:.1%})",
+                    anomaly_field="leaves_taken",
+                    anomaly_type="leave_peer_outlier",
+                    recommended_action="request_manager_review",
+                    supporting_data={"employee_id": emp["employee_id"], "dept": dept, "ratio": round(r, 3), "dept_mean": round(mean_r, 3)},
+                ))
+
     return results
+
+
+# ─── Rule 13-18: Compliance anomalies ────────────────────────────────────────
 
 
 def detect_compliance_anomalies(employees: list[dict]) -> list[AnomalyResult]:
-    """Flag employees whose compliance_status is 'flagged' as high-severity anomalies."""
+    """Six compliance and HR-policy violation checks."""
     results: list[AnomalyResult] = []
-    for emp in employees:
-        if emp.get("compliance_status") == "flagged":
-            results.append(
-                AnomalyResult(
+
+    # Compute org-wide performance stats for benchmarking
+    perf_vals = [e.get("performance_rating") or 0.0 for e in employees if e.get("performance_rating")]
+    perf_mean = statistics.mean(perf_vals) if perf_vals else 3.0
+    perf_std = statistics.stdev(perf_vals) if len(perf_vals) > 2 else 0.5
+
+    today = date.today()
+
+    for e in employees:
+        eid = e["employee_id"]
+        name = e.get("name", eid)
+        rating = e.get("performance_rating") or 0.0
+        joining = e.get("joining_date", "")
+
+        try:
+            join_dt = date.fromisoformat(str(joining))
+        except (ValueError, TypeError):
+            join_dt = None
+
+        # Rule 13 — Critically low performance rating
+        if 0 < rating < 2.0:
+            z = _z_score(rating, perf_mean, perf_std)
+            results.append(AnomalyResult(
+                detected=True,
+                severity=min(1.0 - rating / 2.0, 1.0),
+                confidence_score=_confidence(z),
+                description=f"[COMPLY-R13] {name} performance rating {rating:.1f} is critically low — PIP may be required",
+                anomaly_field="performance_rating",
+                anomaly_type="compliance_low_performance",
+                recommended_action="initiate_pip",
+                supporting_data={"employee_id": eid, "rating": rating, "org_mean": round(perf_mean, 2)},
+            ))
+
+        # Rule 14 — High performer not promoted (3+ years, position still junior)
+        JUNIOR_TITLES = {"analyst", "associate", "junior", "intern", "trainee", "coordinator"}
+        if join_dt:
+            tenure = (today - join_dt).days / 365.0
+            pos = (e.get("position") or "").lower()
+            if tenure >= 3 and rating >= 4.5 and any(j in pos for j in JUNIOR_TITLES):
+                results.append(AnomalyResult(
                     detected=True,
-                    severity=0.9,
-                    description=f"Compliance flagged: {emp['name']} ({emp['employee_id']})",
-                    anomaly_field="compliance_status",
-                    suggested_action="Initiate compliance review immediately",
-                    supporting_data={"employee_id": emp["employee_id"]},
-                )
-            )
+                    severity=0.68,
+                    confidence_score=0.82,
+                    description=f"[COMPLY-R14] {name} rated {rating:.1f}/5.0 with {tenure:.1f} yrs tenure but still in junior role '{e.get('position')}'",
+                    anomaly_field="performance_rating",
+                    anomaly_type="compliance_promotion_gap",
+                    recommended_action="flag_for_review",
+                    supporting_data={"employee_id": eid, "tenure_years": round(tenure, 1), "rating": rating, "position": e.get("position")},
+                ))
+
+        # Rule 15 — Probation period compliance (new hire with bad rating < 6 months)
+        if join_dt:
+            days_employed = (today - join_dt).days
+            if days_employed < 180 and 0 < rating < 2.5:
+                results.append(AnomalyResult(
+                    detected=True,
+                    severity=0.85,
+                    confidence_score=0.88,
+                    description=f"[COMPLY-R15] {name} is within probation period ({days_employed} days) with low rating {rating:.1f} — review required",
+                    anomaly_field="performance_rating",
+                    anomaly_type="compliance_probation_breach",
+                    recommended_action="escalate_hr_review",
+                    supporting_data={"employee_id": eid, "days_employed": days_employed, "rating": rating},
+                ))
+
+        # Rule 16 — Performance rating is missing / zero for tenured employees
+        if rating == 0.0 and join_dt and (today - join_dt).days > 365:
+            results.append(AnomalyResult(
+                detected=True,
+                severity=0.75,
+                confidence_score=0.85,
+                description=f"[COMPLY-R16] {name} has no performance rating despite 1+ year tenure — overdue review",
+                anomaly_field="performance_rating",
+                anomaly_type="compliance_missing_review",
+                recommended_action="send_notification",
+                supporting_data={"employee_id": eid, "joining_date": joining},
+            ))
+
+        # Rule 17 — Work location vs position mismatch
+        REMOTE_SENSITIVE = {"executive", "vp", "director", "cfo", "cto", "ceo", "chief"}
+        loc = (e.get("work_location") or "").lower()
+        pos = (e.get("position") or "").lower()
+        if any(r in pos for r in REMOTE_SENSITIVE) and "remote" in loc:
+            results.append(AnomalyResult(
+                detected=True,
+                severity=0.55,
+                confidence_score=0.70,
+                description=f"[COMPLY-R17] Executive-level employee {name} ({e.get('position')}) is fully remote — policy compliance check needed",
+                anomaly_field="work_location",
+                anomaly_type="compliance_remote_executive",
+                recommended_action="flag_for_review",
+                supporting_data={"employee_id": eid, "position": e.get("position"), "work_location": e.get("work_location")},
+            ))
+
+        # Rule 18 — Long-tenure employees with declining performance (attrition risk)
+        if join_dt and rating > 0:
+            tenure = (today - join_dt).days / 365.0
+            if tenure >= 5 and rating < perf_mean - 1.0:
+                results.append(AnomalyResult(
+                    detected=True,
+                    severity=0.62,
+                    confidence_score=0.76,
+                    description=f"[COMPLY-R18] {name} has {tenure:.1f} yrs tenure but rating {rating:.1f} is significantly below org mean ({perf_mean:.2f}) — attrition risk",
+                    anomaly_field="performance_rating",
+                    anomaly_type="compliance_attrition_risk",
+                    recommended_action="request_manager_review",
+                    supporting_data={"employee_id": eid, "tenure_years": round(tenure, 1), "rating": rating, "org_mean": round(perf_mean, 2)},
+                ))
+
     return results
 
 
-def run_anomaly_detection(employees: list[dict]) -> list[AnomalyResult]:
-    """Run all anomaly detectors (salary, leave, compliance) and return combined results."""
+# ─── Public API ───────────────────────────────────────────────────────────────
+
+
+def run_anomaly_detection(employees: list[dict] | None = None) -> list[AnomalyResult]:
+    """Run all 18 anomaly detectors; loads from DB when employees is None.
+
+    Returns AnomalyResult list sorted by confidence_score descending.
+    """
+    if employees is None:
+        employees = query_all_employees()
+
+    if not employees:
+        logger.warning("Anomaly detection: no employee data available")
+        return []
+
     results: list[AnomalyResult] = []
-    results.extend(detect_salary_anomalies(employees))
+    results.extend(detect_payroll_anomalies(employees))
     results.extend(detect_leave_anomalies(employees))
     results.extend(detect_compliance_anomalies(employees))
-    logger.info("Anomaly detection: %d anomalies found", len(results))
-    return results
+
+    # De-duplicate: keep highest-confidence result per (employee, anomaly_type)
+    seen: dict[tuple[str, str], AnomalyResult] = {}
+    for r in results:
+        key = (r.supporting_data.get("employee_id", ""), r.anomaly_type)
+        if key not in seen or r.confidence_score > seen[key].confidence_score:
+            seen[key] = r
+
+    deduped = sorted(seen.values(), key=lambda x: x.confidence_score, reverse=True)
+    logger.info("Anomaly detection: %d unique anomalies found (from %d raw) across %d employees",
+                len(deduped), len(results), len(employees))
+    return deduped

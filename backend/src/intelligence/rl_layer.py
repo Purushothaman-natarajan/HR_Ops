@@ -127,3 +127,104 @@ try:
     rl_agent.load()
 except Exception as e:
     logger.warning("Failed to load RL bandit from disk, starting fresh: %s", e)
+
+
+# ─── Anomaly Action Bandit ────────────────────────────────────────────────────
+
+_ANOMALY_ACTIONS = ["escalate_hr_review", "flag_for_review", "request_manager_review",
+                    "send_notification", "initiate_pip", "ignore"]
+_ANOMALY_FEATURE_DIM = 10
+_ANOMALY_PERSIST_PATH = Path("backend/data/anomaly_bandit.pkl")
+
+
+class AnomalyActionBandit:
+    """LinUCB bandit that selects the best remediation action for a detected anomaly.
+
+    Arms (6): escalate_hr_review | flag_for_review | request_manager_review |
+              send_notification | initiate_pip | ignore
+
+    Feature vector (10-d):
+      [0-5] one-hot action hint from rule engine
+      [6]   anomaly confidence score (0–1)
+      [7]   anomaly severity (0–1)
+      [8]   is_payroll (1/0)
+      [9]   is_leave (1/0)
+    """
+
+    def __init__(self, alpha: float = 0.8):
+        self.alpha = alpha
+        self.d = _ANOMALY_FEATURE_DIM
+        self.n_actions = len(_ANOMALY_ACTIONS)
+        self.A = [np.identity(self.d) for _ in range(self.n_actions)]
+        self.b = [np.zeros(self.d) for _ in range(self.n_actions)]
+        self._action_idx = {a: i for i, a in enumerate(_ANOMALY_ACTIONS)}
+
+    def _build_feature(self, anomaly_context: dict) -> np.ndarray:
+        vec = np.zeros(self.d)
+        # One-hot hint from rule's recommended_action
+        hint = anomaly_context.get("recommended_action", "flag_for_review")
+        hint_idx = self._action_idx.get(hint, 1)
+        vec[hint_idx] = 1.0
+        vec[6] = float(anomaly_context.get("confidence_score", 0.7))
+        vec[7] = float(anomaly_context.get("severity", 0.5))
+        atype = anomaly_context.get("anomaly_type", "")
+        vec[8] = 1.0 if "payroll" in atype.lower() else 0.0
+        vec[9] = 1.0 if "leave" in atype.lower() else 0.0
+        return vec
+
+    def select_action(self, anomaly_context: dict) -> str:
+        x = self._build_feature(anomaly_context)
+        p_values = []
+        for a in range(self.n_actions):
+            A_inv = np.linalg.inv(self.A[a])
+            theta = A_inv @ self.b[a]
+            p = (theta @ x) + self.alpha * math.sqrt(max(float(x @ A_inv @ x), 0))
+            p_values.append(p)
+        arm = int(np.argmax(p_values))
+        selected = _ANOMALY_ACTIONS[arm]
+        logger.debug("AnomalyBandit selected=%s confidence=%.2f severity=%.2f",
+                     selected, anomaly_context.get("confidence_score", 0),
+                     anomaly_context.get("severity", 0))
+        return selected
+
+    def update(self, anomaly_context: dict, action: str, reward: float):
+        a = self._action_idx.get(action, 1)
+        x = self._build_feature(anomaly_context)
+        self.A[a] += np.outer(x, x)
+        self.b[a] += reward * x
+        logger.debug("AnomalyBandit update action=%s reward=%.3f", action, reward)
+
+    def save(self, path: Path | None = None):
+        p = path or _ANOMALY_PERSIST_PATH
+        p.parent.mkdir(parents=True, exist_ok=True)
+        with open(p, "wb") as f:
+            pickle.dump({"A": self.A, "b": self.b, "alpha": self.alpha}, f)
+        logger.info("AnomalyBandit saved to %s", p)
+
+    def load(self, path: Path | None = None):
+        p = path or _ANOMALY_PERSIST_PATH
+        if p.exists():
+            with open(p, "rb") as f:
+                data = pickle.load(f)
+            self.A = data["A"]
+            self.b = data["b"]
+            self.alpha = data.get("alpha", self.alpha)
+            logger.info("AnomalyBandit loaded from %s", p)
+
+    def get_state(self) -> dict:
+        arms = {}
+        for i, name in enumerate(_ANOMALY_ACTIONS):
+            theta = (np.linalg.inv(self.A[i]) @ self.b[i]).tolist()
+            arms[name] = {
+                "theta": theta,
+                "pulls": int(np.trace(self.A[i]) - self.d),
+                "reward": float(self.b[i].sum()),
+            }
+        return {"arms": arms, "config": {"alpha": self.alpha, "actions": _ANOMALY_ACTIONS}}
+
+
+anomaly_bandit = AnomalyActionBandit()
+try:
+    anomaly_bandit.load()
+except Exception as e:
+    logger.warning("Failed to load AnomalyBandit from disk, starting fresh: %s", e)
