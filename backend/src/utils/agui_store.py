@@ -71,11 +71,70 @@ class AGUIStore:
             # Extract trigger sub-agent and its query context
             trigger_agent = (req.context or {}).get("current_agent", "policy")
             rl_context = (req.context or {}).get("rl_context", {})
-            
+            session_id = req.session_id
+
         action = (metadata or {}).get("action", "")
+
+        # If it's an anomaly interaction, update the anomaly bandit
+        anomalies = (req.context or {}).get("anomaly_results", [])
+        if anomalies:
+            anomaly = anomalies[0]
+            # Form the anomaly context dictionary needed for the bandit feature vector
+            anomaly_context = {
+                "recommended_action": anomaly.get("recommended_action", "flag_for_review"),
+                "confidence_score": anomaly.get("confidence_score", 0.7),
+                "severity": anomaly.get("severity", 0.5),
+                "anomaly_type": anomaly.get("anomaly_type", ""),
+            }
+            proposed_action = anomaly_context["recommended_action"]
+            
+            if action == "approve":
+                feedback_store.record_anomaly_bandit_reward(anomaly_context, proposed_action, 1.0, session_id=session_id)
+            elif action == "reject":
+                feedback_store.record_anomaly_bandit_reward(anomaly_context, proposed_action, -1.0, session_id=session_id)
+            elif action == "modify":
+                modified_action = (metadata or {}).get("modified_action", "")
+                if modified_action:
+                    # +1.0 for modified action, -1.0 for proposed action
+                    feedback_store.record_anomaly_bandit_reward(anomaly_context, modified_action, 1.0, session_id=session_id)
+                    feedback_store.record_anomaly_bandit_reward(anomaly_context, proposed_action, -1.0, session_id=session_id)
+
         if action in ("approve", "reject"):
             feedback_store.record_hitl_reward(interaction_id, action, trigger_agent=trigger_agent, rl_context=rl_context)
         return True
+
+    def check_and_resolve_expired_requests(self) -> list[str]:
+        """Identify pending requests that have exceeded the timeout window and resolve them with 'flag-for-audit'."""
+        resolved_ids = []
+        with self._lock:
+            now = datetime.now(timezone.utc)
+            for req in list(self._requests.values()):
+                if req.status == "pending":
+                    delta = (now - req.created_at).total_seconds()
+                    if delta > settings.agui_timeout_seconds:
+                        req.status = "resolved"
+                        resp = InteractionResponse(
+                            interaction_id=req.interaction_id,
+                            response="Auto-resolved: action timed out. Escalated to flag-for-audit.",
+                            metadata={"action": "flag-for-audit", "auto_resolved": True},
+                        )
+                        self._responses[req.interaction_id] = resp
+                        resolved_ids.append(req.interaction_id)
+                        logger.info("AG-UI request auto-resolved (timeout): %s", req.interaction_id)
+                        
+                        # Process bandit penalty on timeout
+                        anomalies = (req.context or {}).get("anomaly_results", [])
+                        if anomalies:
+                            anomaly = anomalies[0]
+                            anomaly_context = {
+                                "recommended_action": anomaly.get("recommended_action", "flag_for_review"),
+                                "confidence_score": anomaly.get("confidence_score", 0.7),
+                                "severity": anomaly.get("severity", 0.5),
+                                "anomaly_type": anomaly.get("anomaly_type", ""),
+                            }
+                            proposed_action = anomaly_context["recommended_action"]
+                            feedback_store.record_anomaly_bandit_reward(anomaly_context, proposed_action, -1.0, session_id=req.session_id)
+        return resolved_ids
 
     def get_response(self, interaction_id: str) -> InteractionResponse | None:
         """Retrieve the stored response for a given interaction, or None if not yet resolved."""

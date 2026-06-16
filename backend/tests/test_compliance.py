@@ -1,62 +1,58 @@
 import pytest
-from unittest.mock import patch, PropertyMock
+from unittest.mock import patch
 
-import backend.src.intelligence.compliance as compliance
 from backend.src.intelligence.compliance import (
-    _load_veto_rules,
+    evaluate_action,
     check_veto,
     validate_policy_reference,
 )
 
-@pytest.fixture(autouse=True)
-def reset_hard_veto_rules():
-    """Reset the global HARD_VETO_RULES before and after each test."""
-    original_rules = compliance.HARD_VETO_RULES.copy()
-    compliance.HARD_VETO_RULES.clear()
-    yield
-    compliance.HARD_VETO_RULES.clear()
-    compliance.HARD_VETO_RULES.extend(original_rules)
+def test_evaluate_action_hard_veto_keyword():
+    # Test hard veto keyword match
+    report = evaluate_action("Delete all records from employees table")
+    assert report.vetoed
+    assert not report.compliant
+    assert report.veto_reason == "Hard-veto keyword 'delete all records' is unconditionally blocked."
 
-@patch("backend.src.intelligence.compliance.settings")
-def test_load_veto_rules_success(mock_settings):
-    mock_settings.compliance_config = {"hard_veto_rules": ["cannot_approve_own", "cannot_bypass_manager"]}
-    assert _load_veto_rules() == ["cannot_approve_own", "cannot_bypass_manager"]
+def test_evaluate_action_leave_overrun():
+    # Test condition: leaves_taken > leaves_accrued
+    report = evaluate_action("grant leave request", {"leaves_taken": 15, "leaves_accrued": 10})
+    assert report.vetoed
+    assert not report.compliant
+    assert "LEAVE_001" in [r.rule_id for r in report.triggered_rules]
 
-@patch("backend.src.intelligence.compliance.settings")
-def test_load_veto_rules_empty(mock_settings):
-    mock_settings.compliance_config = {}
-    assert _load_veto_rules() == []
+    # Test condition: leaves_taken <= leaves_accrued (not triggered)
+    report = evaluate_action("grant leave request", {"leaves_taken": 8, "leaves_accrued": 10})
+    assert not report.vetoed
+    assert "LEAVE_001" not in [r.rule_id for r in report.triggered_rules]
 
-@patch("backend.src.intelligence.compliance.settings")
-def test_load_veto_rules_exception(mock_settings):
-    # A cleaner and safer way to mock the exception is to mock `get` directly on the `compliance_config` mock
-    mock_settings.compliance_config.get.side_effect = Exception("Config error")
-    assert _load_veto_rules() == []
+def test_evaluate_action_salary_change():
+    # Test condition: salary_change_pct > 25
+    report = evaluate_action("salary increase requested", {"salary_change_pct": 30})
+    assert report.vetoed
+    assert "PAY_001" in [r.rule_id for r in report.triggered_rules]
 
-def test_check_veto_triggers():
-    compliance.HARD_VETO_RULES.extend(["cannot_approve_own", "cannot_bypass_manager"])
-    # rule "cannot_approve_own" key becomes "approve own"
-    is_allowed, reason = check_veto("EMP123", "I want to approve own request")
-    assert not is_allowed
-    assert reason == "Hard veto: cannot_approve_own"
+    # Test condition: salary_change_pct <= 25
+    report = evaluate_action("salary increase requested", {"salary_change_pct": 10})
+    assert not report.vetoed
+    assert "PAY_001" not in [r.rule_id for r in report.triggered_rules]
 
-def test_check_veto_allows():
-    compliance.HARD_VETO_RULES.extend(["cannot_approve_own"])
-    is_allowed, reason = check_veto("EMP123", "I want to approve someone else's request")
-    assert is_allowed
+def test_evaluate_action_privacy_keyword():
+    # Test keyword matching without numeric conditions
+    report = evaluate_action("Please retrieve the bank account details of this employee")
+    assert report.vetoed
+    assert "PRIVACY_001" in [r.rule_id for r in report.triggered_rules]
+
+def test_check_veto_shim():
+    # Allowed
+    allowed, reason = check_veto("EMP123", "Look up leave policy")
+    assert allowed
     assert reason == ""
 
-def test_check_veto_loads_rules_if_empty():
-    with patch("backend.src.intelligence.compliance._load_veto_rules") as mock_load:
-        mock_load.return_value = ["cannot_fire_ceo"]
-        is_allowed, reason = check_veto("EMP123", "fire ceo")
-        assert not is_allowed
-        assert reason == "Hard veto: cannot_fire_ceo"
-        mock_load.assert_called_once()
-
-        # Call again to ensure it doesn't load twice
-        check_veto("EMP123", "Promote CEO")
-        mock_load.assert_called_once()
+    # Blocked by hard veto keyword
+    allowed, reason = check_veto("EMP123", "manipulate attendance records")
+    assert not allowed
+    assert "attendance" in reason.lower()
 
 def test_validate_policy_reference():
     is_valid, msg = validate_policy_reference(True)

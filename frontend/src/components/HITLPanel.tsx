@@ -17,12 +17,22 @@ interface HITLPanelProps {
 interface ResolvedItem {
   interaction_id: string;
   query: string;
-  action: "approve" | "reject";
+  action: "approve" | "reject" | "modify";
   response: string;
   resolved_at: string;
   session_id?: string;
   context?: Record<string, any>;
+  metadata?: Record<string, any>;
 }
+
+const AVAILABLE_ACTIONS = [
+  "escalate_hr_review",
+  "flag_for_review",
+  "request_manager_review",
+  "send_notification",
+  "initiate_pip",
+  "ignore"
+];
 
 export function HITLPanel({ onContinueSession }: HITLPanelProps) {
   const [items, setItems] = useState<PendingItem[]>([]);
@@ -49,9 +59,9 @@ export function HITLPanel({ onContinueSession }: HITLPanelProps) {
     return () => clearInterval(t);
   }, [fetchItems]);
 
-  const handleAction = async (item: PendingItem, action: "approve" | "reject", responseText: string) => {
+  const handleAction = async (item: PendingItem, action: "approve" | "reject" | "modify", responseText: string, metadata?: Record<string, any>) => {
     try {
-      await api.hitl.respond(item.interaction_id, action, responseText);
+      await api.hitl.respond(item.interaction_id, action, responseText, metadata);
       setItems((prev) => prev.filter((i) => i.interaction_id !== item.interaction_id));
       setResolved((prev) => [
         {
@@ -62,6 +72,7 @@ export function HITLPanel({ onContinueSession }: HITLPanelProps) {
           resolved_at: new Date().toISOString(),
           session_id: item.session_id,
           context: item.context,
+          metadata,
         },
         ...prev,
       ]);
@@ -119,7 +130,7 @@ export function HITLPanel({ onContinueSession }: HITLPanelProps) {
         </div>
 
         <button className="btn btn-secondary" onClick={fetchItems} style={{ borderRadius: 8, height: 38, display: "flex", alignItems: "center", gap: 6 }}>
-          <Icon name="arrow" size={14} style={{ transform: "rotate(270deg)" }} />
+          <Icon name="refresh" size={14} />
           Refresh
         </button>
       </div>
@@ -188,7 +199,7 @@ function HitlItemCard({
   onContinueSession,
 }: {
   item: PendingItem;
-  onAction: (item: PendingItem, action: "approve" | "reject", response: string) => void;
+  onAction: (item: PendingItem, action: "approve" | "reject" | "modify", response: string, metadata?: Record<string, any>) => void;
   onContinueSession?: (sessionId: string, mode?: "standard" | "advanced") => void;
 }) {
   const [responseText, setResponseText] = useState("");
@@ -196,17 +207,23 @@ function HitlItemCard({
   const ageSeconds = Math.round((Date.now() - new Date(item.created_at).getTime()) / 1000);
   const ageLabel = ageSeconds < 60 ? `${ageSeconds}s ago` : `${Math.round(ageSeconds / 60)}m ago`;
 
+  const anomaly = item.context?.anomaly_results?.[0];
+  const confidence = anomaly?.severity !== undefined ? anomaly.severity : 0.85;
+  const proposedAction = anomaly?.recommended_action || anomaly?.suggested_action || (item.context?.compliance_veto ? "veto-action" : "escalate-to-HR");
+  const anomalyField = anomaly?.anomaly_field || (item.context?.compliance_veto ? "compliance" : "policy");
+
+  const [selectedAction, setSelectedAction] = useState(proposedAction);
+
   const handle = async (action: "approve" | "reject") => {
     setSubmitting(true);
-    await onAction(item, action, responseText || "Processed by operator.");
+    if (action === "approve" && selectedAction !== proposedAction) {
+      await onAction(item, "modify", responseText || `Action modified to ${selectedAction.replace(/_/g, " ")} by operator.`, { modified_action: selectedAction });
+    } else {
+      await onAction(item, action, responseText || "Processed by operator.");
+    }
     setSubmitting(false);
   };
 
-  const anomaly = item.context?.anomaly_results?.[0];
-  const confidence = anomaly?.severity !== undefined ? anomaly.severity : 0.85;
-  const proposedAction = anomaly?.suggested_action || (item.context?.compliance_veto ? "veto-action" : "escalate-to-HR");
-  const anomalyField = anomaly?.anomaly_field || (item.context?.compliance_veto ? "compliance" : "policy");
-  
   // Color configuration depending on severity/agent
   const isHighRisk = confidence >= 0.8;
   const statusColor = isHighRisk ? "var(--color-error)" : "var(--color-warning)";
@@ -277,12 +294,44 @@ function HitlItemCard({
             </div>
           </div>
           <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-              Proposed Action
+            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-muted)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>
+              Action Remediation
             </div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: "var(--color-text)", marginTop: 4, fontFamily: "var(--font-mono)", color: "var(--color-primary)" }}>
-              {proposedAction.replace(/_/g, " ")}
-            </div>
+            <select
+              value={selectedAction}
+              onChange={(e) => setSelectedAction(e.target.value)}
+              disabled={submitting}
+              style={{
+                width: "100%",
+                background: "#fff",
+                border: "1px solid var(--color-border)",
+                borderRadius: 6,
+                padding: "6px 10px",
+                fontSize: 13,
+                fontWeight: 600,
+                color: "var(--color-primary)",
+                fontFamily: "var(--font-mono)",
+                cursor: "pointer",
+                outline: "none",
+                appearance: "none",
+                WebkitAppearance: "none",
+                backgroundImage: "url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"%236366f1\" stroke-width=\"2\" viewBox=\"0 0 24 24\"><polyline points=\"6 9 12 15 18 9\"/></svg>')",
+                backgroundRepeat: "no-repeat",
+                backgroundPosition: "right 10px center",
+                paddingRight: "28px"
+              }}
+            >
+              {AVAILABLE_ACTIONS.map(act => (
+                <option key={act} value={act}>
+                  {act.replace(/_/g, " ")}
+                </option>
+              ))}
+              {!AVAILABLE_ACTIONS.includes(proposedAction) && (
+                <option value={proposedAction}>
+                  {proposedAction.replace(/_/g, " ")} (Proposed)
+                </option>
+              )}
+            </select>
           </div>
           <div>
             <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
@@ -326,17 +375,25 @@ function HitlItemCard({
               padding: "0 18px", 
               borderRadius: 8, 
               fontWeight: 600, 
-              background: "linear-gradient(135deg, #10b981 0%, #059669 100%)", 
+              background: selectedAction !== proposedAction
+                ? "linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%)"
+                : "linear-gradient(135deg, #10b981 0%, #059669 100%)", 
               color: "#fff",
               border: "none",
-              boxShadow: "0 2px 6px rgba(16, 185, 129, 0.15)",
+              boxShadow: selectedAction !== proposedAction
+                ? "0 2px 6px rgba(99, 102, 241, 0.15)"
+                : "0 2px 6px rgba(16, 185, 129, 0.15)",
               display: "flex",
               alignItems: "center",
               gap: 6
             }}
           >
-            {submitting ? <div className="spinner" style={{ width: 14, height: 14, borderColor: "#fff" }} /> : <Icon name="check" size={14} />}
-            Approve Action
+            {submitting ? (
+              <div className="spinner" style={{ width: 14, height: 14, borderColor: "#fff" }} />
+            ) : (
+              <Icon name={selectedAction !== proposedAction ? "edit" : "check"} size={14} />
+            )}
+            {selectedAction !== proposedAction ? "Submit Modified Action" : "Approve Action"}
           </button>
           <button 
             className="btn btn-danger" 
@@ -385,12 +442,30 @@ function ResolvedItemCard({
 }) {
   const anomaly = item.context?.anomaly_results?.[0];
   const isApproved = item.action === "approve";
+  const isModified = item.action === "modify";
+  
+  let badgeColor = "var(--color-error)";
+  let badgeBg = "rgba(239, 68, 68, 0.12)";
+  let badgeText = "REJECTED";
+  let badgeIcon = "close";
+
+  if (isApproved) {
+    badgeColor = "var(--color-success)";
+    badgeBg = "rgba(16, 185, 129, 0.12)";
+    badgeText = "APPROVED";
+    badgeIcon = "check";
+  } else if (isModified) {
+    badgeColor = "var(--color-primary)";
+    badgeBg = "rgba(99, 102, 241, 0.12)";
+    badgeText = "MODIFIED";
+    badgeIcon = "edit";
+  }
   
   return (
     <div 
       className="hitl-card card" 
       style={{ 
-        borderLeft: `5px solid ${isApproved ? "var(--color-success)" : "var(--color-error)"}`,
+        borderLeft: `5px solid ${isApproved ? "var(--color-success)" : isModified ? "var(--color-primary)" : "var(--color-error)"}`,
         borderRadius: 12,
         background: "var(--color-surface)",
         border: "1px solid var(--color-border)",
@@ -401,8 +476,8 @@ function ResolvedItemCard({
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span className="badge" style={{ 
-              background: isApproved ? "rgba(16, 185, 129, 0.12)" : "rgba(239, 68, 68, 0.12)", 
-              color: isApproved ? "var(--color-success)" : "var(--color-error)",
+              background: badgeBg, 
+              color: badgeColor,
               fontWeight: 700,
               fontSize: 11,
               padding: "3px 10px",
@@ -411,9 +486,14 @@ function ResolvedItemCard({
               alignItems: "center",
               gap: 4
             }}>
-              {isApproved ? <Icon name="check" size={12} /> : "✗"}
-              {isApproved ? "APPROVED" : "REJECTED"}
+              {badgeIcon === "check" || badgeIcon === "edit" ? <Icon name={badgeIcon} size={12} /> : "✗"}
+              {badgeText}
             </span>
+            {isModified && item.metadata?.modified_action && (
+              <span style={{ fontSize: 12, color: "var(--color-text-secondary)", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                changed to <code style={{ fontSize: 11, background: "var(--color-bg)", padding: "2px 6px", borderRadius: 4, color: "var(--color-primary)", border: "1px solid var(--color-border)" }}>{item.metadata.modified_action.replace(/_/g, " ")}</code>
+              </span>
+            )}
             <span style={{ fontSize: 12, color: "var(--color-text-muted)" }}>
               {new Date(item.resolved_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </span>

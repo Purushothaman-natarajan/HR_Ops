@@ -1,0 +1,109 @@
+"""DB Schema Store — loads the live database schema once at startup and caches it
+as a prompt-ready string for the Text-to-SQL pipeline.
+
+The schema is loaded lazily on first access and re-cached if it changes.
+The prompt string includes table names, column names/types, sample values,
+and key relationships — enough for an LLM to generate accurate SQL.
+"""
+
+from __future__ import annotations
+
+import logging
+import sqlite3
+
+from backend.config.settings import settings
+
+logger = logging.getLogger("hr_ops.db_schema_store")
+
+_SCHEMA_CACHE: str | None = None
+_ROW_COUNTS: dict[str, int] = {}
+
+
+def _get_db_path() -> str:
+    db_url = settings.database_url
+    if db_url.startswith("sqlite:///"):
+        return db_url.replace("sqlite:///", "")
+    return "./backend/data/hr_ops.db"
+
+
+def _load_schema() -> str:
+    """Connect to the SQLite DB and build a rich schema description string."""
+    db_path = _get_db_path()
+    lines: list[str] = []
+    counts: dict[str, int] = {}
+
+    try:
+        conn = sqlite3.connect(db_path)
+        cur = conn.cursor()
+
+        cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
+        tables = [r[0] for r in cur.fetchall()]
+
+        lines.append("=== Database: HR Ops (SQLite) ===")
+        lines.append(f"Tables: {', '.join(tables)}\n")
+
+        for table in tables:
+            # Row count
+            cur.execute(f"SELECT COUNT(*) FROM {table}")
+            row_count = cur.fetchone()[0]
+            counts[table] = row_count
+
+            # Column info
+            cur.execute(f"PRAGMA table_info({table})")
+            cols = cur.fetchall()
+
+            lines.append(f"TABLE: {table}  ({row_count:,} rows)")
+            col_descs = []
+            for col in cols:
+                # cid, name, type, notnull, dflt, pk
+                pk_tag = " [PK]" if col[5] else ""
+                nn_tag = " NOT NULL" if col[3] else ""
+                col_descs.append(f"  - {col[1]} {col[2]}{pk_tag}{nn_tag}")
+            lines.extend(col_descs)
+
+            # Sample values for key text columns (helps LLM write correct LIKE queries)
+            try:
+                text_cols = [c[1] for c in cols if c[2].upper() in ("VARCHAR", "TEXT") and not c[5]][:3]
+                for tc in text_cols:
+                    cur.execute(f"SELECT DISTINCT {tc} FROM {table} WHERE {tc} IS NOT NULL LIMIT 5")
+                    samples = [str(r[0]) for r in cur.fetchall()]
+                    if samples:
+                        lines.append(f"    Sample {tc}: {', '.join(samples)}")
+            except Exception:
+                pass
+
+            lines.append("")
+
+        conn.close()
+
+    except Exception as exc:
+        logger.error("Schema load failed: %s", exc)
+        lines.append(f"[Schema load error: {exc}]")
+
+    global _ROW_COUNTS
+    _ROW_COUNTS = counts
+    schema_text = "\n".join(lines)
+    logger.info("DB schema loaded: %d tables, %s", len(tables), {t: counts[t] for t in tables})
+    return schema_text
+
+
+def get_schema_prompt() -> str:
+    """Return the cached schema string, loading it on first call."""
+    global _SCHEMA_CACHE
+    if _SCHEMA_CACHE is None:
+        _SCHEMA_CACHE = _load_schema()
+    return _SCHEMA_CACHE
+
+
+def refresh_schema() -> str:
+    """Force a reload of the schema (call after migrations or seed runs)."""
+    global _SCHEMA_CACHE
+    _SCHEMA_CACHE = _load_schema()
+    return _SCHEMA_CACHE
+
+
+def get_row_counts() -> dict[str, int]:
+    """Return the cached row counts per table."""
+    if not _ROW_COUNTS:
+        get_schema_prompt()  # trigger load
+    return dict(_ROW_COUNTS)

@@ -8,7 +8,10 @@ from typing import Any
 
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-from backend.src.database.queries import query_employee as _db_query_employee
+from backend.src.database.queries import (
+    query_employee as _db_query_employee,
+    query_employee_full as _db_query_employee_full,
+)
 
 logger = logging.getLogger("hr_ops.tools")
 
@@ -178,6 +181,63 @@ def get_database_schema(db_name: str = "hr_ops") -> dict:
         return {"success": False, "error": str(e)}
 
 
+def search_employee_by_name(name: str, limit: int = 10) -> dict:
+    """Search employees by partial name match (case-insensitive LIKE).
+
+    Returns a list of matching employee profiles with their leave summary
+    and most recent performance rating.
+    """
+    import sqlite3
+    from backend.config.settings import settings
+
+    db_url = settings.database_url
+    db_path = "./backend/data/hr_ops.db"
+    if db_url.startswith("sqlite:///"):
+        db_path = db_url.replace("sqlite:///", "")
+
+    try:
+        conn = sqlite3.connect(db_path)
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT * FROM employees WHERE Employee_Name LIKE ? LIMIT ?",
+            (f"%{name}%", limit),
+        )
+        cols = [d[0] for d in cur.description]
+        rows = [dict(zip(cols, r)) for r in cur.fetchall()]
+        conn.close()
+
+        if not rows:
+            return {"success": True, "found": False, "message": f"No employees found matching '{name}'."}
+
+        # Enrich with leave balance and latest performance rating
+        enriched = []
+        for row in rows:
+            eid = row.get("Employee_ID")
+            profile = dict(row)
+            try:
+                full = _db_query_employee_full(eid)
+                if full:
+                    ls = full.get("leave_summary", {})
+                    profile["leaves_remaining"] = ls.get("leaves_remaining", "N/A")
+                    perf = full.get("performance", [])
+                    if perf:
+                        profile["latest_performance_rating"] = perf[0].get("rating", "N/A")
+                        profile["performance_review_date"] = perf[0].get("review_date", "N/A")
+            except Exception:
+                pass
+            enriched.append(profile)
+
+        return {
+            "success": True,
+            "found": True,
+            "count": len(enriched),
+            "employees": enriched,
+        }
+    except Exception as e:
+        logger.exception("search_employee_by_name failed: %s", e)
+        return {"success": False, "error": str(e)}
+
+
 def execute_db_query(sql_query: str, parameters: list | dict | None = None, db_name: str = "hr_ops") -> dict:
     """Execute an arbitrary raw SQL query against the active database.
     
@@ -236,6 +296,7 @@ def execute_db_query(sql_query: str, parameters: list | dict | None = None, db_n
 
 TOOL_REGISTRY: dict[str, Any] = {  # Maps tool names to their implementation functions
     "lookup_employee": lookup_employee,
+    "search_employee_by_name": search_employee_by_name,
     "modify_record": modify_record,
     "escalate_to_human": escalate_to_human,
     "get_database_schema": get_database_schema,

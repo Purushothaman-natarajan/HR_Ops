@@ -366,10 +366,10 @@ export const api = {
      * @example
      * await api.hitl.respond("req_abc123", "approve", "Looks correct");
      */
-    respond: (id: string, action: string, response_text: string) =>
+    respond: (id: string, action: string, response_text: string, metadata?: Record<string, any>) =>
       request<APIResponse<{ status: string }>>(`/agui/respond/${id}`, {
         method: "POST",
-        body: JSON.stringify({ interaction_id: id, response: response_text, metadata: { action } }),
+        body: JSON.stringify({ interaction_id: id, response: response_text, metadata: { action, ...metadata } }),
       }),
   },
 

@@ -174,3 +174,36 @@ def query_all_payroll_current() -> list[dict]:
         ).fetchall()
         keys = ["id", "employee_id", "pay_period", "gross_pay", "deductions", "net_pay", "payment_date"]
         return [dict(zip(keys, r)) for r in rows]
+
+
+def query_attendance_summary_all() -> list[dict]:
+    """Return per-employee attendance summary for inactivity and absence-pattern scans.
+
+    Returns a list of dicts with keys:
+      employee_id, total_records, present_days, absent_days, late_days,
+      wfh_days, absence_pct, late_pct, last_seen (most recent date marked Present/Late/WFH)
+    """
+    with _get_session() as session:
+        rows = session.execute(
+            text("""
+                SELECT
+                    employee_id,
+                    COUNT(*) as total_records,
+                    SUM(CASE WHEN status = 'Present'       THEN 1 ELSE 0 END) as present_days,
+                    SUM(CASE WHEN status = 'Absent'        THEN 1 ELSE 0 END) as absent_days,
+                    SUM(CASE WHEN status = 'Late'          THEN 1 ELSE 0 END) as late_days,
+                    SUM(CASE WHEN status = 'Work from Home' THEN 1 ELSE 0 END) as wfh_days,
+                    ROUND(100.0 * SUM(CASE WHEN status = 'Absent' THEN 1 ELSE 0 END) / COUNT(*), 2)
+                        as absence_pct,
+                    ROUND(100.0 * SUM(CASE WHEN status = 'Late' THEN 1 ELSE 0 END) / COUNT(*), 2)
+                        as late_pct,
+                    MAX(CASE WHEN status != 'Absent' THEN date ELSE NULL END) as last_active_date
+                FROM attendance
+                GROUP BY employee_id
+            """)
+        ).fetchall()
+        keys = [
+            "employee_id", "total_records", "present_days", "absent_days",
+            "late_days", "wfh_days", "absence_pct", "late_pct", "last_active_date",
+        ]
+        return [dict(zip(keys, r)) for r in rows]

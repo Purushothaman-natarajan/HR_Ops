@@ -1,4 +1,13 @@
-"""Action node: parses HR tool calls from queries and executes them with guardrail checks."""
+"""Action node: parses HR tool calls from queries, executes them, then synthesises
+a readable natural-language response from the raw tool result.
+
+Flow:
+  1. Pre-screen query for direct name/ID lookups — bypass LLM parsing with deterministic routing
+  2. If not matched, call LLM to select + parameterise the correct tool
+  3. Run guardrail check on the chosen tool call
+  4. Execute the tool
+  5. Synthesise a clean human-readable response from the raw result via a second LLM call
+"""
 
 import json
 import logging
@@ -13,9 +22,12 @@ from backend.src.utils.model_router import llm_call
 logger = logging.getLogger("hr_ops.nodes.action")
 
 
+# ─── Tool call JSON parser ────────────────────────────────────────────────────
+
+
 def _parse_tool_json(response: str) -> dict | None:
     """Try to extract a valid JSON tool call from LLM response.
-    
+
     Handles:
     - Clean JSON: {"name": "...", "args": {...}}
     - Markdown-fenced JSON: ```json {...} ```
@@ -49,97 +61,187 @@ def _parse_tool_json(response: str) -> dict | None:
     return None
 
 
-def _build_name_search_fallback(query: str, schema_tables: list[str]) -> dict:
-    """Build a fallback execute_db_query tool call when JSON parsing fails.
-    
-    Attempts to detect employee name searches and construct appropriate SQL.
-    """
-    # Check for common employee name lookup patterns
-    name_patterns = [
-        r"(?:find|search|look\s*up|who\s*is|employee\s+named?)\s+(?:data\s+about\s+)?(?:employee\s+)?([a-zA-Z]+(?:\s+[a-zA-Z]+)*)",
-        r"named?\s+['\"]?([a-zA-Z]+(?:\s+[a-zA-Z]+)*)['\"]?",
-        r"([a-zA-Z]+(?:\s+[a-zA-Z]+)*)\s+(?:employee|record|profile)",
-    ]
+# ─── Pre-screen: deterministic lookup routing ─────────────────────────────────
 
-    emp_table = next((t for t in schema_tables if "employee" in t.lower()), "employees")
-    
-    for pattern in name_patterns:
-        match = re.search(pattern, query, re.IGNORECASE)
-        if match:
-            name = match.group(1).strip()
-            # Use LIKE for partial match
-            sql = f"SELECT * FROM {emp_table} WHERE Employee_Name LIKE ? LIMIT 10;"
-            return {"name": "execute_db_query", "args": {"sql_query": sql, "parameters": [f"%{name}%"]}}
+# All patterns that indicate "find employee by name"
+_NAME_LOOKUP_PATTERNS = [
+    # employee named 'John' or named John
+    r"(?:employee\s+)?named\s+['\"]?([A-Za-z]+(?:\s+[A-Za-z]+)*)['\"]?",
+    # find/search/look up/show/get [employee] John Doe
+    r"(?:find|search|look\s*up|show|get|who\s+is)\s+(?:info(?:rmation)?\s+(?:about|for|on)\s+)?(?:employee\s+)?([A-Za-z]+(?:\s+[A-Za-z]+)*)",
+    # John Doe's profile/details/record
+    r"([A-Za-z]+(?:\s+[A-Za-z]+)*)\s+(?:'s\s+)?(?:info(?:rmation)?|profile|details?|record)",
+    # John Doe employee/staff
+    r"([A-Za-z]+(?:\s+[A-Za-z]+)*)\s+(?:employee|staff)",
+]
 
-    # Generic: try a broad search if keywords suggest a lookup
-    kw_select = any(kw in query.lower() for kw in ["how many", "count", "list all", "show all", "all employees"])
-    if kw_select:
-        sql = f"SELECT COUNT(*) as total_employees FROM {emp_table};"
-        return {"name": "execute_db_query", "args": {"sql_query": sql}}
+_FORBIDDEN_NAME_WORDS = {
+    "policy", "leave", "holiday", "vacation", "rules", "guidelines", "handbook",
+    "schema", "table", "database", "query", "record", "system", "hr", "ops",
+    "payroll", "salary", "bonus", "attendance", "performance", "training",
+    "safety", "employee", "staff", "person", "info", "information", "data", "all"
+}
 
-    # Last resort: schema inspection
+_EMP_ID_PATTERN = re.compile(r"\b(EMP\d{4,})\b", re.IGNORECASE)
+
+
+def _is_valid_name(name: str) -> bool:
+    name_lower = name.lower()
+    if len(name_lower) < 2:
+        return False
+    words = set(name_lower.split())
+    if words & _FORBIDDEN_NAME_WORDS:
+        return False
+    return True
+
+
+def _prescreen_query(query: str) -> dict | None:
+    """Return a direct tool call dict if the query is a clear name/ID lookup."""
+    q = query.strip()
+
+    # Employee ID lookup
+    m = _EMP_ID_PATTERN.search(q)
+    if m:
+        eid = m.group(1).upper()
+        return {"name": "lookup_employee", "args": {"employee_id": eid}}
+
+    # Name lookup — try all patterns
+    for pattern in _NAME_LOOKUP_PATTERNS:
+        m = re.search(pattern, q, re.IGNORECASE)
+        if m:
+            name = m.group(1).strip()
+            if _is_valid_name(name):
+                return {"name": "search_employee_by_name", "args": {"name": name}}
+
+    return None
+
+
+# ─── Fallback for when LLM returns non-JSON ──────────────────────────────────
+
+
+def _build_fallback(query: str) -> dict:
+    """Construct a best-effort tool call when LLM parsing fails."""
+    q_lower = query.lower()
+
+    # Name search fallback
+    for pattern in _NAME_LOOKUP_PATTERNS:
+        m = re.search(pattern, query, re.IGNORECASE)
+        if m:
+            name = m.group(1).strip()
+            if _is_valid_name(name):
+                return {"name": "search_employee_by_name", "args": {"name": name}}
+
+    # Count / list queries
+    if any(kw in q_lower for kw in ["how many", "count", "list all", "show all", "all employees"]):
+        return {"name": "execute_db_query", "args": {"sql_query": "SELECT COUNT(*) as total_employees FROM employees;"}}
+
+    # Schema inspection as last resort
     return {"name": "get_database_schema", "args": {}}
 
 
-async def action_node(state: SharedState) -> dict:
-    """Parse a tool call from the query, run it through guardrails, and execute it."""
-    start = datetime.now(timezone.utc)
-    activities = []
-    # Fetch active database schema dynamically to inject into prompt
-    from backend.src.tools.api_mocks import get_database_schema
-    schema_res = get_database_schema()
-    schema_str = ""
-    schema_tables = []
-    if schema_res.get("success"):
-        schema_str = "\nActive Database Schema:\n"
-        for table, cols in schema_res.get("schema", {}).items():
-            schema_tables.append(table)
-            schema_str += f"- Table: {table}\n"
-            for col in cols:
-                schema_str += f"  - {col['name']} ({col['type']}){ ' [PK]' if col['pk'] else '' }\n"
+# ─── Response synthesiser ─────────────────────────────────────────────────────
+
+
+async def _synthesise_response(query: str, tool_name: str, tool_result: dict) -> str:
+    """Convert a raw tool result dict into a clean, readable HR response via LLM."""
+    result_json = json.dumps(tool_result, indent=2)[:2000]  # cap to avoid token overflow
 
     prompt = (
-        f"Extract a tool call from the HR query.\n"
-        f"Available tools:\n"
-        f"  get_database_schema()\n"
-        f"  execute_db_query(sql_query, parameters)\n"
-        f"  lookup_employee(employee_id)\n"
-        f"  modify_record(employee_id, field, value)\n"
-        f"  escalate_to_human(employee_id, reason)\n\n"
-        f"Use `execute_db_query` with parameterized SQLite queries to retrieve or modify records. MUST always use `?` placeholders for user input to prevent SQL injection.\n"
-        f"Provide the values in the `parameters` list.\n"
-        f"Example: {{\"name\": \"execute_db_query\", \"args\": {{\"sql_query\": \"SELECT * FROM employees WHERE Employee_Name LIKE ? LIMIT 10;\", \"parameters\": [\"%name%\"]}}}}\n"
-        f"{schema_str}\n"
-        f"Query: {state.query}\n\n"
-        f"IMPORTANT: Reply ONLY with valid JSON, no markdown, no explanation:\n"
-        f'{{\"name\": \"tool_name\", \"args\": {{...}}}}'
+        "You are an HR assistant. A user asked a question and a tool was executed. "
+        "Summarise the tool result in clear, friendly language — use bullet points or "
+        "a structured format when returning employee details. "
+        "Do NOT repeat the raw JSON.\n\n"
+        f"User query: {query}\n"
+        f"Tool used: {tool_name}\n"
+        f"Tool result:\n{result_json}\n\n"
+        "Provide a concise, well-formatted answer:"
     )
-    activities.append(Activity(
-        type="llm_call", label="Parsing tool call from query",
-        detail=f"Query: {state.query[:80]}...",
-        status="running",
-    ))
-    response, cost = await llm_call("action", prompt, max_tokens=256, temperature=0)
-    activities[-1].status = "completed"
+    response, _ = await llm_call("action_synthesis", prompt, max_tokens=512, temperature=0.1)
+    return response.strip() or result_json
 
-    tool_call_info = {}
-    call = _parse_tool_json(response)
 
-    if call is None:
-        # LLM didn't return valid JSON — use intelligent fallback
-        logger.warning("action_node: LLM returned non-JSON response, using fallback. Response: %r", response[:200])
-        call = _build_name_search_fallback(state.query, schema_tables)
-        activities[-1].detail = f"Fallback tool: {call['name']} (LLM returned non-JSON)"
+# ─── Main node ────────────────────────────────────────────────────────────────
+
+
+async def action_node(state: SharedState) -> dict:
+    """Parse a tool call from the query, run it through guardrails, execute it, and synthesise a response."""
+    start = datetime.now(timezone.utc)
+    activities = []
+    cost = 0.0
+
+    # ── Step 1: Pre-screen for direct lookup ────────────────────────────────
+    call = _prescreen_query(state.query)
+    if call:
         activities.append(Activity(
-            type="decision", label="Fallback tool selection",
-            detail=f"LLM response was not valid JSON. Auto-selected: {call['name']}",
+            type="decision", label="Direct lookup routing",
+            detail=f"Matched: {call['name']}({call['args']})",
             status="completed",
         ))
+        logger.info("action_node: pre-screened as %s(%s)", call["name"], call["args"])
     else:
-        activities[-1].detail = f"Parsed tool: {call.get('name', 'unknown')}({json.dumps(call.get('args', {}))})"
+        # ── Step 2: LLM tool parsing ─────────────────────────────────────────
+        from backend.src.tools.api_mocks import get_database_schema
+        schema_res = get_database_schema()
+        schema_str = ""
+        if schema_res.get("success"):
+            schema_str = "\nActive Database Schema:\n"
+            for table, cols in schema_res.get("schema", {}).items():
+                schema_str += f"- Table: {table}\n"
+                for col in cols:
+                    schema_str += f"  - {col['name']} ({col['type']}){' [PK]' if col['pk'] else ''}\n"
 
-    tool_call_info = {"tool": call.get("name", ""), "args": call.get("args", {})}
+        prompt = (
+            "Extract a tool call from the HR query.\n"
+            "Available tools:\n"
+            "  search_employee_by_name(name)           ← USE THIS for any name/person lookup\n"
+            "  lookup_employee(employee_id)             ← USE THIS only when you have an EMP ID\n"
+            "  execute_db_query(sql_query, parameters)  ← for complex SQL queries\n"
+            "  modify_record(employee_id, field, value)\n"
+            "  escalate_to_human(employee_id, reason)\n"
+            "  get_database_schema()\n\n"
+            "RULES:\n"
+            "  - If the query mentions a person's name (like 'John', 'ALICE', 'find Bob'), "
+            "use search_employee_by_name with the name.\n"
+            "  - Do NOT use get_database_schema unless the user explicitly asks about schema.\n"
+            "  - Use ? placeholders in SQL, provide values in 'parameters' list.\n"
+            f"{schema_str}\n"
+            f"Query: {state.query}\n\n"
+            "Reply ONLY with valid JSON:\n"
+            '{"name": "tool_name", "args": {...}}'
+        )
 
+        activities.append(Activity(
+            type="llm_call", label="Parsing tool call from query",
+            detail=f"Query: {state.query[:80]}...",
+            status="running",
+        ))
+        response, cost = await llm_call("action", prompt, max_tokens=256, temperature=0)
+        activities[-1].status = "completed"
+
+        call = _parse_tool_json(response)
+        if call is None:
+            logger.warning("action_node: LLM returned non-JSON, using fallback. response=%r", response[:200])
+            call = _build_fallback(state.query)
+            activities[-1].detail = f"Fallback: {call['name']} (LLM non-JSON)"
+        else:
+            activities[-1].detail = f"Parsed: {call.get('name')}({json.dumps(call.get('args', {}))})"
+
+        # Safety override: if LLM chose get_database_schema for a name query, re-route
+        if call.get("name") == "get_database_schema":
+            override = _build_fallback(state.query)
+            if override.get("name") != "get_database_schema":
+                logger.warning("action_node: overriding LLM schema call with %s", override["name"])
+                call = override
+                activities.append(Activity(
+                    type="decision", label="Schema-call override",
+                    detail=f"Re-routed to {call['name']} — query is a lookup, not schema inspection",
+                    status="completed",
+                ))
+
+    tool_call_info: dict = {"tool": call.get("name", ""), "args": call.get("args", {})}
+    result_text = ""
+
+    # ── Step 3: Guardrail check ──────────────────────────────────────────────
     try:
         activities.append(Activity(
             type="guardrail", label="Running guardrail check",
@@ -155,34 +257,48 @@ async def action_node(state: SharedState) -> dict:
             activities[-1].status = "completed"
             activities[-1].detail = "Guardrail PASSED"
 
+            # ── Step 4: Execute tool ─────────────────────────────────────────
             activities.append(Activity(
                 type="tool_call", label=f"Executing {call.get('name', 'tool')}",
                 detail=f"Args: {json.dumps(call.get('args', {}))}",
                 status="running",
             ))
-            # Inject session_id into context for tools like escalate_to_human
-            tool_args_with_ctx = dict(call["args"])
+            tool_args = dict(call["args"])
             if call["name"] == "escalate_to_human":
-                ctx = dict(tool_args_with_ctx.get("context") or {})
+                ctx = dict(tool_args.get("context") or {})
                 ctx["session_id"] = state.session_id
-                tool_args_with_ctx["context"] = ctx
-            result = execute_tool(call["name"], **tool_args_with_ctx)
+                tool_args["context"] = ctx
+
+            raw_result = execute_tool(call["name"], **tool_args)
             activities[-1].status = "completed"
-            activities[-1].detail = f"Tool returned: {json.dumps(result)[:120]}"
-            from backend.src.utils.formatter import format_tool_result_to_markdown
-            result_text = format_tool_result_to_markdown(result)
-            tool_call_info["result"] = result.get("result")
+            activities[-1].detail = f"Tool returned: {json.dumps(raw_result)[:120]}"
+            tool_call_info["result"] = raw_result.get("result")
+
+            # ── Step 5: Synthesise readable response ─────────────────────────
+            inner = raw_result.get("result", raw_result)
+            activities.append(Activity(
+                type="llm_call", label="Synthesising human-readable response",
+                detail="Converting raw tool result to natural language",
+                status="running",
+            ))
+            result_text = await _synthesise_response(state.query, call["name"], inner)
+            activities[-1].status = "completed"
+            activities[-1].detail = f"Response: {result_text[:80]}..."
+
     except Exception as e:
         result_text = f"Error executing tool `{call.get('name', 'unknown')}`: {e}"
         tool_call_info["error"] = str(e)
         if activities and activities[-1].status == "running":
             activities[-1].status = "failed"
             activities[-1].detail = f"Error: {e}"
-    elapsed = (datetime.now(timezone.utc) - start).total_seconds() * 1000
-    # Run output guardrails (soft check — log warnings but don't block)
+        logger.exception("action_node tool execution failed")
+
+    # Output guardrail (soft check)
     output_gr = guardrail_registry.check_output({"text": result_text})
     if not output_gr.passed:
-        logger.warning("Output guardrail flagged in action_node: %s", output_gr.message)
+        logger.warning("Output guardrail flagged: %s", output_gr.message)
+
+    elapsed = (datetime.now(timezone.utc) - start).total_seconds() * 1000
     return {
         "executed_actions": [result_text],
         "final_response": result_text,

@@ -18,7 +18,11 @@ from collections import Counter, defaultdict
 from datetime import date, timedelta
 
 from backend.src.agents.state import AnomalyResult
-from backend.src.database.queries import query_all_employees, query_all_payroll_current
+from backend.src.database.queries import (
+    query_all_employees,
+    query_all_payroll_current,
+    query_attendance_summary_all,
+)
 
 logger = logging.getLogger("hr_ops.anomaly")
 
@@ -438,11 +442,198 @@ def detect_compliance_anomalies(employees: list[dict]) -> list[AnomalyResult]:
     return results
 
 
-# ─── Public API ───────────────────────────────────────────────────────────────
+# ─── Rule 19-23: Inactive Employee Scan ──────────────────────────────────────
+
+
+def detect_inactive_employee_anomalies(employees: list[dict]) -> list[AnomalyResult]:
+    """Five attendance-based inactivity and chronic-absence rules (R19–R23).
+
+    Uses live attendance table data via query_attendance_summary_all().
+    Flags ghost employees, high absenteeism, chronic lateness, stale last-active
+    dates, and employees drawing payroll with zero attendance.
+    """
+    results: list[AnomalyResult] = []
+    if not employees:
+        return results
+
+    # Build lookup: employee_id → attendance summary
+    try:
+        att_summaries = query_attendance_summary_all()
+    except Exception as exc:
+        logger.warning("Inactive scan: attendance query failed: %s", exc)
+        return results
+
+    att_map: dict[str, dict] = {row["employee_id"]: row for row in att_summaries}
+    emp_map: dict[str, dict] = {e["employee_id"]: e for e in employees}
+
+    # Cohort stats for Z-score baselines
+    abs_pcts = [s["absence_pct"] or 0.0 for s in att_summaries]
+    late_pcts = [s["late_pct"] or 0.0 for s in att_summaries]
+    abs_mean = statistics.mean(abs_pcts) if abs_pcts else 5.0
+    abs_std = statistics.stdev(abs_pcts) if len(abs_pcts) > 2 else 3.0
+    late_mean = statistics.mean(late_pcts) if late_pcts else 5.0
+    late_std = statistics.stdev(late_pcts) if len(late_pcts) > 2 else 3.0
+
+    today = date.today()
+
+    # Rule 19 — Ghost employee: no attendance records at all (payroll still active)
+    for emp in employees:
+        eid = emp["employee_id"]
+        if eid not in att_map:
+            name = emp.get("name", eid)
+            salary = emp.get("salary") or 0.0
+            try:
+                join_dt = date.fromisoformat(str(emp.get("joining_date", "")))
+                tenure_days = (today - join_dt).days
+            except (ValueError, TypeError):
+                tenure_days = 0
+            if tenure_days > 30:  # skip brand-new hires
+                results.append(AnomalyResult(
+                    detected=True,
+                    severity=0.90,
+                    confidence_score=0.93,
+                    description=(
+                        f"[INACTIVE-R19] {name} has ZERO attendance records despite "
+                        f"{tenure_days} days employment — possible ghost employee "
+                        f"(salary=${salary:,.0f}/yr still active)"
+                    ),
+                    anomaly_field="attendance",
+                    anomaly_type="inactive_ghost_employee",
+                    recommended_action="escalate_hr_review",
+                    supporting_data={
+                        "employee_id": eid,
+                        "tenure_days": tenure_days,
+                        "salary": salary,
+                        "attendance_records": 0,
+                    },
+                ))
+
+    # Rules 20–23: per-employee attendance stats
+    for att in att_summaries:
+        eid = att["employee_id"]
+        emp = emp_map.get(eid, {})
+        name = emp.get("name", eid)
+        total = att["total_records"] or 1
+        absence_pct = att["absence_pct"] or 0.0
+        late_pct = att["late_pct"] or 0.0
+        last_active = att.get("last_active_date")
+
+        # Rule 20 — High absenteeism (Z-score on absence %) beyond 2 SD
+        z_abs = _z_score(absence_pct, abs_mean, abs_std)
+        if z_abs > 2.0 and absence_pct > abs_mean:
+            results.append(AnomalyResult(
+                detected=True,
+                severity=min(z_abs / 5.0, 1.0),
+                confidence_score=_confidence(z_abs, base=0.60),
+                description=(
+                    f"[INACTIVE-R20] {name} absence rate {absence_pct:.1f}% is "
+                    f"{z_abs:.1f} SD above org mean ({abs_mean:.1f}%) — "
+                    f"absent {att['absent_days']}/{total} days"
+                ),
+                anomaly_field="attendance",
+                anomaly_type="inactive_high_absence",
+                recommended_action="request_manager_review",
+                supporting_data={
+                    "employee_id": eid,
+                    "absence_pct": absence_pct,
+                    "absent_days": att["absent_days"],
+                    "total_records": total,
+                    "org_mean_absence_pct": round(abs_mean, 2),
+                    "z_score": round(z_abs, 2),
+                },
+            ))
+
+        # Rule 21 — Chronic lateness (Z-score on late %) beyond 2 SD
+        z_late = _z_score(late_pct, late_mean, late_std)
+        if z_late > 2.0 and late_pct > late_mean:
+            results.append(AnomalyResult(
+                detected=True,
+                severity=min(z_late / 6.0, 0.85),
+                confidence_score=_confidence(z_late, base=0.55),
+                description=(
+                    f"[INACTIVE-R21] {name} late arrival rate {late_pct:.1f}% is "
+                    f"{z_late:.1f} SD above org mean ({late_mean:.1f}%) — "
+                    f"{att['late_days']} late days out of {total}"
+                ),
+                anomaly_field="attendance",
+                anomaly_type="inactive_chronic_late",
+                recommended_action="request_manager_review",
+                supporting_data={
+                    "employee_id": eid,
+                    "late_pct": late_pct,
+                    "late_days": att["late_days"],
+                    "total_records": total,
+                    "org_mean_late_pct": round(late_mean, 2),
+                    "z_score": round(z_late, 2),
+                },
+            ))
+
+        # Rule 22 — Last active date stale (>60 days since any non-Absent day)
+        if last_active:
+            try:
+                last_dt = date.fromisoformat(str(last_active))
+                days_since = (today - last_dt).days
+                if days_since > 60:
+                    results.append(AnomalyResult(
+                        detected=True,
+                        severity=min(days_since / 120.0, 0.95),
+                        confidence_score=round(min(0.65 + days_since / 300.0, 0.95), 3),
+                        description=(
+                            f"[INACTIVE-R22] {name} last active {days_since} days ago "
+                            f"(last seen: {last_active}) — possible prolonged unauthorised absence"
+                        ),
+                        anomaly_field="attendance",
+                        anomaly_type="inactive_stale_last_active",
+                        recommended_action="flag_for_review",
+                        supporting_data={
+                            "employee_id": eid,
+                            "days_since_active": days_since,
+                            "last_active_date": last_active,
+                        },
+                    ))
+            except (ValueError, TypeError):
+                pass
+
+        # Rule 23 — No-show payroll drain: >80% absent but receiving full salary
+        salary = emp.get("salary") or 0.0
+        if absence_pct >= 30.0 and salary > 0 and total >= 10:
+            monthly_drain = salary / 12
+            results.append(AnomalyResult(
+                detected=True,
+                severity=min(absence_pct / 100.0 + 0.3, 1.0),
+                confidence_score=round(min(0.70 + absence_pct / 200.0, 0.97), 3),
+                description=(
+                    f"[INACTIVE-R23] {name} has {absence_pct:.0f}% absence rate while "
+                    f"receiving ${salary:,.0f}/yr salary "
+                    f"(~${monthly_drain:,.0f}/mo payroll drain)"
+                ),
+                anomaly_field="attendance",
+                anomaly_type="inactive_payroll_drain",
+                recommended_action="escalate_hr_review",
+                supporting_data={
+                    "employee_id": eid,
+                    "absence_pct": absence_pct,
+                    "salary": salary,
+                    "monthly_drain_estimate": round(monthly_drain),
+                },
+            ))
+
+    logger.info(
+        "Inactive scan: %d anomalies from %d employees (%d with attendance records)",
+        len(results), len(employees), len(att_summaries),
+    )
+    return results
+
 
 
 def run_anomaly_detection(employees: list[dict] | None = None) -> list[AnomalyResult]:
-    """Run all 18 anomaly detectors; loads from DB when employees is None.
+    """Run all 23 anomaly detectors; loads from DB when employees is None.
+
+    Domains:
+      - Payroll (R1–R6): cohort Z-score, IQR, salary mismatch, seniority gap
+      - Leave abuse (R7–R12): ratio, overrun, zero-usage, hoarding, peer Z-score
+      - Compliance (R13–R18): low rating, PIP, probation, missing review, remote exec, attrition
+      - Inactive (R19–R23): ghost employee, high absence, chronic late, stale last-active, payroll drain
 
     Returns AnomalyResult list sorted by confidence_score descending.
     """
@@ -457,6 +648,7 @@ def run_anomaly_detection(employees: list[dict] | None = None) -> list[AnomalyRe
     results.extend(detect_payroll_anomalies(employees))
     results.extend(detect_leave_anomalies(employees))
     results.extend(detect_compliance_anomalies(employees))
+    results.extend(detect_inactive_employee_anomalies(employees))
 
     # De-duplicate: keep highest-confidence result per (employee, anomaly_type)
     seen: dict[tuple[str, str], AnomalyResult] = {}
@@ -466,6 +658,8 @@ def run_anomaly_detection(employees: list[dict] | None = None) -> list[AnomalyRe
             seen[key] = r
 
     deduped = sorted(seen.values(), key=lambda x: x.confidence_score, reverse=True)
-    logger.info("Anomaly detection: %d unique anomalies found (from %d raw) across %d employees",
-                len(deduped), len(results), len(employees))
+    logger.info(
+        "Anomaly detection: %d unique anomalies (from %d raw) across %d employees",
+        len(deduped), len(results), len(employees),
+    )
     return deduped

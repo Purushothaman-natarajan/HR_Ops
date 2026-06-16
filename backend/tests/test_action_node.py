@@ -3,7 +3,7 @@ from unittest.mock import patch, MagicMock
 
 from backend.src.agents.nodes.action_node import (
     _parse_tool_json,
-    _build_name_search_fallback,
+    _build_fallback,
     action_node,
 )
 from backend.src.agents.state import SharedState
@@ -31,25 +31,23 @@ def test_parse_tool_json():
     assert _parse_tool_json('{"args": {}}') is None
 
 
-def test_build_name_search_fallback():
-    tables = ["employees", "departments"]
-
+def test_build_fallback():
     # Name search
-    res = _build_name_search_fallback("find John Doe", tables)
-    assert res["name"] == "execute_db_query"
-    assert "%John Doe%" in res["args"]["parameters"]
+    res = _build_fallback("find John Doe")
+    assert res["name"] == "search_employee_by_name"
+    assert res["args"]["name"] == "John Doe"
 
-    res = _build_name_search_fallback("employee named 'Jane Smith'", tables)
-    assert res["name"] == "execute_db_query"
-    assert "%Jane Smith%" in res["args"]["parameters"]
+    res = _build_fallback("employee named 'Jane Smith'")
+    assert res["name"] == "search_employee_by_name"
+    assert res["args"]["name"] == "Jane Smith"
 
-    # Generic count/select (avoiding 'employee' to prevent the greedy regex match in _build_name_search_fallback)
-    res = _build_name_search_fallback("count all staff", tables)
+    # Generic count/select
+    res = _build_fallback("count all staff")
     assert res["name"] == "execute_db_query"
     assert "COUNT(*)" in res["args"]["sql_query"]
 
     # Generic fallback
-    res = _build_name_search_fallback("what is the database structure?", tables)
+    res = _build_fallback("what is the database structure?")
     assert res["name"] == "get_database_schema"
 
 
@@ -80,12 +78,12 @@ async def test_action_node_malformed_llm_response(mock_guardrail_registry, mock_
     # Should use fallback tool
     assert mock_execute_tool.call_count == 1
     args, kwargs = mock_execute_tool.call_args
-    assert args[0] == "execute_db_query"
-    assert "%John Doe%" in kwargs["parameters"]
+    assert args[0] == "search_employee_by_name"
+    assert kwargs["name"] == "John Doe"
 
     # Verify trace log contains the fallback information
     trace = result["trace_log"][-1]
-    assert trace.tool_call["tool"] == "execute_db_query"
+    assert trace.tool_call["tool"] == "search_employee_by_name"
 
 
 @pytest.mark.asyncio

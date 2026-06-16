@@ -43,6 +43,8 @@ from backend.src.utils.docs_page import get_redoc_html
 from backend.src.utils.logger import get_logger
 from backend.src.utils.model_router import close_nvidia_http_client
 from backend.src.services import policy_service
+from backend.src.services.scheduler import scheduler
+from backend.src.services.db_schema_store import get_schema_prompt as _warmup_schema
 
 logger = get_logger("hr_ops")
 
@@ -92,12 +94,25 @@ async def lifespan(app: FastAPI):
     # threads so the application can become responsive quickly.
     loop = asyncio.get_running_loop()
     loop.create_task(asyncio.to_thread(_warmup_embeddings))
+    loop.create_task(asyncio.to_thread(_warmup_schema))  # cache DB schema for Text-to-SQL
     if settings.startup_reindex:
         loop.create_task(policy_service._migrate_if_needed())
     else:
         logger.info("Skipping policy reindex on startup (STARTUP_REINDEX=false)")
+
+    # Auto-start the anomaly scanner (runs every hour by default).
+    # The scheduler task needs the running event loop, so it must start here.
+    scheduler.start()
+    logger.info(
+        "Anomaly scheduler started (interval=%ds)", scheduler.interval_seconds
+    )
+
     logger.info("HR Ops Platform started successfully")
     yield
+
+    # Graceful shutdown
+    scheduler.stop()
+    logger.info("Anomaly scheduler stopped")
     await close_nvidia_http_client()
     logger.info("Shutdown complete")
 
