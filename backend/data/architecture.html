@@ -1,12 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HR Ops Engine — Architecture & Deployment Guide</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap"
+        rel="stylesheet">
     <style>
         :root {
             --bg-primary: #0b0f19;
@@ -42,7 +45,12 @@
             overflow-x: hidden;
         }
 
-        h1, h2, h3, h4, h5, h6 {
+        h1,
+        h2,
+        h3,
+        h4,
+        h5,
+        h6 {
             font-family: 'Outfit', sans-serif;
             font-weight: 600;
             letter-spacing: -0.02em;
@@ -156,8 +164,15 @@
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         /* Grid System */
@@ -225,7 +240,8 @@
             transition: transform 0.2s ease, filter 0.2s ease;
         }
 
-        .svg-node rect, .svg-node circle {
+        .svg-node rect,
+        .svg-node circle {
             transition: stroke 0.2s ease, fill 0.2s ease, filter 0.2s ease;
         }
 
@@ -240,7 +256,7 @@
 
         .svg-edge {
             stroke: var(--text-muted);
-            stroke-dasharray: 4,4;
+            stroke-dasharray: 4, 4;
             animation: dash 30s linear infinite;
             transition: stroke 0.3s ease, stroke-width 0.3s ease;
         }
@@ -283,7 +299,8 @@
             text-align: left;
         }
 
-        .trigger-table th, .trigger-table td {
+        .trigger-table th,
+        .trigger-table td {
             padding: 1rem;
             border-bottom: 1px solid rgba(255, 255, 255, 0.05);
         }
@@ -456,236 +473,308 @@
         }
     </style>
 </head>
+
 <body>
 
-<div class="container">
-    <header>
-        <span class="app-badge">Darwinbox HCM</span>
-        <h1>Agentic Workflow Engine</h1>
-        <p>Enterprise multi-agent framework with parallel policy/action evaluation, semantic caching, and reinforcement learning self-optimization.</p>
-    </header>
+    <div class="container">
+        <header>
+            <span class="app-badge">HR Ops Platform</span>
+            <h1>Agentic Workflow Engine</h1>
+            <p>Enterprise multi-agent framework with parallel policy/action evaluation, semantic caching, and
+                reinforcement learning self-optimization.</p>
+        </header>
 
-    <!-- Navigation Tabs -->
-    <div class="tabs">
-        <button class="tab-btn active" onclick="switchTab('tab-architecture')">Architecture Diagram</button>
-        <button class="tab-btn" onclick="switchTab('tab-triggers')">Workflow Triggers</button>
-        <button class="tab-btn" onclick="switchTab('tab-deployment')">Deployment Guide</button>
-        <button class="tab-btn" onclick="switchTab('tab-observability')">Observability & Logs</button>
-    </div>
+        <!-- Navigation Tabs -->
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('tab-architecture')">Architecture Diagram</button>
+            <button class="tab-btn" onclick="switchTab('tab-triggers')">Workflow Triggers</button>
+            <button class="tab-btn" onclick="switchTab('tab-deployment')">Deployment Guide</button>
+            <button class="tab-btn" onclick="switchTab('tab-observability')">Observability & Logs</button>
+        </div>
 
-    <!-- TAB 1: ARCHITECTURE DIAGRAM -->
-    <div id="tab-architecture" class="tab-content active">
-        <div class="grid-2">
-            <div>
-                <div class="card" style="margin-bottom: 1rem;">
-                    <h2 class="card-title">
-                        <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
-                        Interactive Data Flow Diagram
-                    </h2>
-                    <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Hover or click on components in the SVG canvas below to view node definitions, trace event types, and pipeline interactions.</p>
-                    
-                    <div class="diagram-container">
-                        <!-- INTERACTIVE SVG DIAGRAM -->
-                        <svg class="svg-canvas" viewBox="0 0 800 450" xmlns="http://www.w3.org/2000/svg">
-                            <!-- Definitions for markers/arrows -->
-                            <defs>
-                                <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#9ca3af"/>
-                                </marker>
-                                <marker id="arrow-active" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#3b82f6"/>
-                                </marker>
-                                <linearGradient id="glow" x1="0%" y1="0%" x2="100%" y2="100%">
-                                    <stop offset="0%" stop-color="#3b82f6"/>
-                                    <stop offset="100%" stop-color="#10b981"/>
-                                </linearGradient>
-                            </defs>
+        <!-- TAB 1: ARCHITECTURE DIAGRAM -->
+        <div id="tab-architecture" class="tab-content active">
+            <div class="grid-2">
+                <div>
+                    <div class="card" style="margin-bottom: 1rem;">
+                        <h2 class="card-title">
+                            <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
+                                viewBox="0 0 24 24">
+                                <path
+                                    d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10">
+                                </path>
+                            </svg>
+                            Interactive Data Flow Diagram
+                        </h2>
+                        <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Hover or click on components in the
+                            SVG canvas below to view node definitions, trace event types, and pipeline interactions.</p>
 
-                            <!-- Flow Arrows/Edges -->
-                            <line id="edge-in" x1="50" y1="200" x2="110" y2="200" stroke="#9ca3af" stroke-width="1.5" marker-end="url(#arrow)"/>
-                            
-                            <!-- Supervisor -> Policy -->
-                            <path id="edge-sup-pol" d="M 230 170 Q 285 100 340 100" fill="none" stroke="#9ca3af" stroke-width="1.5" marker-end="url(#arrow)"/>
-                            <!-- Supervisor -> Action -->
-                            <path id="edge-sup-act" d="M 230 230 Q 285 300 340 300" fill="none" stroke="#9ca3af" stroke-width="1.5" marker-end="url(#arrow)"/>
-                            
-                            <!-- Policy -> Parallel Checks -->
-                            <path id="edge-pol-chk" d="M 460 100 Q 515 100 570 170" fill="none" stroke="#9ca3af" stroke-width="1.5" marker-end="url(#arrow)"/>
-                            <!-- Action -> Parallel Checks -->
-                            <path id="edge-act-chk" d="M 460 300 Q 515 300 570 230" fill="none" stroke="#9ca3af" stroke-width="1.5" marker-end="url(#arrow)"/>
+                        <div class="diagram-container">
+                            <!-- INTERACTIVE SVG DIAGRAM -->
+                            <svg class="svg-canvas" viewBox="0 0 800 450" xmlns="http://www.w3.org/2000/svg">
+                                <!-- Definitions for markers/arrows -->
+                                <defs>
+                                    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6"
+                                        markerHeight="6" orient="auto-start-reverse">
+                                        <path d="M 0 0 L 10 5 L 0 10 z" fill="#9ca3af" />
+                                    </marker>
+                                    <marker id="arrow-active" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6"
+                                        markerHeight="6" orient="auto-start-reverse">
+                                        <path d="M 0 0 L 10 5 L 0 10 z" fill="#3b82f6" />
+                                    </marker>
+                                    <linearGradient id="glow" x1="0%" y1="0%" x2="100%" y2="100%">
+                                        <stop offset="0%" stop-color="#3b82f6" />
+                                        <stop offset="100%" stop-color="#10b981" />
+                                    </linearGradient>
+                                </defs>
 
-                            <!-- Parallel Checks -> HITL -->
-                            <line id="edge-chk-hit" x1="680" y1="200" x2="710" y2="200" stroke="#9ca3af" stroke-width="1.5" marker-end="url(#arrow)"/>
-                            <!-- Parallel Checks -> END -->
-                            <path id="edge-chk-end" d="M 625 230 C 625 290 680 340 730 340" fill="none" stroke="#9ca3af" stroke-width="1.5" marker-end="url(#arrow)"/>
-                            
-                            <!-- Feedback loop back to RL -->
-                            <path id="edge-fb" d="M 740 230 Q 425 430 170 240" fill="none" stroke="#f59e0b" stroke-width="1.2" stroke-dasharray="3,3" marker-end="url(#arrow)"/>
+                                <!-- Flow Arrows/Edges -->
+                                <line id="edge-in" x1="50" y1="200" x2="110" y2="200" stroke="#9ca3af"
+                                    stroke-width="1.5" marker-end="url(#arrow)" />
 
-                            <!-- NODES -->
-                            <!-- User Query Entry -->
-                            <g class="svg-node" id="node-query" onmouseover="highlightNode('query')" onmouseout="resetHighlight()">
-                                <circle cx="40" cy="200" r="18" fill="#1e293b" stroke="#475569" stroke-width="2"/>
-                                <text x="40" y="204" font-family="Outfit" font-size="11" fill="#f3f4f6" text-anchor="middle">Input</text>
-                            </g>
+                                <!-- Supervisor -> Policy -->
+                                <path id="edge-sup-pol" d="M 230 170 Q 285 100 340 100" fill="none" stroke="#9ca3af"
+                                    stroke-width="1.5" marker-end="url(#arrow)" />
+                                <!-- Supervisor -> Action -->
+                                <path id="edge-sup-act" d="M 230 230 Q 285 300 340 300" fill="none" stroke="#9ca3af"
+                                    stroke-width="1.5" marker-end="url(#arrow)" />
 
-                            <!-- Supervisor / Triage Router -->
-                            <g class="svg-node" id="node-supervisor" onmouseover="highlightNode('supervisor')" onmouseout="resetHighlight()">
-                                <rect x="110" y="150" width="120" height="100" rx="10" fill="#1e293b" stroke="#3b82f6" stroke-width="2"/>
-                                <text x="170" y="195" font-family="Outfit" font-size="14" fill="#ffffff" text-anchor="middle" font-weight="600">Supervisor</text>
-                                <text x="170" y="215" font-family="Outfit" font-size="10" fill="#9ca3af" text-anchor="middle">Triage & RL Bandit</text>
-                            </g>
+                                <!-- Policy -> Parallel Checks -->
+                                <path id="edge-pol-chk" d="M 460 100 Q 515 100 570 170" fill="none" stroke="#9ca3af"
+                                    stroke-width="1.5" marker-end="url(#arrow)" />
+                                <!-- Action -> Parallel Checks -->
+                                <path id="edge-act-chk" d="M 460 300 Q 515 300 570 230" fill="none" stroke="#9ca3af"
+                                    stroke-width="1.5" marker-end="url(#arrow)" />
 
-                            <!-- Policy Agent (RAG) -->
-                            <g class="svg-node" id="node-policy" onmouseover="highlightNode('policy')" onmouseout="resetHighlight()">
-                                <rect x="340" y="50" width="120" height="100" rx="10" fill="#1e293b" stroke="#10b981" stroke-width="2"/>
-                                <text x="400" y="95" font-family="Outfit" font-size="14" fill="#ffffff" text-anchor="middle" font-weight="600">Policy Node</text>
-                                <text x="400" y="115" font-family="Outfit" font-size="10" fill="#9ca3af" text-anchor="middle">RAG & Cache</text>
-                            </g>
+                                <!-- Parallel Checks -> HITL -->
+                                <line id="edge-chk-hit" x1="680" y1="200" x2="710" y2="200" stroke="#9ca3af"
+                                    stroke-width="1.5" marker-end="url(#arrow)" />
+                                <!-- Parallel Checks -> END -->
+                                <path id="edge-chk-end" d="M 625 230 C 625 290 680 340 730 340" fill="none"
+                                    stroke="#9ca3af" stroke-width="1.5" marker-end="url(#arrow)" />
 
-                            <!-- Action Agent (Tools) -->
-                            <g class="svg-node" id="node-action" onmouseover="highlightNode('action')" onmouseout="resetHighlight()">
-                                <rect x="340" y="250" width="120" height="100" rx="10" fill="#1e293b" stroke="#10b981" stroke-width="2"/>
-                                <text x="400" y="295" font-family="Outfit" font-size="14" fill="#ffffff" text-anchor="middle" font-weight="600">Action Node</text>
-                                <text x="400" y="315" font-family="Outfit" font-size="10" fill="#9ca3af" text-anchor="middle">Tool execution</text>
-                            </g>
+                                <!-- Feedback loop back to RL -->
+                                <path id="edge-fb" d="M 740 230 Q 425 430 170 240" fill="none" stroke="#f59e0b"
+                                    stroke-width="1.2" stroke-dasharray="3,3" marker-end="url(#arrow)" />
 
-                            <!-- Parallel Checks (Anomaly + Compliance) -->
-                            <g class="svg-node" id="node-parallel" onmouseover="highlightNode('parallel')" onmouseout="resetHighlight()">
-                                <rect x="570" y="150" width="110" height="100" rx="10" fill="#1e293b" stroke="#8b5cf6" stroke-width="2"/>
-                                <text x="625" y="195" font-family="Outfit" font-size="12" fill="#ffffff" text-anchor="middle" font-weight="600">Parallel Checks</text>
-                                <text x="625" y="215" font-family="Outfit" font-size="9" fill="#a78bfa" text-anchor="middle">Anomaly & Veto</text>
-                            </g>
+                                <!-- NODES -->
+                                <!-- User Query Entry -->
+                                <g class="svg-node" id="node-query" onmouseover="highlightNode('query')"
+                                    onmouseout="resetHighlight()">
+                                    <circle cx="40" cy="200" r="18" fill="#1e293b" stroke="#475569" stroke-width="2" />
+                                    <text x="40" y="204" font-family="Outfit" font-size="11" fill="#f3f4f6"
+                                        text-anchor="middle">Input</text>
+                                </g>
 
-                            <!-- HITL Escalation -->
-                            <g class="svg-node" id="node-hitl" onmouseover="highlightNode('hitl')" onmouseout="resetHighlight()">
-                                <circle cx="740" cy="200" r="30" fill="#1e293b" stroke="#ef4444" stroke-width="2"/>
-                                <text x="740" y="204" font-family="Outfit" font-size="12" fill="#ef4444" text-anchor="middle" font-weight="700">HITL</text>
-                            </g>
+                                <!-- Supervisor / Triage Router -->
+                                <g class="svg-node" id="node-supervisor" onmouseover="highlightNode('supervisor')"
+                                    onmouseout="resetHighlight()">
+                                    <rect x="110" y="150" width="120" height="100" rx="10" fill="#1e293b"
+                                        stroke="#3b82f6" stroke-width="2" />
+                                    <text x="170" y="195" font-family="Outfit" font-size="14" fill="#ffffff"
+                                        text-anchor="middle" font-weight="600">Supervisor</text>
+                                    <text x="170" y="215" font-family="Outfit" font-size="10" fill="#9ca3af"
+                                        text-anchor="middle">Triage & RL Bandit</text>
+                                </g>
 
-                            <!-- Final Response (Success) -->
-                            <g class="svg-node" id="node-end" onmouseover="highlightNode('end')" onmouseout="resetHighlight()">
-                                <circle cx="740" cy="340" r="22" fill="#1e293b" stroke="#10b981" stroke-width="2"/>
-                                <text x="740" y="344" font-family="Outfit" font-size="11" fill="#10b981" text-anchor="middle" font-weight="600">END</text>
-                            </g>
-                        </svg>
+                                <!-- Policy Agent (RAG) -->
+                                <g class="svg-node" id="node-policy" onmouseover="highlightNode('policy')"
+                                    onmouseout="resetHighlight()">
+                                    <rect x="340" y="50" width="120" height="100" rx="10" fill="#1e293b"
+                                        stroke="#10b981" stroke-width="2" />
+                                    <text x="400" y="95" font-family="Outfit" font-size="14" fill="#ffffff"
+                                        text-anchor="middle" font-weight="600">Policy Node</text>
+                                    <text x="400" y="115" font-family="Outfit" font-size="10" fill="#9ca3af"
+                                        text-anchor="middle">RAG & Cache</text>
+                                </g>
+
+                                <!-- Action Agent (Tools) -->
+                                <g class="svg-node" id="node-action" onmouseover="highlightNode('action')"
+                                    onmouseout="resetHighlight()">
+                                    <rect x="340" y="250" width="120" height="100" rx="10" fill="#1e293b"
+                                        stroke="#10b981" stroke-width="2" />
+                                    <text x="400" y="295" font-family="Outfit" font-size="14" fill="#ffffff"
+                                        text-anchor="middle" font-weight="600">Action Node</text>
+                                    <text x="400" y="315" font-family="Outfit" font-size="10" fill="#9ca3af"
+                                        text-anchor="middle">Tool execution</text>
+                                </g>
+
+                                <!-- Parallel Checks (Anomaly + Compliance) -->
+                                <g class="svg-node" id="node-parallel" onmouseover="highlightNode('parallel')"
+                                    onmouseout="resetHighlight()">
+                                    <rect x="570" y="150" width="110" height="100" rx="10" fill="#1e293b"
+                                        stroke="#8b5cf6" stroke-width="2" />
+                                    <text x="625" y="195" font-family="Outfit" font-size="12" fill="#ffffff"
+                                        text-anchor="middle" font-weight="600">Parallel Checks</text>
+                                    <text x="625" y="215" font-family="Outfit" font-size="9" fill="#a78bfa"
+                                        text-anchor="middle">Anomaly & Veto</text>
+                                </g>
+
+                                <!-- HITL Escalation -->
+                                <g class="svg-node" id="node-hitl" onmouseover="highlightNode('hitl')"
+                                    onmouseout="resetHighlight()">
+                                    <circle cx="740" cy="200" r="30" fill="#1e293b" stroke="#ef4444" stroke-width="2" />
+                                    <text x="740" y="204" font-family="Outfit" font-size="12" fill="#ef4444"
+                                        text-anchor="middle" font-weight="700">HITL</text>
+                                </g>
+
+                                <!-- Final Response (Success) -->
+                                <g class="svg-node" id="node-end" onmouseover="highlightNode('end')"
+                                    onmouseout="resetHighlight()">
+                                    <circle cx="740" cy="340" r="22" fill="#1e293b" stroke="#10b981" stroke-width="2" />
+                                    <text x="740" y="344" font-family="Outfit" font-size="11" fill="#10b981"
+                                        text-anchor="middle" font-weight="600">END</text>
+                                </g>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SIDE INFO PANEL -->
+                <div>
+                    <div class="card" style="height: 100%;">
+                        <h3 class="card-title">Component Specifications</h3>
+
+                        <div id="default-node-desc">
+                            <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 1rem;">Hover over any
+                                node or data pathway in the architecture diagram to examine details on inputs, outputs,
+                                schemas, and trace operations.</p>
+                            <div
+                                style="background: rgba(255, 255, 255, 0.02); padding: 1rem; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.03);">
+                                <h5 style="color: var(--text-main); font-weight: 600; margin-bottom: 0.25rem;">
+                                    Multi-Agent Orchestration</h5>
+                                <p style="font-size: 0.85rem; color: var(--text-muted);">The backend is compiled using
+                                    <strong>LangGraph</strong>. Nodes communicate updates purely via a unified
+                                    <code>SharedState</code> dictionary context to maintain concurrency safety and clear
+                                    activity trace logging.</p>
+                            </div>
+                        </div>
+
+                        <div id="active-node-desc" class="detail-panel" style="display: none;">
+                            <h4 id="panel-title">Component Name</h4>
+                            <p id="panel-body"
+                                style="font-size: 0.9rem; color: var(--text-main); margin-bottom: 0.75rem;">Description
+                                of what the component does and how it processes state.</p>
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">
+                                <strong>Outputs State keys:</strong> <code id="panel-state"
+                                    style="color: #60a5fa;">[]</code>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
+        </div>
 
-            <!-- SIDE INFO PANEL -->
-            <div>
-                <div class="card" style="height: 100%;">
-                    <h3 class="card-title">Component Specifications</h3>
-                    
-                    <div id="default-node-desc">
-                        <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 1rem;">Hover over any node or data pathway in the architecture diagram to examine details on inputs, outputs, schemas, and trace operations.</p>
-                        <div style="background: rgba(255, 255, 255, 0.02); padding: 1rem; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.03);">
-                            <h5 style="color: var(--text-main); font-weight: 600; margin-bottom: 0.25rem;">Multi-Agent Orchestration</h5>
-                            <p style="font-size: 0.85rem; color: var(--text-muted);">The backend is compiled using <strong>LangGraph</strong>. Nodes communicate updates purely via a unified <code>SharedState</code> dictionary context to maintain concurrency safety and clear activity trace logging.</p>
-                        </div>
-                    </div>
+        <!-- TAB 2: WORKFLOW TRIGGERS -->
+        <div id="tab-triggers" class="tab-content">
+            <div class="card">
+                <h2 class="card-title">
+                    <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    Engine Triggers Classification
+                </h2>
+                <p style="color: var(--text-muted); margin-bottom: 1.5rem;">The workflow engine supports three primary
+                    classes of event triggers, executing either standard informational passes or advanced anomaly
+                    checking nodes.</p>
 
-                    <div id="active-node-desc" class="detail-panel" style="display: none;">
-                        <h4 id="panel-title">Component Name</h4>
-                        <p id="panel-body" style="font-size: 0.9rem; color: var(--text-main); margin-bottom: 0.75rem;">Description of what the component does and how it processes state.</p>
-                        <div style="font-size: 0.8rem; color: var(--text-muted);">
-                            <strong>Outputs State keys:</strong> <code id="panel-state" style="color: #60a5fa;">[]</code>
-                        </div>
-                    </div>
+                <table class="trigger-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 20%;">Trigger Class</th>
+                            <th style="width: 20%;">Source</th>
+                            <th style="width: 35%;">Engine Action / Behavior</th>
+                            <th style="width: 25%;">Trigger Guardrails</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>
+                                <span class="trigger-type-badge badge-reactive">Reactive</span>
+                            </td>
+                            <td>Employee Chat UI</td>
+                            <td>Executes supervisor triage, selects Policy (RAG query + Cache) or Action (Tool parse)
+                                node, fanning out into parallel anomaly checks.</td>
+                            <td>Input check (PII/Injection), Output groundedness & compliance veto.</td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <span class="trigger-type-badge badge-scheduled">Scheduled</span>
+                            </td>
+                            <td>System Cron Daemon</td>
+                            <td>Initiates periodic background checks (IQR, Z-Score) across all active datasets. Directly
+                                triggers anomaly node execution.</td>
+                            <td>Bypasses normal chat RAG; directly outputs summary narrative logs.</td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <span class="trigger-type-badge badge-system">System-Generated</span>
+                            </td>
+                            <td>Compliance Monitor</td>
+                            <td>Triggered internally when a transaction fails compliance checks (e.g. salary change
+                                exceeds allowed threshold). Vetoes action immediately.</td>
+                            <td>Bypasses parallel check routing; escalates to HITL queue.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="card">
+                <h3 class="card-title">Advanced Mode Guardrails & Vetoes</h3>
+                <p style="font-size: 0.95rem; margin-bottom: 1rem;">When operating in <strong>Advanced Mode</strong>,
+                    the system executes parallel checks on Action nodes. If an anomaly is severe (severity &ge; 0.8) or
+                    a hard compliance veto is triggered, the engine intercepts the execution path:</p>
+
+                <div class="step-list" style="margin-left: 0.5rem; margin-top: 1rem;">
+                    <li style="font-size: 0.9rem;">
+                        <strong>Interception:</strong> The parallel checks flag <code>hitl_needed = True</code> inside
+                        <code>SharedState</code>.
+                    </li>
+                    <li style="font-size: 0.9rem;">
+                        <strong>Escalation:</strong> Standard completion path is halted. A <code>HITLRequest</code>
+                        entry is saved with context containing the initial query, anomaly severity reports, and
+                        compliance veto reasons.
+                    </li>
+                    <li style="font-size: 0.9rem;">
+                        <strong>Manual Review:</strong> The query is displayed on the Human-in-the-Loop review dashboard
+                        (AGUI) until an administrator provides feedback.
+                    </li>
+                    <li style="font-size: 0.9rem;">
+                        <strong>Self-Learning Reinforcement:</strong> When the admin submits their verdict (approve or
+                        reject), the bandit model is rewarded or penalized using a Contextual Bandit update.
+                    </li>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- TAB 2: WORKFLOW TRIGGERS -->
-    <div id="tab-triggers" class="tab-content">
-        <div class="card">
-            <h2 class="card-title">
-                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                Engine Triggers Classification
-            </h2>
-            <p style="color: var(--text-muted); margin-bottom: 1.5rem;">The workflow engine supports three primary classes of event triggers, executing either standard informational passes or advanced anomaly checking nodes.</p>
+        <!-- TAB 3: DEPLOYMENT GUIDE -->
+        <div id="tab-deployment" class="tab-content">
+            <div class="card">
+                <h2 class="card-title">
+                    <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z">
+                        </path>
+                    </svg>
+                    Deployment Guide
+                </h2>
+                <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Prerequisites: Python 3.10+, Node.js 18+,
+                    Docker (optional). Ensure you have your NVIDIA API keys ready.</p>
 
-            <table class="trigger-table">
-                <thead>
-                    <tr>
-                        <th style="width: 20%;">Trigger Class</th>
-                        <th style="width: 20%;">Source</th>
-                        <th style="width: 35%;">Engine Action / Behavior</th>
-                        <th style="width: 25%;">Trigger Guardrails</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>
-                            <span class="trigger-type-badge badge-reactive">Reactive</span>
-                        </td>
-                        <td>Employee Chat UI</td>
-                        <td>Executes supervisor triage, selects Policy (RAG query + Cache) or Action (Tool parse) node, fanning out into parallel anomaly checks.</td>
-                        <td>Input check (PII/Injection), Output groundedness & compliance veto.</td>
-                    </tr>
-                    <tr>
-                        <td>
-                            <span class="trigger-type-badge badge-scheduled">Scheduled</span>
-                        </td>
-                        <td>System Cron Daemon</td>
-                        <td>Initiates periodic background checks (IQR, Z-Score) across all active datasets. Directly triggers anomaly node execution.</td>
-                        <td>Bypasses normal chat RAG; directly outputs summary narrative logs.</td>
-                    </tr>
-                    <tr>
-                        <td>
-                            <span class="trigger-type-badge badge-system">System-Generated</span>
-                        </td>
-                        <td>Compliance Monitor</td>
-                        <td>Triggered internally when a transaction fails compliance checks (e.g. salary change exceeds allowed threshold). Vetoes action immediately.</td>
-                        <td>Bypasses parallel check routing; escalates to HITL queue.</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-
-        <div class="card">
-            <h3 class="card-title">Advanced Mode Guardrails & Vetoes</h3>
-            <p style="font-size: 0.95rem; margin-bottom: 1rem;">When operating in <strong>Advanced Mode</strong>, the system executes parallel checks on Action nodes. If an anomaly is severe (severity &ge; 0.8) or a hard compliance veto is triggered, the engine intercepts the execution path:</p>
-            
-            <div class="step-list" style="margin-left: 0.5rem; margin-top: 1rem;">
-                <li style="font-size: 0.9rem;">
-                    <strong>Interception:</strong> The parallel checks flag <code>hitl_needed = True</code> inside <code>SharedState</code>.
-                </li>
-                <li style="font-size: 0.9rem;">
-                    <strong>Escalation:</strong> Standard completion path is halted. A <code>HITLRequest</code> entry is saved with context containing the initial query, anomaly severity reports, and compliance veto reasons.
-                </li>
-                <li style="font-size: 0.9rem;">
-                    <strong>Manual Review:</strong> The query is displayed on the Human-in-the-Loop review dashboard (AGUI) until an administrator provides feedback.
-                </li>
-                <li style="font-size: 0.9rem;">
-                    <strong>Self-Learning Reinforcement:</strong> When the admin submits their verdict (approve or reject), the bandit model is rewarded or penalized using a Contextual Bandit update.
-                </li>
-            </div>
-        </div>
-    </div>
-
-    <!-- TAB 3: DEPLOYMENT GUIDE -->
-    <div id="tab-deployment" class="tab-content">
-        <div class="card">
-            <h2 class="card-title">
-                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                Deployment Guide
-            </h2>
-            <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Prerequisites: Python 3.10+, Node.js 18+, Docker (optional). Ensure you have your NVIDIA API keys ready.</p>
-
-            <!-- Deployment Accordion -->
-            <div class="accordion">
-                <!-- Step 1: Environment Variables -->
-                <div class="accordion-item active">
-                    <div class="accordion-header" onclick="toggleAccordion(this)">
-                        <span>1. Environment Setup & Secret Keys</span>
-                        <svg class="accordion-icon" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"></path></svg>
-                    </div>
-                    <div class="accordion-content">
-                        <p style="font-size: 0.9rem; margin-bottom: 0.75rem;">Create a <code>.env</code> file in the project root containing your API configurations:</p>
-                        <pre><code class="language-bash"># NVIDIA API for Embeddings and Triage/RAG LLM Router
+                <!-- Deployment Accordion -->
+                <div class="accordion">
+                    <!-- Step 1: Environment Variables -->
+                    <div class="accordion-item active">
+                        <div class="accordion-header" onclick="toggleAccordion(this)">
+                            <span>1. Environment Setup & Secret Keys</span>
+                            <svg class="accordion-icon" width="20" height="20" fill="none" stroke="currentColor"
+                                stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </div>
+                        <div class="accordion-content">
+                            <p style="font-size: 0.9rem; margin-bottom: 0.75rem;">Create a <code>.env</code> file in the
+                                project root containing your API configurations:</p>
+                            <pre><code class="language-bash"># NVIDIA API for Embeddings and Triage/RAG LLM Router
 NVIDIA_API_KEY=nvapi-your-key-here
 
 # Mode Configuration (standard / advanced)
@@ -696,18 +785,21 @@ STARTUP_REINDEX=true
 LANGFUSE_PUBLIC_KEY=pk-lf-...
 LANGFUSE_SECRET_KEY=sk-lf-...
 LANGFUSE_HOST=https://cloud.langfuse.com</code><span class="code-lang-badge">env</span></pre>
+                        </div>
                     </div>
-                </div>
 
-                <!-- Step 2: Local Installation -->
-                <div class="accordion-item">
-                    <div class="accordion-header" onclick="toggleAccordion(this)">
-                        <span>2. Local Deployment (Backend & Frontend)</span>
-                        <svg class="accordion-icon" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"></path></svg>
-                    </div>
-                    <div class="accordion-content">
-                        <h4 style="margin-bottom: 0.5rem; font-size: 0.95rem;">Backend Server (FastAPI):</h4>
-                        <pre><code class="language-bash"># Initialize python venv
+                    <!-- Step 2: Local Installation -->
+                    <div class="accordion-item">
+                        <div class="accordion-header" onclick="toggleAccordion(this)">
+                            <span>2. Local Deployment (Backend & Frontend)</span>
+                            <svg class="accordion-icon" width="20" height="20" fill="none" stroke="currentColor"
+                                stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </div>
+                        <div class="accordion-content">
+                            <h4 style="margin-bottom: 0.5rem; font-size: 0.95rem;">Backend Server (FastAPI):</h4>
+                            <pre><code class="language-bash"># Initialize python venv
 python -m venv venv
 venv\Scripts\activate
 
@@ -717,8 +809,9 @@ pip install -r backend/requirements.txt
 # Start backend server on port 8000
 python backend/main.py</code><span class="code-lang-badge">bash</span></pre>
 
-                        <h4 style="margin-top: 1rem; margin-bottom: 0.5rem; font-size: 0.95rem;">Frontend Portal (Vite + React):</h4>
-                        <pre><code class="language-bash"># Navigate to frontend folder
+                            <h4 style="margin-top: 1rem; margin-bottom: 0.5rem; font-size: 0.95rem;">Frontend Portal
+                                (Vite + React):</h4>
+                            <pre><code class="language-bash"># Navigate to frontend folder
 cd frontend
 
 # Install package dependencies
@@ -726,18 +819,22 @@ npm install
 
 # Run Vite dev server on port 5173
 npm run dev</code><span class="code-lang-badge">bash</span></pre>
+                        </div>
                     </div>
-                </div>
 
-                <!-- Step 3: Docker Deployment -->
-                <div class="accordion-item">
-                    <div class="accordion-header" onclick="toggleAccordion(this)">
-                        <span>3. Docker Container Deployment</span>
-                        <svg class="accordion-icon" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"></path></svg>
-                    </div>
-                    <div class="accordion-content">
-                        <p style="font-size: 0.9rem; margin-bottom: 0.75rem;">Build and run backend and frontend nodes concurrently using <code>docker-compose</code>:</p>
-                        <pre><code class="language-yaml">version: '3.8'
+                    <!-- Step 3: Docker Deployment -->
+                    <div class="accordion-item">
+                        <div class="accordion-header" onclick="toggleAccordion(this)">
+                            <span>3. Docker Container Deployment</span>
+                            <svg class="accordion-icon" width="20" height="20" fill="none" stroke="currentColor"
+                                stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </div>
+                        <div class="accordion-content">
+                            <p style="font-size: 0.9rem; margin-bottom: 0.75rem;">Build and run backend and frontend
+                                nodes concurrently using <code>docker-compose</code>:</p>
+                            <pre><code class="language-yaml">version: '3.8'
 services:
   backend:
     build:
@@ -757,28 +854,40 @@ services:
       - "80:80"
     depends_on:
       - backend</code><span class="code-lang-badge">docker-compose.yml</span></pre>
-                        <pre><code class="language-bash"># Run composition in detached mode
+                            <pre><code class="language-bash"># Run composition in detached mode
 docker-compose up -d --build</code><span class="code-lang-badge">bash</span></pre>
-                    </div>
-                </div>
-
-                <!-- Step 4: Cloud Deployment -->
-                <div class="accordion-item">
-                    <div class="accordion-header" onclick="toggleAccordion(this)">
-                        <span>4. Enterprise Cloud Production Release (AWS / GCP)</span>
-                        <svg class="accordion-icon" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"></path></svg>
-                    </div>
-                    <div class="accordion-content">
-                        <p style="font-size: 0.9rem; margin-bottom: 0.5rem;"><strong>AWS ECS (Fargate) / EKS Strategy:</strong></p>
-                        <div class="step-list" style="margin-left: 0.5rem; margin-bottom: 1rem;">
-                            <li style="font-size: 0.85rem;">Push Docker images to AWS Elastic Container Registry (ECR).</li>
-                            <li style="font-size: 0.85rem;">Deploy backend service on AWS ECS Fargate task definition with CPU &ge; 2 vCPU and Memory &ge; 4 GB (critical for index indexing).</li>
-                            <li style="font-size: 0.85rem;">Configure AWS Application Load Balancer (ALB) to handle CORS preflight routing headers between frontend domain and backend target groups.</li>
-                            <li style="font-size: 0.85rem;">Mount an AWS EFS volume to <code>/app/backend/data</code> to persist ChromaDB index databases across container restarts.</li>
                         </div>
+                    </div>
 
-                        <p style="font-size: 0.9rem; margin-bottom: 0.5rem;"><strong>Google Cloud Run Deploy:</strong></p>
-                        <pre><code class="language-bash"># Build and upload image to GCP Artifact Registry
+                    <!-- Step 4: Cloud Deployment -->
+                    <div class="accordion-item">
+                        <div class="accordion-header" onclick="toggleAccordion(this)">
+                            <span>4. Enterprise Cloud Production Release (AWS / GCP)</span>
+                            <svg class="accordion-icon" width="20" height="20" fill="none" stroke="currentColor"
+                                stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </div>
+                        <div class="accordion-content">
+                            <p style="font-size: 0.9rem; margin-bottom: 0.5rem;"><strong>AWS ECS (Fargate) / EKS
+                                    Strategy:</strong></p>
+                            <div class="step-list" style="margin-left: 0.5rem; margin-bottom: 1rem;">
+                                <li style="font-size: 0.85rem;">Push Docker images to AWS Elastic Container Registry
+                                    (ECR).</li>
+                                <li style="font-size: 0.85rem;">Deploy backend service on AWS ECS Fargate task
+                                    definition with CPU &ge; 2 vCPU and Memory &ge; 4 GB (critical for index indexing).
+                                </li>
+                                <li style="font-size: 0.85rem;">Configure AWS Application Load Balancer (ALB) to handle
+                                    CORS preflight routing headers between frontend domain and backend target groups.
+                                </li>
+                                <li style="font-size: 0.85rem;">Mount an AWS EFS volume to
+                                    <code>/app/backend/data</code> to persist ChromaDB index databases across container
+                                    restarts.</li>
+                            </div>
+
+                            <p style="font-size: 0.9rem; margin-bottom: 0.5rem;"><strong>Google Cloud Run
+                                    Deploy:</strong></p>
+                            <pre><code class="language-bash"># Build and upload image to GCP Artifact Registry
 gcloud builds submit --tag gcr.io/your-project/hr-ops-backend ./backend
 
 # Deploy Cloud Run instance
@@ -788,165 +897,179 @@ gcloud run deploy hr-ops-backend \
   --set-env-vars="NVIDIA_API_KEY=nvapi-key,STARTUP_REINDEX=true" \
   --port=8000 \
   --allow-unauthenticated</code><span class="code-lang-badge">gcloud</span></pre>
+                        </div>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 4: OBSERVABILITY & LOGS -->
+        <div id="tab-observability" class="tab-content">
+            <div class="card">
+                <h2 class="card-title">
+                    <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path
+                            d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10a2 2 0 01-2 2h-2a2 2 0 01-2-2zm9-8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2a2 2 0 01-2-2v-6a2 2 0 012-2z">
+                        </path>
+                    </svg>
+                    Observability & Tracing Setup
+                </h2>
+                <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Complete tracing telemetry maps every node
+                    action, cache comparison check, LLM response context, and tool output back to a centralized log.</p>
+
+                <div class="alert alert-info">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span><strong>Trace Logs Preservation:</strong> Node trace records are preserved sequentially inside
+                        <code>state.trace_log</code> lists rather than overwritten, allowing trace viewers to display
+                        the full lifecycle of every execution step.</span>
+                </div>
+
+                <h3 style="margin-top: 1.5rem; margin-bottom: 0.75rem;">Langfuse Instrumentation</h3>
+                <p style="font-size: 0.95rem; margin-bottom: 0.5rem;">To review exact prompt tokens, latency
+                    distributions, and model costs in real time:</p>
+                <div class="step-list" style="margin-left: 0.5rem; margin-top: 0.5rem;">
+                    <li style="font-size: 0.88rem;">Configure Langfuse credentials inside the backend <code>.env</code>
+                        file.</li>
+                    <li style="font-size: 0.88rem;">Start the FastAPI server. Traces will automatically sync
+                        asynchronously via background task handlers without blocking user request threads.</li>
+                    <li style="font-size: 0.88rem;">Open the Langfuse dashboard to view trace hierarchies grouped by
+                        conversation session.</li>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- TAB 4: OBSERVABILITY & LOGS -->
-    <div id="tab-observability" class="tab-content">
-        <div class="card">
-            <h2 class="card-title">
-                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10a2 2 0 01-2 2h-2a2 2 0 01-2-2zm9-8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2a2 2 0 01-2-2v-6a2 2 0 012-2z"></path></svg>
-                Observability & Tracing Setup
-            </h2>
-            <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Complete tracing telemetry maps every node action, cache comparison check, LLM response context, and tool output back to a centralized log.</p>
+    <script>
+        // Tab switching mechanism
+        function switchTab(tabId) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
 
-            <div class="alert alert-info">
-                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                <span><strong>Trace Logs Preservation:</strong> Node trace records are preserved sequentially inside <code>state.trace_log</code> lists rather than overwritten, allowing trace viewers to display the full lifecycle of every execution step.</span>
-            </div>
+            // Remove active class from all buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
 
-            <h3 style="margin-top: 1.5rem; margin-bottom: 0.75rem;">Langfuse Instrumentation</h3>
-            <p style="font-size: 0.95rem; margin-bottom: 0.5rem;">To review exact prompt tokens, latency distributions, and model costs in real time:</p>
-            <div class="step-list" style="margin-left: 0.5rem; margin-top: 0.5rem;">
-                <li style="font-size: 0.88rem;">Configure Langfuse credentials inside the backend <code>.env</code> file.</li>
-                <li style="font-size: 0.88rem;">Start the FastAPI server. Traces will automatically sync asynchronously via background task handlers without blocking user request threads.</li>
-                <li style="font-size: 0.88rem;">Open the Langfuse dashboard to view trace hierarchies grouped by conversation session.</li>
-            </div>
-        </div>
-    </div>
-</div>
+            // Show target tab content & add active class to button
+            document.getElementById(tabId).classList.add('active');
 
-<script>
-    // Tab switching mechanism
-    function switchTab(tabId) {
-        // Hide all tab contents
-        document.querySelectorAll('.tab-content').forEach(content => {
-            content.classList.remove('active');
-        });
-        
-        // Remove active class from all buttons
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.classList.remove('active');
-        });
-        
-        // Show target tab content & add active class to button
-        document.getElementById(tabId).classList.add('active');
-        
-        // Find matching tab button
-        const btnText = {
-            'tab-architecture': 'Architecture Diagram',
-            'tab-triggers': 'Workflow Triggers',
-            'tab-deployment': 'Deployment Guide',
-            'tab-observability': 'Observability & Logs'
-        }[tabId];
-        
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            if (btn.innerText === btnText) {
-                btn.classList.add('active');
+            // Find matching tab button
+            const btnText = {
+                'tab-architecture': 'Architecture Diagram',
+                'tab-triggers': 'Workflow Triggers',
+                'tab-deployment': 'Deployment Guide',
+                'tab-observability': 'Observability & Logs'
+            }[tabId];
+
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                if (btn.innerText === btnText) {
+                    btn.classList.add('active');
+                }
+            });
+        }
+
+        // Interactive SVG Details definitions
+        const nodeData = {
+            'query': {
+                title: 'User Input Query',
+                body: 'A natural language prompt sent by the employee (reactive) or a cron scheduling trigger. Bypasses normal API queues and goes directly to the Supervisor Router.',
+                state: '["query", "session_id", "turn_number", "trigger_type"]'
+            },
+            'supervisor': {
+                title: 'Supervisor Node (Triage & Bandit)',
+                body: 'Classifies the query using LLM-based triage. Correctly routes query tasks (e.g. running anomaly scans or policy lookups) to standard or anomaly sub-graphs, then applies a LinUCB bandit model to choose the optimal path.',
+                state: '["current_agent", "rl_selected_action", "rl_context", "trace_log"]'
+            },
+            'policy': {
+                title: 'Policy Node (RAG Agent)',
+                body: 'Retrieves relevant policy chunks from ChromaDB using NVIDIA embeddings. Employs semantic caches to bypass RAG on previously answered queries. Returns formatting rules compliant response.',
+                state: '["final_response", "retrieved_policies", "trace_log"]'
+            },
+            'action': {
+                title: 'Action Node (Tool Executor)',
+                body: 'Extracts API/SQL operations from natural language query. Resolves pronoun context via conversation history, and frames parameterized queries against SQLite tables guided by the cached LLM DB Schema Understanding generated at startup.',
+                state: '["final_response", "executed_actions", "trace_log"]'
+            },
+            'parallel': {
+                title: 'Parallel Checks Node',
+                body: 'Runs anomaly detection (statistical IQR salary and leave deviation) and compliance validation (rule checks) concurrently in background threads. Sets hitl_needed flag if anomalies are severe.',
+                state: '["anomaly_results", "compliance_veto", "compliance_reason", "hitl_needed", "trace_log"]'
+            },
+            'hitl': {
+                title: 'HITL Escalation Node',
+                body: 'Suspends direct completion and queues the request in the human-in-the-loop dashboard. Halts the automated execution block until manual approval or override actions are supplied by an administrator.',
+                state: '["hitl_request", "final_response", "trace_log"]'
+            },
+            'end': {
+                title: 'END State',
+                body: 'Concludes the LangGraph pipeline execution run. Delivers the finalized and sanitized response string back to the user chat UI and logs run telemetry.',
+                state: '["final_response", "trace_log", "messages"]'
             }
-        });
-    }
+        };
 
-    // Interactive SVG Details definitions
-    const nodeData = {
-        'query': {
-            title: 'User Input Query',
-            body: 'A natural language prompt sent by the employee (reactive) or a cron scheduling trigger. Bypasses normal API queues and goes directly to the Supervisor Router.',
-            state: '["query", "session_id", "turn_number", "trigger_type"]'
-        },
-        'supervisor': {
-            title: 'Supervisor Node (Triage & Bandit)',
-            body: 'Classifies the query using LLM-based triage. Correctly routes query tasks (e.g. running anomaly scans or policy lookups) to standard or anomaly sub-graphs, then applies a LinUCB bandit model to choose the optimal path.',
-            state: '["current_agent", "rl_selected_action", "rl_context", "trace_log"]'
-        },
-        'policy': {
-            title: 'Policy Node (RAG Agent)',
-            body: 'Retrieves relevant policy chunks from ChromaDB using NVIDIA embeddings. Employs semantic caches to bypass RAG on previously answered queries. Returns formatting rules compliant response.',
-            state: '["final_response", "retrieved_policies", "trace_log"]'
-        },
-        'action': {
-            title: 'Action Node (Tool Executor)',
-            body: 'Extracts API/SQL operations from natural language query. Resolves pronoun context via conversation history, and frames parameterized queries against SQLite tables guided by the cached LLM DB Schema Understanding generated at startup.',
-            state: '["final_response", "executed_actions", "trace_log"]'
-        },
-        'parallel': {
-            title: 'Parallel Checks Node',
-            body: 'Runs anomaly detection (statistical IQR salary and leave deviation) and compliance validation (rule checks) concurrently in background threads. Sets hitl_needed flag if anomalies are severe.',
-            state: '["anomaly_results", "compliance_veto", "compliance_reason", "hitl_needed", "trace_log"]'
-        },
-        'hitl': {
-            title: 'HITL Escalation Node',
-            body: 'Suspends direct completion and queues the request in the human-in-the-loop dashboard. Halts the automated execution block until manual approval or override actions are supplied by an administrator.',
-            state: '["hitl_request", "final_response", "trace_log"]'
-        },
-        'end': {
-            title: 'END State',
-            body: 'Concludes the LangGraph pipeline execution run. Delivers the finalized and sanitized response string back to the user chat UI and logs run telemetry.',
-            state: '["final_response", "trace_log", "messages"]'
+        function highlightNode(nodeId) {
+            // Show side panel detail
+            document.getElementById('default-node-desc').style.display = 'none';
+
+            const activePanel = document.getElementById('active-node-desc');
+            activePanel.style.display = 'block';
+
+            const data = nodeData[nodeId];
+            document.getElementById('panel-title').innerText = data.title;
+            document.getElementById('panel-body').innerText = data.body;
+            document.getElementById('panel-state').innerText = data.state;
+
+            // Change styling on diagram edges to follow standard path visual
+            resetEdges();
+            if (nodeId === 'supervisor') {
+                document.getElementById('edge-in').classList.add('active');
+            } else if (nodeId === 'policy') {
+                document.getElementById('edge-sup-pol').classList.add('active');
+            } else if (nodeId === 'action') {
+                document.getElementById('edge-sup-act').classList.add('active');
+            } else if (nodeId === 'parallel') {
+                document.getElementById('edge-pol-chk').classList.add('active');
+                document.getElementById('edge-act-chk').classList.add('active');
+            } else if (nodeId === 'hitl') {
+                document.getElementById('edge-chk-hit').classList.add('active');
+                document.getElementById('edge-fb').classList.add('active');
+            } else if (nodeId === 'end') {
+                document.getElementById('edge-chk-end').classList.add('active');
+            }
         }
-    };
 
-    function highlightNode(nodeId) {
-        // Show side panel detail
-        document.getElementById('default-node-desc').style.display = 'none';
-        
-        const activePanel = document.getElementById('active-node-desc');
-        activePanel.style.display = 'block';
-        
-        const data = nodeData[nodeId];
-        document.getElementById('panel-title').innerText = data.title;
-        document.getElementById('panel-body').innerText = data.body;
-        document.getElementById('panel-state').innerText = data.state;
-
-        // Change styling on diagram edges to follow standard path visual
-        resetEdges();
-        if (nodeId === 'supervisor') {
-            document.getElementById('edge-in').classList.add('active');
-        } else if (nodeId === 'policy') {
-            document.getElementById('edge-sup-pol').classList.add('active');
-        } else if (nodeId === 'action') {
-            document.getElementById('edge-sup-act').classList.add('active');
-        } else if (nodeId === 'parallel') {
-            document.getElementById('edge-pol-chk').classList.add('active');
-            document.getElementById('edge-act-chk').classList.add('active');
-        } else if (nodeId === 'hitl') {
-            document.getElementById('edge-chk-hit').classList.add('active');
-            document.getElementById('edge-fb').classList.add('active');
-        } else if (nodeId === 'end') {
-            document.getElementById('edge-chk-end').classList.add('active');
+        function resetHighlight() {
+            document.getElementById('active-node-desc').style.display = 'none';
+            document.getElementById('default-node-desc').style.display = 'block';
+            resetEdges();
         }
-    }
 
-    function resetHighlight() {
-        document.getElementById('active-node-desc').style.display = 'none';
-        document.getElementById('default-node-desc').style.display = 'block';
-        resetEdges();
-    }
-
-    function resetEdges() {
-        document.querySelectorAll('.svg-edge').forEach(edge => {
-            edge.classList.remove('active');
-        });
-    }
-
-    // Accordion Toggle
-    function toggleAccordion(header) {
-        const item = header.parentElement;
-        const isActive = item.classList.contains('active');
-        
-        // Close all items
-        document.querySelectorAll('.accordion-item').forEach(accItem => {
-            accItem.classList.remove('active');
-        });
-        
-        // If not already active, open it
-        if (!isActive) {
-            item.classList.add('active');
+        function resetEdges() {
+            document.querySelectorAll('.svg-edge').forEach(edge => {
+                edge.classList.remove('active');
+            });
         }
-    }
-</script>
+
+        // Accordion Toggle
+        function toggleAccordion(header) {
+            const item = header.parentElement;
+            const isActive = item.classList.contains('active');
+
+            // Close all items
+            document.querySelectorAll('.accordion-item').forEach(accItem => {
+                accItem.classList.remove('active');
+            });
+
+            // If not already active, open it
+            if (!isActive) {
+                item.classList.add('active');
+            }
+        }
+    </script>
 </body>
+
 </html>

@@ -14,7 +14,7 @@ from pathlib import Path
 
 import numpy as np
 
-from backend.config.settings import settings
+from backend.src.core.settings import settings
 
 logger = logging.getLogger("hr_ops.rl")
 

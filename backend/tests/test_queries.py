@@ -1,7 +1,7 @@
 import pytest
-from backend.src.database.queries import query_performance
-from backend.src.database.models import Performance, Base
-from backend.src.database.connection import SessionLocal, engine
+from backend.src.repositories.queries import query_performance
+from backend.src.repositories.models import Performance, Base
+from backend.src.repositories.connection import SessionLocal, engine
 
 @pytest.fixture
 def clean_session():

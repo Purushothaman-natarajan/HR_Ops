@@ -1,6 +1,6 @@
 """Factory for instantiating chunking strategies by name with config overrides."""
 
-from backend.config.settings import settings
+from backend.src.core.settings import settings
 from backend.src.memory.chunking.agentic import AgenticChunking
 from backend.src.memory.chunking.base import ChunkingStrategy
 from backend.src.memory.chunking.fixed_size import FixedSizeChunking

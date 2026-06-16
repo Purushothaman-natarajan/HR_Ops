@@ -6,9 +6,9 @@ from pathlib import Path
 from fastapi import APIRouter, Request, UploadFile, File
 
 from backend.src.core.response import get_correlation_id, success_response, error_response
-from backend.src.database.connection import get_db_status
+from backend.src.repositories.connection import get_db_status
 from backend.scripts.load_db import load_csv, load_sqlite_db
-from backend.config.settings import settings
+from backend.src.core.settings import settings
 
 logger = logging.getLogger("hr_ops.database_routes")
 router = APIRouter(prefix="/database", tags=["database"])

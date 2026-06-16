@@ -16,7 +16,7 @@ import sqlite3
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from backend.config.settings import settings
+from backend.src.core.settings import settings
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 logger = logging.getLogger("scripts.load_db")

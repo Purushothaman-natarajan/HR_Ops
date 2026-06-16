@@ -8,7 +8,7 @@ from typing import Any
 
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-from backend.src.database.queries import (
+from backend.src.repositories.queries import (
     query_employee as _db_query_employee,
     query_employee_full as _db_query_employee_full,
 )
@@ -27,7 +27,7 @@ def _db_has_data() -> bool:
     try:
         from sqlalchemy import text
 
-        from backend.src.database.connection import SessionLocal
+        from backend.src.repositories.connection import SessionLocal
         with SessionLocal() as session:
             result = session.execute(text("SELECT COUNT(*) FROM employees"))
             count = result.scalar()
@@ -117,7 +117,7 @@ def modify_record(employee_id: str, field: str, value: Any) -> dict:
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=10))
 def escalate_to_human(employee_id: str, reason: str, context: dict | None = None) -> dict:
     """Create an escalation ticket for human review, register in AGUI store, and return the ticket ID and status."""
-    from backend.src.utils.agui_models import InteractionRequest
+    from backend.src.domain.agui import InteractionRequest
     from backend.src.utils.agui_store import agui_store
 
     ticket_id = f"TKT-{uuid.uuid4().hex[:8].upper()}"
@@ -142,7 +142,7 @@ def get_database_schema(db_name: str = "hr_ops") -> dict:
     Allows the agent to understand the database structure dynamically without hardcoded schemas.
     """
     import sqlite3
-    from backend.config.settings import settings
+    from backend.src.core.settings import settings
     
     # Resolve DB file path from settings
     db_url = settings.database_url
@@ -188,7 +188,7 @@ def search_employee_by_name(name: str, limit: int = 10) -> dict:
     and most recent performance rating.
     """
     import sqlite3
-    from backend.config.settings import settings
+    from backend.src.core.settings import settings
 
     db_url = settings.database_url
     db_path = "./backend/data/hr_ops.db"
@@ -245,7 +245,7 @@ def execute_db_query(sql_query: str, parameters: list | dict | None = None, db_n
     For write operations, performs connection commits.
     """
     import sqlite3
-    from backend.config.settings import settings
+    from backend.src.core.settings import settings
     
     db_url = settings.database_url
     db_path = "./backend/data/hr_ops.db"

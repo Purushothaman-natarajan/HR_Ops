@@ -5,10 +5,10 @@ from unittest.mock import patch, MagicMock
 from backend.src.agents.nodes.action_node import action_node
 from backend.src.agents.standard.orchestrator import build_standard_graph
 from backend.src.agents.state import SharedState
-from backend.src.utils.agui_models import InteractionRequest
+from backend.src.domain.agui import InteractionRequest
 from backend.src.utils.agui_store import agui_store
 from backend.src.tools.api_mocks import execute_db_query
-from backend.config.settings import settings
+from backend.src.core.settings import settings
 
 @pytest.fixture(autouse=True)
 def clean_agui_store():

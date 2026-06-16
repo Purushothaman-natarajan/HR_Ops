@@ -8,7 +8,7 @@ import pytest
 # Force test database URL
 os.environ["DATABASE_URL"] = "sqlite:///./backend/data/test_hr_ops.db"
 
-from backend.config.settings import settings
+from backend.src.core.settings import settings
 from backend.scripts.load_db import load_csv
 
 

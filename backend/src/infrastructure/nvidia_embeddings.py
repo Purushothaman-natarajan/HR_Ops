@@ -7,7 +7,7 @@ from typing import Any
 from langchain_core.embeddings import Embeddings
 from openai import OpenAI
 
-from backend.config.settings import settings
+from backend.src.core.settings import settings
 
 
 class NVIDIAEmbeddings(Embeddings):

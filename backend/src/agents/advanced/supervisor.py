@@ -13,7 +13,7 @@ from backend.src.utils.model_router import llm_call
 logger = logging.getLogger("hr_ops.supervisor")
 
 try:
-    from backend.src.utils.nvidia_embeddings import NVIDIAEmbeddings
+    from backend.src.infrastructure.nvidia_embeddings import NVIDIAEmbeddings
     _SUPERVISOR_ENCODER = NVIDIAEmbeddings(input_type="query")
 except ImportError:
     _SUPERVISOR_ENCODER = None

@@ -216,4 +216,6 @@ export interface ScanOutcome {
   retrieved_policies: string[];
   total_cost_usd: number;
   alert_status: "new" | "read";
+  hitl_needed?: boolean;
+  hitl_request?: PendingItem & { response?: string; resolved_at?: string; metadata?: any };
 }

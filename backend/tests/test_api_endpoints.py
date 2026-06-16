@@ -3,7 +3,7 @@
 
 from fastapi.testclient import TestClient
 
-from backend.main import app
+from backend.src.main import app
 
 client = TestClient(app)
 
@@ -203,7 +203,7 @@ class TestDatabaseAPI:
         import tempfile, csv
         from pathlib import Path
         from backend.scripts.load_db import load_csv
-        from backend.config.settings import settings
+        from backend.src.core.settings import settings
 
         db_url = settings.database_url
         target_db_path = Path("./backend/data/hr_ops.db")

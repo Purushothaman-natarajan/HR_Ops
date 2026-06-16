@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from langchain_core.documents import Document
 
-from backend.config.settings import settings
+from backend.src.core.settings import settings
 from backend.src.memory.chunking.recursive import RecursiveChunking
 from backend.src.memory.vector_store import get_vector_store
 from backend.src.services.policy_service import extract_text

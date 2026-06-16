@@ -18,7 +18,7 @@ from backend.src.api.serializers import serialize_trace_events
 from backend.src.core.exceptions import GraphExecutionError, ModelNotAvailableError
 from backend.src.graph import build_full_graph
 from backend.src.services.feedback_service import feedback_store
-from backend.src.utils.langfuse_setup import create_trace
+from backend.src.infrastructure.langfuse_setup import create_trace
 from backend.src.utils.trace_store import trace_store
 
 logger = logging.getLogger("hr_ops.conversation_service")

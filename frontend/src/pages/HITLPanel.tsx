@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { api } from "../api/client";
-import { Icon } from "./Icons";
-import type { PendingItem } from "../types";
+import { Icon } from "../components/Icons";
+import type { PendingItem, AnomalyResult } from "../types";
 
 /** HITL Panel — review pending agent escalations, approve/reject, and resume conversations.
  *
@@ -193,6 +193,75 @@ export function HITLPanel({ onContinueSession }: HITLPanelProps) {
   );
 }
 
+function HitlAnomalyRow({ anomaly, idx }: { anomaly: AnomalyResult; idx: number }) {
+  const fieldColors: Record<string, string> = {
+    salary: "#8b5cf6",
+    leave: "#3b82f6",
+    attendance: "#f59e0b",
+    performance: "#10b981",
+    compliance: "#ef4444",
+    payroll: "#ec4899",
+  };
+  const fieldColor = fieldColors[anomaly.anomaly_field?.toLowerCase()] || "var(--color-primary)";
+
+  return (
+    <div style={{
+      display: "grid",
+      gridTemplateColumns: "20px 1fr 100px",
+      gap: 10,
+      alignItems: "center",
+      padding: "8px 12px",
+      borderBottom: "1px solid var(--color-border-light)",
+      background: idx % 2 === 0 ? "transparent" : "rgba(15, 23, 42, 0.01)",
+    }}>
+      <div style={{
+        width: 8,
+        height: 8,
+        borderRadius: "50%",
+        background: anomaly.detected ? "var(--color-error)" : "var(--color-success)",
+        margin: "0 auto",
+      }} />
+
+      <div style={{ minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 1 }}>
+          <span style={{
+            display: "inline-block",
+            padding: "1px 6px",
+            borderRadius: 3,
+            fontSize: 9,
+            fontWeight: 700,
+            textTransform: "uppercase",
+            background: `${fieldColor}12`,
+            color: fieldColor,
+          }}>
+            {anomaly.anomaly_field || "unknown"}
+          </span>
+        </div>
+        <div style={{
+          fontSize: 12,
+          color: "var(--color-text-secondary)",
+          lineHeight: 1.3,
+        }}>
+          {anomaly.description || "No description available"}
+        </div>
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <span style={{
+          fontSize: 10,
+          fontWeight: 700,
+          color: anomaly.severity >= 0.8 ? "var(--color-error)" : anomaly.severity >= 0.6 ? "var(--color-warning)" : "var(--color-success)",
+          background: anomaly.severity >= 0.8 ? "rgba(239,68,68,0.08)" : anomaly.severity >= 0.6 ? "rgba(245,158,11,0.08)" : "rgba(16,185,129,0.08)",
+          padding: "2px 6px",
+          borderRadius: 4,
+        }}>
+          Sev: {Math.round((anomaly.severity ?? 0) * 100)}%
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function HitlItemCard({
   item,
   onAction,
@@ -204,6 +273,78 @@ function HitlItemCard({
 }) {
   const [responseText, setResponseText] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [grouping, setGrouping] = useState<"category" | "employee" | "flat">("category");
+
+  const getEmployeeName = (desc: string) => {
+    if (!desc) return "System / General";
+    const cleanDesc = desc.replace(/^\[[A-Z0-9-]+\]\s+/, "");
+    const withoutEmp = cleanDesc.replace(/^Employee\s+/, "");
+    const words = withoutEmp.split(/\s+/);
+    const nameWords = [];
+    for (const w of words) {
+      if (w && w[0] === w[0].toUpperCase() && /^[A-Za-z]/.test(w)) {
+        nameWords.push(w);
+      } else {
+        break;
+      }
+    }
+    return nameWords.length > 0 ? nameWords.join(" ") : "System / General";
+  };
+
+  const getEmployeeKey = (a: any) => {
+    const eid = a.supporting_data?.employee_id || a.supporting_data?.Employee_ID || "";
+    const name = getEmployeeName(a.description);
+    if (eid) {
+      return `${name} (${eid})`;
+    }
+    return name;
+  };
+
+  const groupedAnomalies = (() => {
+    const results = item.context?.anomaly_results || [];
+    if (grouping === "flat") return null;
+    
+    const groups: Record<string, typeof results> = {};
+    for (const a of results) {
+      let key = "General";
+      if (grouping === "category") {
+        key = a.anomaly_field || "general";
+        key = key.replace(/\b\w/g, (c: string) => c.toUpperCase());
+      } else if (grouping === "employee") {
+        key = getEmployeeKey(a);
+      }
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(a);
+    }
+    return groups;
+  })();
+
+  const applyGroupAction = (groupName: string, actionType: "approve" | "reject" | "forward", targetAction?: string) => {
+    const groupAnoms = (groupedAnomalies ? groupedAnomalies[groupName] : item.context?.anomaly_results) || [];
+    const proposed = groupAnoms[0]?.recommended_action || groupAnoms[0]?.suggested_action || "escalate_hr_review";
+    
+    let resolvedAction = proposed;
+    let desc = "";
+    if (actionType === "approve") {
+      resolvedAction = proposed;
+      desc = `Approved proposed action (${proposed.replace(/_/g, " ")}) for ${groupName} issues.`;
+    } else if (actionType === "reject") {
+      resolvedAction = "ignore";
+      desc = `Rejected/Ignored ${groupName} issues.`;
+    } else if (actionType === "forward") {
+      resolvedAction = targetAction || "escalate_hr_review";
+      desc = `Forwarded ${groupName} issues to ${resolvedAction.replace(/_/g, " ")}.`;
+    }
+
+    setSelectedAction(resolvedAction);
+    setResponseText((prev) => {
+      const parts = prev ? prev.split("\n") : [];
+      const filteredParts = parts.filter(p => !p.includes(`for ${groupName} issues`) && !p.includes(`${groupName} issues`));
+      filteredParts.push(desc);
+      return filteredParts.join("\n");
+    });
+  };
+
   const ageSeconds = Math.round((Date.now() - new Date(item.created_at).getTime()) / 1000);
   const ageLabel = ageSeconds < 60 ? `${ageSeconds}s ago` : `${Math.round(ageSeconds / 60)}m ago`;
 
@@ -343,13 +484,168 @@ function HitlItemCard({
           </div>
         </div>
 
-        {/* Agent Reasoning */}
+        {/* Agent Reasoning & Anomalies Breakdown */}
         <div style={{ marginBottom: 18 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-muted)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 6 }}>
-            Agent Reasoning &amp; Context
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+              Agent Reasoning &amp; Anomaly Breakdown
+            </div>
+            {item.context?.anomaly_results && item.context.anomaly_results.length > 0 && (
+              <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                <span style={{ fontSize: 10, color: "var(--color-text-muted)" }}>Group:</span>
+                {(["category", "employee", "flat"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setGrouping(mode);
+                    }}
+                    style={{
+                      padding: "2px 8px",
+                      borderRadius: 10,
+                      fontSize: 9,
+                      fontWeight: 700,
+                      border: "1px solid var(--color-border)",
+                      background: grouping === mode ? "var(--color-primary)" : "transparent",
+                      color: grouping === mode ? "#fff" : "var(--color-text-secondary)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {mode.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-          <div className="hitl-card-query" style={{ fontSize: 14, lineHeight: "1.6", color: "var(--color-text)", background: "rgba(255,255,255,0.6)", padding: 12, borderRadius: 6, border: "1px solid var(--color-border-light)" }}>
-            {anomaly?.description || item.query}
+
+          <div style={{
+            background: "rgba(255,255,255,0.6)",
+            padding: 14,
+            borderRadius: 8,
+            border: "1px solid var(--color-border-light)",
+            display: "flex",
+            flexDirection: "column",
+            gap: 12
+          }}>
+            {/* Display simple query or first anomaly text if no results */}
+            {(!item.context?.anomaly_results || item.context.anomaly_results.length === 0) ? (
+              <div style={{ fontSize: 13, lineHeight: "1.5", color: "var(--color-text)" }}>
+                {anomaly?.description || item.query}
+              </div>
+            ) : grouping === "flat" ? (
+              <div style={{ display: "flex", flexDirection: "column", border: "1px solid var(--color-border-light)", borderRadius: 6, overflow: "hidden" }}>
+                {item.context.anomaly_results.map((a: AnomalyResult, i: number) => (
+                  <HitlAnomalyRow key={i} anomaly={a} idx={i} />
+                ))}
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {Object.entries(groupedAnomalies || {}).map(([groupName, anoms]) => (
+                  <div key={groupName} style={{
+                    border: "1px solid var(--color-border-light)",
+                    borderRadius: 6,
+                    background: "rgba(255, 255, 255, 0.4)",
+                    overflow: "hidden"
+                  }}>
+                    {/* Inline Group header with Quick Actions */}
+                    <div style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: "8px 12px",
+                      background: "rgba(15, 23, 42, 0.03)",
+                      borderBottom: "1px solid var(--color-border-light)"
+                    }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: "var(--color-primary)" }}>{groupName}</span>
+                        <span style={{
+                          fontSize: 9,
+                          fontWeight: 700,
+                          background: "rgba(15, 23, 42, 0.06)",
+                          color: "var(--color-text-secondary)",
+                          padding: "1px 6px",
+                          borderRadius: 8
+                        }}>
+                          {anoms.length}
+                        </span>
+                      </div>
+                      
+                      {/* Group Quick Actions */}
+                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); applyGroupAction(groupName, "approve"); }}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 2,
+                            padding: "2px 6px",
+                            borderRadius: 4,
+                            fontSize: 10,
+                            fontWeight: 700,
+                            background: "rgba(16,185,129,0.06)",
+                            color: "var(--color-success)",
+                            border: "1px solid rgba(16,185,129,0.12)",
+                            cursor: "pointer",
+                          }}
+                        >
+                          Approve
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); applyGroupAction(groupName, "reject"); }}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 2,
+                            padding: "2px 6px",
+                            borderRadius: 4,
+                            fontSize: 10,
+                            fontWeight: 700,
+                            background: "rgba(239,68,68,0.06)",
+                            color: "var(--color-error)",
+                            border: "1px solid rgba(239,68,68,0.12)",
+                            cursor: "pointer",
+                          }}
+                        >
+                          Reject
+                        </button>
+                        
+                        <select
+                          onChange={(e) => { applyGroupAction(groupName, "forward", e.target.value); e.target.value = ""; }}
+                          defaultValue=""
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            padding: "2px 4px",
+                            borderRadius: 4,
+                            fontSize: 10,
+                            fontWeight: 700,
+                            background: "rgba(99,102,241,0.06)",
+                            color: "var(--color-primary)",
+                            border: "1px solid rgba(99,102,241,0.12)",
+                            cursor: "pointer",
+                            outline: "none",
+                          }}
+                        >
+                          <option value="" disabled>Forward...</option>
+                          {AVAILABLE_ACTIONS.map((act) => (
+                            <option key={act} value={act}>
+                              {act.replace(/_/g, " ")}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Group anomalies list */}
+                    <div style={{ display: "flex", flexDirection: "column" }}>
+                      {anoms.map((a: AnomalyResult, idx: number) => (
+                        <HitlAnomalyRow key={idx} anomaly={a} idx={idx} />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

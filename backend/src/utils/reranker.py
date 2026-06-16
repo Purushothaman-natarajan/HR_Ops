@@ -12,7 +12,7 @@ from typing import Any
 
 from langchain_core.documents import Document
 
-from backend.config.settings import settings
+from backend.src.core.settings import settings
 
 logger = logging.getLogger("hr_ops.reranker")
 

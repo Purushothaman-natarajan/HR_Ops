@@ -6,7 +6,7 @@ from pathlib import Path
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
-from backend.config.settings import settings
+from backend.src.core.settings import settings
 
 logger = logging.getLogger("hr_ops.database")
 

@@ -14,7 +14,7 @@ import logging
 from datetime import datetime, timezone
 
 from backend.src.agents.state import Activity, SharedState, TraceEntry
-from backend.src.database.queries import query_all_employees
+from backend.src.repositories.queries import query_all_employees
 from backend.src.intelligence.anomaly import run_anomaly_detection
 from backend.src.memory.episodic_memory import episodic_memory
 from backend.src.utils.model_router import llm_call
@@ -146,7 +146,7 @@ async def anomaly_node(state: SharedState) -> dict:
     needs_hitl = bool(hitl_queue or auto_escalate)
 
     return {
-        "anomaly_results": results,
+        "anomaly_results": results[:100],
         "hitl_needed": needs_hitl,
         "final_response": narrative,
         "rl_context": {

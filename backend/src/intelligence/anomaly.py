@@ -18,7 +18,7 @@ from collections import Counter, defaultdict
 from datetime import date, timedelta
 
 from backend.src.agents.state import AnomalyResult
-from backend.src.database.queries import (
+from backend.src.repositories.queries import (
     query_all_employees,
     query_all_payroll_current,
     query_attendance_summary_all,

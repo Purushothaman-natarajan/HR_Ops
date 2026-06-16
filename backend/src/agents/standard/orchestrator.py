@@ -19,7 +19,7 @@ if __name__ == "__main__":
 from langgraph.graph import END, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
-from backend.config.settings import settings
+from backend.src.core.settings import settings
 from backend.src.agents.state import AgentRole, SharedState, TraceEntry, Activity
 from backend.src.agents.nodes.action_node import (
     _prescreen_query, _build_fallback, _parse_tool_json, _synthesise_response,

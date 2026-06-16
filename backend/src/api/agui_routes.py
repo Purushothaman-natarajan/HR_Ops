@@ -13,7 +13,7 @@ from backend.src.core.response import (
     get_correlation_id,
     success_response,
 )
-from backend.src.utils.agui_models import InteractionResponse
+from backend.src.domain.agui import InteractionResponse
 from backend.src.utils.agui_store import agui_store
 
 router = APIRouter(prefix="/agui", tags=["agui"])

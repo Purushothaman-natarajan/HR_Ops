@@ -4,8 +4,8 @@ import logging
 import sys
 from pathlib import Path
 from logging.handlers import RotatingFileHandler
-from backend.config.settings import settings
-from backend.src.utils.langfuse_setup import get_langfuse_client
+from backend.src.core.settings import settings
+from backend.src.infrastructure.langfuse_setup import get_langfuse_client
 
 
 class LangfuseHandler(logging.Handler):

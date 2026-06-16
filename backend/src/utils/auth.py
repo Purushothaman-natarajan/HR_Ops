@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import Header, HTTPException
 from jose import JWTError, jwt
 
-from backend.config.settings import settings
+from backend.src.core.settings import settings
 
 SECRET_KEY = settings.auth_secret_key
 ALGORITHM = "HS256"

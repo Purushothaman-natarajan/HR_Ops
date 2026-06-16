@@ -1,6 +1,6 @@
 import type { AppRole } from "../types";
-import { Icon } from "./Icons";
-import type { IconName } from "./Icons";
+import { Icon } from "../components/Icons";
+import type { IconName } from "../components/Icons";
 
 type Page = "dashboard" | "query" | "hitl" | "trace" | "tracequery" | "rl" | "cost" | "policies";
 

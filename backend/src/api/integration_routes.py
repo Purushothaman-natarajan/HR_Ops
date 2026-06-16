@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from fastapi import APIRouter, Request
 
-from backend.config.settings import settings
+from backend.src.core.settings import settings
 from backend.src.core.response import (
     error_response,
     get_correlation_id,

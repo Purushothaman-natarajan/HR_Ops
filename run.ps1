@@ -35,7 +35,7 @@ if (-not (Test-Path "frontend\node_modules")) {
 }
 
 Write-Host "[1/4] Starting backend on http://localhost:8000 ..." -ForegroundColor $cGreen
-$backend = Start-Process -FilePath $python -ArgumentList "-m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload" -WorkingDirectory $rootDir -NoNewWindow -PassThru
+$backend = Start-Process -FilePath $python -ArgumentList "-m uvicorn backend.src.main:app --host 0.0.0.0 --port 8000 --reload" -WorkingDirectory $rootDir -NoNewWindow -PassThru
 Write-Host "       BACKEND PID: $($backend.Id)" -ForegroundColor $cGray
 
 Write-Host "[2/4] Starting frontend on http://localhost:5173 ..." -ForegroundColor $cGreen

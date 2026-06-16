@@ -2,7 +2,7 @@
 
 from fastapi.testclient import TestClient
 
-from backend.main import app
+from backend.src.main import app
 from backend.src.intelligence.rl_layer import rl_agent
 from backend.src.services.feedback_service import feedback_store
 

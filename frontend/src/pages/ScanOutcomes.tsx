@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { api } from "../api/client";
-import { Icon } from "./Icons";
+import { Icon } from "../components/Icons";
 import type { ScanOutcome, SchedulerStatus, AnomalyResult } from "../types";
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -38,6 +38,15 @@ function formatInterval(seconds: number): string {
   if (seconds < 3600) return `${Math.round(seconds / 60)}m`;
   return `${(seconds / 3600).toFixed(1)}h`;
 }
+
+const AVAILABLE_ACTIONS = [
+  "escalate_hr_review",
+  "flag_for_review",
+  "request_manager_review",
+  "send_notification",
+  "initiate_pip",
+  "ignore"
+];
 
 // ── Severity Bar ─────────────────────────────────────────────────────────────
 
@@ -154,11 +163,116 @@ function AnomalyRow({ anomaly, idx }: { anomaly: AnomalyResult; idx: number }) {
 
 // ── Scan Card ─────────────────────────────────────────────────────────────────
 
-function ScanCard({ outcome, onMarkRead }: {
+function ScanCard({ outcome, onMarkRead, onRefresh }: {
   outcome: ScanOutcome;
   onMarkRead: (id: string) => void;
+  onRefresh: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [selectedAction, setSelectedAction] = useState("");
+  const [responseText, setResponseText] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [grouping, setGrouping] = useState<"category" | "employee" | "flat">("category");
+
+  const getEmployeeName = (desc: string) => {
+    if (!desc) return "System / General";
+    const cleanDesc = desc.replace(/^\[[A-Z0-9-]+\]\s+/, "");
+    const withoutEmp = cleanDesc.replace(/^Employee\s+/, "");
+    const words = withoutEmp.split(/\s+/);
+    const nameWords = [];
+    for (const w of words) {
+      if (w && w[0] === w[0].toUpperCase() && /^[A-Za-z]/.test(w)) {
+        nameWords.push(w);
+      } else {
+        break;
+      }
+    }
+    return nameWords.length > 0 ? nameWords.join(" ") : "System / General";
+  };
+
+  const getEmployeeKey = (a: any) => {
+    const eid = a.supporting_data?.employee_id || a.supporting_data?.Employee_ID || "";
+    const name = getEmployeeName(a.description);
+    if (eid) {
+      return `${name} (${eid})`;
+    }
+    return name;
+  };
+
+  const groupedAnomalies = (() => {
+    const results = outcome.anomaly_results;
+    if (grouping === "flat") return null;
+    
+    const groups: Record<string, typeof results> = {};
+    for (const a of results) {
+      let key = "General";
+      if (grouping === "category") {
+        key = a.anomaly_field || "general";
+        key = key.replace(/\b\w/g, (c) => c.toUpperCase());
+      } else if (grouping === "employee") {
+        key = getEmployeeKey(a);
+      }
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(a);
+    }
+    return groups;
+  })();
+
+  const applyGroupAction = (groupName: string, actionType: "approve" | "reject" | "forward", targetAction?: string) => {
+    const groupAnoms = (groupedAnomalies ? groupedAnomalies[groupName] : outcome.anomaly_results) || [];
+    const proposed = groupAnoms[0]?.recommended_action || groupAnoms[0]?.suggested_action || "escalate_hr_review";
+    
+    let resolvedAction = proposed;
+    let desc = "";
+    if (actionType === "approve") {
+      resolvedAction = proposed;
+      desc = `Approved proposed action (${proposed.replace(/_/g, " ")}) for ${groupName} issues.`;
+    } else if (actionType === "reject") {
+      resolvedAction = "ignore";
+      desc = `Rejected/Ignored ${groupName} issues.`;
+    } else if (actionType === "forward") {
+      resolvedAction = targetAction || "escalate_hr_review";
+      desc = `Forwarded ${groupName} issues to ${resolvedAction.replace(/_/g, " ")}.`;
+    }
+
+    setSelectedAction(resolvedAction);
+    setResponseText((prev) => {
+      const parts = prev ? prev.split("\n") : [];
+      const filteredParts = parts.filter(p => !p.includes(`for ${groupName} issues`) && !p.includes(`${groupName} issues`));
+      filteredParts.push(desc);
+      return filteredParts.join("\n");
+    });
+  };
+
+  const hitlReq = outcome.hitl_request;
+  const anomaly = hitlReq?.context?.anomaly_results?.[0];
+  const confidence = anomaly?.severity !== undefined ? anomaly.severity : 0.85;
+  const proposedAction = anomaly?.recommended_action || anomaly?.suggested_action || (hitlReq?.context?.compliance_veto ? "veto-action" : "escalate-to-HR");
+
+  useEffect(() => {
+    if (hitlReq) {
+      const anomaly = hitlReq.context?.anomaly_results?.[0];
+      const proposed = anomaly?.recommended_action || anomaly?.suggested_action || (hitlReq.context?.compliance_veto ? "veto-action" : "escalate-to-HR");
+      setSelectedAction(proposed);
+    }
+  }, [hitlReq]);
+
+  const handleAction = async (action: "approve" | "reject") => {
+    if (!hitlReq) return;
+    setSubmitting(true);
+    try {
+      if (action === "approve" && selectedAction !== proposedAction) {
+        await api.hitl.respond(hitlReq.interaction_id, "modify", responseText || `Action modified to ${selectedAction.replace(/_/g, " ")} by operator.`, { modified_action: selectedAction });
+      } else {
+        await api.hitl.respond(hitlReq.interaction_id, action, responseText || "Processed by operator.");
+      }
+      onRefresh();
+    } catch (e) {
+      console.warn("Scan outcomes hitl respond failed", e);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const isNew = outcome.alert_status === "new";
   const hasAnomalies = outcome.total_anomalies > 0;
@@ -264,31 +378,173 @@ function ScanCard({ outcome, onMarkRead }: {
           {/* Anomaly breakdown table */}
           {outcome.anomaly_results.length > 0 && (
             <div style={{ marginBottom: 20 }}>
-              <div className="scan-section-label">
-                Anomaly Breakdown
-                <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 400, color: "var(--color-text-muted)" }}>
-                  ({outcome.total_anomalies} of {outcome.anomaly_results.length} detected)
-                </span>
-              </div>
-              <div className="scan-anomaly-table">
-                {/* Table header */}
-                <div style={{
-                  display: "grid",
-                  gridTemplateColumns: "32px 1fr 160px 180px",
-                  gap: 12,
-                  padding: "8px 16px",
-                  background: "var(--color-bg)",
-                  borderBottom: "2px solid var(--color-border)",
-                }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-muted)", textTransform: "uppercase", letterSpacing: "0.5px", textAlign: "center" }}>●</div>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>Field / Description</div>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>Severity</div>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>Suggested Action</div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <div className="scan-section-label" style={{ marginBottom: 0 }}>
+                  Anomaly Breakdown
+                  <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 400, color: "var(--color-text-muted)" }}>
+                    ({outcome.total_anomalies} of {outcome.anomaly_results.length} detected)
+                  </span>
                 </div>
-                {outcome.anomaly_results.map((a, i) => (
-                  <AnomalyRow key={i} anomaly={a} idx={i} />
-                ))}
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <span style={{ fontSize: 11, color: "var(--color-text-muted)", fontWeight: 500 }}>Group by:</span>
+                  {(["category", "employee", "flat"] as const).map((mode) => (
+                    <button
+                      key={mode}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setGrouping(mode);
+                      }}
+                      style={{
+                        padding: "3px 10px",
+                        borderRadius: 12,
+                        fontSize: 10,
+                        fontWeight: 700,
+                        border: "1px solid var(--color-border)",
+                        background: grouping === mode ? "var(--color-primary)" : "transparent",
+                        color: grouping === mode ? "#fff" : "var(--color-text-secondary)",
+                        cursor: "pointer",
+                        transition: "all 0.15s ease",
+                      }}
+                    >
+                      {mode.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
               </div>
+
+              {grouping === "flat" ? (
+                <div className="scan-anomaly-table">
+                  {/* Table header */}
+                  <div style={{
+                    display: "grid",
+                    gridTemplateColumns: "32px 1fr 160px 180px",
+                    gap: 12,
+                    padding: "8px 16px",
+                    background: "var(--color-bg)",
+                    borderBottom: "2px solid var(--color-border)",
+                  }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-muted)", textTransform: "uppercase", letterSpacing: "0.5px", textAlign: "center" }}>●</div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>Field / Description</div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>Severity</div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>Suggested Action</div>
+                  </div>
+                  {outcome.anomaly_results.map((a, i) => (
+                    <AnomalyRow key={i} anomaly={a} idx={i} />
+                  ))}
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  {Object.entries(groupedAnomalies || {}).map(([groupName, anoms]) => {
+                    const isHitlPending = outcome.hitl_needed && outcome.hitl_request && outcome.hitl_request.status === "pending";
+                    return (
+                      <div key={groupName} style={{
+                        border: "1px solid var(--color-border-light)",
+                        borderRadius: 8,
+                        background: "rgba(255, 255, 255, 0.4)",
+                        overflow: "hidden"
+                      }}>
+                        {/* Group Header */}
+                        <div style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          padding: "10px 16px",
+                          background: "var(--color-bg)",
+                          borderBottom: "1px solid var(--color-border-light)"
+                        }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: "var(--color-primary)" }}>{groupName}</span>
+                            <span style={{
+                              fontSize: 10,
+                              fontWeight: 700,
+                              background: "rgba(15, 23, 42, 0.08)",
+                              color: "var(--color-text-secondary)",
+                              padding: "2px 8px",
+                              borderRadius: 10
+                            }}>
+                              {anoms.length} issue{anoms.length !== 1 ? "s" : ""}
+                            </span>
+                          </div>
+                          {isHitlPending && (
+                            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); applyGroupAction(groupName, "approve"); }}
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 4,
+                                  padding: "4px 10px",
+                                  borderRadius: 6,
+                                  fontSize: 11,
+                                  fontWeight: 700,
+                                  background: "rgba(16,185,129,0.08)",
+                                  color: "var(--color-success)",
+                                  border: "1px solid rgba(16,185,129,0.15)",
+                                  cursor: "pointer",
+                                  transition: "all 0.15s ease",
+                                }}
+                              >
+                                <Icon name="check" size={10} /> Approve
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); applyGroupAction(groupName, "reject"); }}
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 4,
+                                  padding: "4px 10px",
+                                  borderRadius: 6,
+                                  fontSize: 11,
+                                  fontWeight: 700,
+                                  background: "rgba(239,68,68,0.08)",
+                                  color: "var(--color-error)",
+                                  border: "1px solid rgba(239,68,68,0.15)",
+                                  cursor: "pointer",
+                                  transition: "all 0.15s ease",
+                                }}
+                              >
+                                ✗ Reject
+                              </button>
+                              
+                              <select
+                                onChange={(e) => { applyGroupAction(groupName, "forward", e.target.value); e.target.value = ""; }}
+                                defaultValue=""
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  padding: "4px 8px",
+                                  borderRadius: 6,
+                                  fontSize: 11,
+                                  fontWeight: 700,
+                                  background: "rgba(99,102,241,0.08)",
+                                  color: "var(--color-primary)",
+                                  border: "1px solid rgba(99,102,241,0.15)",
+                                  cursor: "pointer",
+                                  outline: "none",
+                                }}
+                              >
+                                <option value="" disabled>Forward...</option>
+                                {AVAILABLE_ACTIONS.map((act) => (
+                                  <option key={act} value={act}>
+                                    {act.replace(/_/g, " ")}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Group Anomaly List */}
+                        <div style={{ display: "flex", flexDirection: "column" }}>
+                          {anoms.map((a, idx) => (
+                            <AnomalyRow key={idx} anomaly={a} idx={idx} />
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
@@ -309,6 +565,186 @@ function ScanCard({ outcome, onMarkRead }: {
                 <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-error)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>Compliance Veto Reason</div>
                 <div style={{ fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.5 }}>{outcome.compliance_reason}</div>
               </div>
+            </div>
+          )}
+
+          {/* HITL Action Box (Requirement) */}
+          {outcome.hitl_needed && outcome.hitl_request && (
+            <div style={{
+              marginTop: 20,
+              marginBottom: 20,
+              padding: "16px 20px",
+              background: "rgba(15, 23, 42, 0.02)",
+              border: "1px solid var(--color-border)",
+              borderRadius: "var(--radius)",
+            }}>
+              {outcome.hitl_request.status === "pending" ? (
+                <div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <span className="badge" style={{ background: "rgba(99, 102, 241, 0.12)", color: "var(--color-primary)", fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 12 }}>
+                        ESCALATED ACTION REQUIRED
+                      </span>
+                    </div>
+                    <span style={{ fontSize: 11, color: "var(--color-text-muted)" }}>
+                      Assigned: {outcome.hitl_request.assigned_role?.toUpperCase() || "HR"}
+                    </span>
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+                    <div>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-muted)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 6 }}>
+                        Suggested Remediation Action
+                      </div>
+                      <select
+                        value={selectedAction}
+                        onChange={(e) => setSelectedAction(e.target.value)}
+                        disabled={submitting}
+                        style={{
+                          width: "100%",
+                          background: "#fff",
+                          border: "1px solid var(--color-border)",
+                          borderRadius: 6,
+                          padding: "6px 10px",
+                          fontSize: 13,
+                          fontWeight: 600,
+                          color: "var(--color-primary)",
+                          cursor: "pointer",
+                          outline: "none",
+                        }}
+                      >
+                        {AVAILABLE_ACTIONS.map(act => (
+                          <option key={act} value={act}>
+                            {act.replace(/_/g, " ")}
+                          </option>
+                        ))}
+                        {proposedAction && !AVAILABLE_ACTIONS.includes(proposedAction) && (
+                          <option value={proposedAction}>
+                            {proposedAction.replace(/_/g, " ")} (Proposed)
+                          </option>
+                        )}
+                      </select>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-muted)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 6 }}>
+                        Confidence Score
+                      </div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: confidence >= 0.8 ? "var(--color-error)" : "var(--color-warning)", marginTop: 6 }}>
+                        {(confidence * 100).toFixed(0)}% Match
+                      </div>
+                    </div>
+                  </div>
+
+                  <textarea
+                    className="input"
+                    value={responseText}
+                    onChange={(e) => setResponseText(e.target.value)}
+                    placeholder="Enter operator resolution comments..."
+                    disabled={submitting}
+                    rows={2}
+                    style={{ width: "100%", borderRadius: 6, padding: "8px 12px", border: "1px solid var(--color-border)", fontSize: 12, marginBottom: 12, background: "#fff" }}
+                  />
+
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <button
+                      className="btn btn-success btn-sm"
+                      onClick={() => handleAction("approve")}
+                      disabled={submitting}
+                      style={{
+                        padding: "0 16px",
+                        height: 32,
+                        borderRadius: 6,
+                        fontWeight: 600,
+                        background: selectedAction !== proposedAction
+                          ? "linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%)"
+                          : "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                        color: "#fff",
+                        border: "none",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6
+                      }}
+                    >
+                      {submitting ? (
+                        <div className="spinner" style={{ width: 12, height: 12, borderColor: "#fff" }} />
+                      ) : (
+                        <Icon name={selectedAction !== proposedAction ? "edit" : "check"} size={12} />
+                      )}
+                      {selectedAction !== proposedAction ? "Submit Modified Action" : "Approve Action"}
+                    </button>
+                    <button
+                      className="btn btn-danger btn-sm"
+                      onClick={() => handleAction("reject")}
+                      disabled={submitting}
+                      style={{
+                        padding: "0 16px",
+                        height: 32,
+                        borderRadius: 6,
+                        fontWeight: 600,
+                        background: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)",
+                        color: "#fff",
+                        border: "none",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6
+                      }}
+                    >
+                      {submitting ? <div className="spinner" style={{ width: 12, height: 12, borderColor: "#fff" }} /> : "✗"}
+                      Reject Action
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                    <span className="badge" style={{
+                      background: outcome.hitl_request.metadata?.action === "approve"
+                        ? "rgba(16, 185, 129, 0.12)"
+                        : outcome.hitl_request.metadata?.action === "modify"
+                        ? "rgba(99, 102, 241, 0.12)"
+                        : "rgba(239, 68, 68, 0.12)",
+                      color: outcome.hitl_request.metadata?.action === "approve"
+                        ? "var(--color-success)"
+                        : outcome.hitl_request.metadata?.action === "modify"
+                        ? "var(--color-primary)"
+                        : "var(--color-error)",
+                      fontWeight: 700,
+                      fontSize: 10,
+                      padding: "2px 8px",
+                      borderRadius: 10,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4
+                    }}>
+                      {outcome.hitl_request.metadata?.action === "reject" ? "✗" : <Icon name={outcome.hitl_request.metadata?.action === "modify" ? "edit" : "check"} size={10} />}
+                      DECISION: {outcome.hitl_request.metadata?.action?.toUpperCase() || "RESOLVED"}
+                    </span>
+                    {outcome.hitl_request.resolved_at && (
+                      <span style={{ fontSize: 11, color: "var(--color-text-muted)" }}>
+                        {formatTime(outcome.hitl_request.resolved_at)}
+                      </span>
+                    )}
+                  </div>
+                  {outcome.hitl_request.metadata?.modified_action && (
+                    <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: 6 }}>
+                      Remediation Action: <code style={{ fontSize: 11, background: "var(--color-bg)", padding: "2px 6px", borderRadius: 4, color: "var(--color-primary)", border: "1px solid var(--color-border)" }}>{outcome.hitl_request.metadata.modified_action.replace(/_/g, " ")}</code>
+                    </div>
+                  )}
+                  {outcome.hitl_request.response && (
+                    <div style={{
+                      fontSize: 12,
+                      color: "var(--color-text-secondary)",
+                      background: "rgba(255,255,255,0.4)",
+                      padding: "8px 12px",
+                      borderRadius: 6,
+                      border: "1px solid var(--color-border-light)",
+                      fontStyle: "italic"
+                    }}>
+                      Operator notes: "{outcome.hitl_request.response}"
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -616,7 +1052,7 @@ export function ScanOutcomes() {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {filtered.map((outcome) => (
-            <ScanCard key={outcome.id} outcome={outcome} onMarkRead={handleMarkRead} />
+            <ScanCard key={outcome.id} outcome={outcome} onMarkRead={handleMarkRead} onRefresh={fetchOutcomes} />
           ))}
         </div>
       )}

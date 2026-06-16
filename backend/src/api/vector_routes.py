@@ -6,7 +6,7 @@ import logging
 
 from fastapi import APIRouter, Request
 
-from backend.config.settings import settings
+from backend.src.core.settings import settings
 from backend.src.core.response import get_correlation_id, success_response
 from backend.src.memory.vector_store import get_vector_store
 

@@ -12,10 +12,10 @@ from __future__ import annotations
 
 import numpy as np
 
-from backend.config.settings import settings
+from backend.src.core.settings import settings
 from backend.src.memory.chunking.base import Chunk, ChunkingStrategy
 from backend.src.memory.chunking.recursive import RecursiveChunking
-from backend.src.utils.nvidia_embeddings import NVIDIAEmbeddings
+from backend.src.infrastructure.nvidia_embeddings import NVIDIAEmbeddings
 
 _ENCODER = NVIDIAEmbeddings(input_type="passage")
 

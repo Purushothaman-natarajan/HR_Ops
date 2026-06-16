@@ -12,7 +12,7 @@ import uuid
 from datetime import datetime, timezone
 from threading import Lock
 
-from backend.config.settings import settings
+from backend.src.core.settings import settings
 from backend.src.intelligence.rl_layer import anomaly_bandit, rl_agent
 
 logger = logging.getLogger("hr_ops.feedback_service")

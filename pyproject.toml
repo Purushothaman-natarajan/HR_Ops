@@ -2,6 +2,8 @@
 requires = ["setuptools>=64.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools]
+packages = ["backend"]
 [project]
 name = "hr-ops"
 version = "1.0.0"

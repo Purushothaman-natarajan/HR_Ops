@@ -9,7 +9,7 @@ import sys
 
 sys.path.insert(0, ".")
 
-from backend.src.database.seed import load_csv_to_sqlite
+from backend.src.repositories.seed import load_csv_to_sqlite
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger("seed_db")

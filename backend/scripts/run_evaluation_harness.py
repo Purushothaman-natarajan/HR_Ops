@@ -15,7 +15,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from backend.src.intelligence.compliance import evaluate_action  # noqa: E402
 from backend.src.intelligence.anomaly import run_anomaly_detection  # noqa: E402
-from backend.src.database.queries import (  # noqa: E402
+from backend.src.repositories.queries import (  # noqa: E402
     query_employee, query_leave_summary, query_salary_cohort_stats,
     query_all_employees,
 )

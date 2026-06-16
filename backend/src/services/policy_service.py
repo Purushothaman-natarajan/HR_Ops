@@ -18,12 +18,7 @@ from pathlib import Path
 from langchain_core.documents import Document
 
 from backend.src.memory.cache import semantic_cache
-from backend.src.memory.vector_store import (
-    delete_document,
-    get_vector_store,
-    index_document,
-    index_documents,
-)
+from backend.src.memory.vector_store import get_vector_store
 
 logger = logging.getLogger("hr_ops.policy_service")
 
@@ -377,7 +372,7 @@ async def _reindex_all():
 # asynchronous work (embedding/chunking) which can conflict with the
 # ASGI server's event loop during startup. The migration is intentionally
 # deferred and scheduled by the application lifespan handler in
-# backend.main so it runs in a background thread after the app starts.
+# backend.src.main so it runs in a background thread after the app starts.
 
 
 async def create_policy(filename: str, content: bytes, title: str | None = None) -> dict:

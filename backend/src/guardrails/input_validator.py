@@ -11,7 +11,7 @@ BLOCKED_TOPICS: list[str] = []
 def _load_blocked_topics() -> list[str]:
     """Load blocked topics from settings, falling back to defaults."""
     try:
-        from backend.config.settings import settings
+        from backend.src.core.settings import settings
 
         gc = settings.guardrails_config
         return gc.get("input", {}).get("blocked_topics", [])
@@ -51,7 +51,7 @@ def _check_length(text: str) -> tuple[bool, str]:
     """Check if input exceeds the maximum allowed length."""
     max_len = 4096
     try:
-        from backend.config.settings import settings
+        from backend.src.core.settings import settings
 
         gc = settings.guardrails_config
         max_len = gc.get("input", {}).get("max_input_length", 4096)

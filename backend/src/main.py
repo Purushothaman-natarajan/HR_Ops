@@ -18,7 +18,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 
-from backend.config.settings import settings
+from backend.src.core.settings import settings
 from backend.src.api.agui_routes import router as agui_router
 from backend.src.api.alert_routes import router as alert_router
 from backend.src.api.auth_routes import router as auth_router
@@ -39,9 +39,9 @@ from backend.src.core.response import (
     success_response,
 )
 from backend.src.middleware.metrics_middleware import RequestMetricsMiddleware, metrics_store
-from backend.src.utils.api_logger import RequestLog
+from backend.src.core.api_logger import RequestLog
 from backend.src.utils.docs_page import get_redoc_html
-from backend.src.utils.logger import get_logger
+from backend.src.core.logger import get_logger
 from backend.src.utils.model_router import close_nvidia_http_client
 from backend.src.services import policy_service
 from backend.src.services.scheduler import scheduler
@@ -78,7 +78,7 @@ def _warmup_embeddings():
             logger.info("NVIDIA API key not configured, skipping embedding warmup")
             return
 
-        from backend.src.utils.nvidia_embeddings import NVIDIAEmbeddings
+        from backend.src.infrastructure.nvidia_embeddings import NVIDIAEmbeddings
         cfg = settings.embed_config.get("embedding", {})
         model_name = cfg.get("model_name", "nvidia/nv-embed-v1")
         logger.info("Warming up NVIDIA embedding model: %s", model_name)
@@ -248,5 +248,5 @@ async def redoc_custom():
 
 if __name__ == "__main__":
     uvicorn.run(
-        "backend.main:app", host="0.0.0.0", port=8000, reload=True, log_config=None
+        "backend.src.main:app", host="0.0.0.0", port=8000, reload=True, log_config=None
     )

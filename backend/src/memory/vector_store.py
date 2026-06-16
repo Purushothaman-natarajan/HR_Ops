@@ -25,8 +25,8 @@ from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 
-from backend.config.settings import settings
-from backend.src.utils.nvidia_embeddings import NVIDIAEmbeddings
+from backend.src.core.settings import settings
+from backend.src.infrastructure.nvidia_embeddings import NVIDIAEmbeddings
 
 logger = logging.getLogger("hr_ops.vector_store")
 

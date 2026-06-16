@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from backend.config.settings import Settings
+from backend.src.core.settings import Settings
 
 def test_development_environment_allows_default_key():
     """Development environment should allow the default 'change-me-in-production' key."""

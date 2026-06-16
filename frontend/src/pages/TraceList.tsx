@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { api } from "../api/client";
-import { TraceViewer } from "./TraceViewer";
-import { Icon } from "./Icons";
+import { TraceViewer } from "../components/TraceViewer";
+import { Icon } from "../components/Icons";
 import type { TraceEvent } from "../types";
 
 interface TraceRun {

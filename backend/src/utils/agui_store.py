@@ -4,9 +4,9 @@ import logging
 from datetime import datetime, timezone
 from threading import Lock
 
-from backend.config.settings import settings
+from backend.src.core.settings import settings
 from backend.src.services.feedback_service import feedback_store
-from backend.src.utils.agui_models import (
+from backend.src.domain.agui import (
     InteractionRequest,
     InteractionResponse,
     PendingRequest,
@@ -22,17 +22,29 @@ class AGUIStore:
         self._requests: dict[str, InteractionRequest] = {}
         self._responses: dict[str, InteractionResponse] = {}
         self._lock = Lock()
+        self._cache_pending = None
+
+    def _clear_caches(self):
+        self._cache_pending = None
+        try:
+            from backend.src.utils.alert_store import alert_store
+            alert_store.clear_cache()
+        except ImportError:
+            pass
 
     def add_request(self, request: InteractionRequest) -> str:
         """Store a new pending interaction request and return its interaction_id."""
         with self._lock:
             self._requests[request.interaction_id] = request
             logger.info("AG-UI request added: %s", request.interaction_id)
+            self._clear_caches()
         return request.interaction_id
 
     def get_pending(self) -> list[PendingRequest]:
         """Return all pending requests that have not yet exceeded the configured timeout."""
         with self._lock:
+            if self._cache_pending is not None:
+                return self._cache_pending
             now = datetime.now(timezone.utc)
             pending = []
             for req in self._requests.values():
@@ -50,6 +62,7 @@ class AGUIStore:
                                 context=req.context,
                             )
                         )
+            self._cache_pending = pending
             return pending
 
     def respond(self, interaction_id: str, response_text: str, metadata: dict | None = None) -> bool:
@@ -67,6 +80,7 @@ class AGUIStore:
             )
             self._responses[interaction_id] = resp
             logger.info("AG-UI response recorded: %s", interaction_id)
+            self._clear_caches()
             
             # Extract trigger sub-agent and its query context
             trigger_agent = (req.context or {}).get("current_agent", "policy")
@@ -149,6 +163,8 @@ class AGUIStore:
                             }
                             proposed_action = anomaly_context["recommended_action"]
                             feedback_store.record_anomaly_bandit_reward(anomaly_context, proposed_action, -1.0, session_id=req.session_id)
+            if resolved_ids:
+                self._clear_caches()
         return resolved_ids
 
     def get_response(self, interaction_id: str) -> InteractionResponse | None:

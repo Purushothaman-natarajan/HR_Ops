@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { api } from "../api/client";
-import { TraceViewer } from "./TraceViewer";
+import { TraceViewer } from "../components/TraceViewer";
 import type { TraceEvent } from "../types";
 
 /** Trace query panel for looking up a single run by ID and viewing its events.

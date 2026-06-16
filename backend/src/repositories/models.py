@@ -2,7 +2,7 @@
 
 from sqlalchemy import Column, Float, ForeignKey, Integer, String
 
-from backend.src.database.connection import Base
+from backend.src.repositories.connection import Base
 
 
 class Employee(Base):

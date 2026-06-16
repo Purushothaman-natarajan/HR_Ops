@@ -17,7 +17,7 @@ else:
         litellm = None  # type: ignore[assignment]
         _LITELLM_AVAILABLE = False
 
-from backend.config.settings import settings
+from backend.src.core.settings import settings
 from backend.src.core.exceptions import ModelNotAvailableError
 from backend.src.guardrails.registry import guardrail_registry
 

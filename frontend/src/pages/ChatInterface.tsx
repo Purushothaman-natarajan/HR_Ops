@@ -2,9 +2,9 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeSanitize from "rehype-sanitize";
 import { api } from "../api/client";
-import { TraceViewer } from "./TraceViewer";
-import { ActivityPanel, LiveActivityPanel } from "./ActivityPanel";
-import { Icon } from "./Icons";
+import { TraceViewer } from "../components/TraceViewer";
+import { ActivityPanel, LiveActivityPanel } from "../components/ActivityPanel";
+import { Icon } from "../components/Icons";
 import type { ConversationMessage, TraceEvent } from "../types";
 
 type Mode = "standard" | "advanced";

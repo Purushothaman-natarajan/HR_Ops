@@ -5,7 +5,7 @@ import logging
 from langgraph.graph import END, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
-from backend.config.settings import settings
+from backend.src.core.settings import settings
 from backend.src.agents.advanced.supervisor import supervisor_decision
 from backend.src.agents.nodes.action_node import action_node
 from backend.src.agents.nodes.anomaly_node import anomaly_node

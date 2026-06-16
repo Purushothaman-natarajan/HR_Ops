@@ -3,14 +3,14 @@
 import csv
 import logging
 
-from backend.src.database.connection import Base, SessionLocal, engine
+from backend.src.repositories.connection import Base, SessionLocal, engine
 
 logger = logging.getLogger("hr_ops.database.seed")
 
 
 def load_csv_to_sqlite(csv_path: str) -> int:
     """Load employee records from CSV into the employees table. Returns count of loaded rows."""
-    from backend.src.database.models import Employee
+    from backend.src.repositories.models import Employee
 
     Base.metadata.create_all(bind=engine)
     count = 0

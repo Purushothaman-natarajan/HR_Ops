@@ -3,7 +3,7 @@
 import logging
 import re
 
-from backend.config.settings import settings
+from backend.src.core.settings import settings
 
 logger = logging.getLogger("hr_ops.pii_redaction")
 

@@ -22,8 +22,8 @@ import time
 
 import numpy as np
 
-from backend.config.settings import settings
-from backend.src.utils.nvidia_embeddings import NVIDIAEmbeddings
+from backend.src.core.settings import settings
+from backend.src.infrastructure.nvidia_embeddings import NVIDIAEmbeddings
 
 _ENCODER = NVIDIAEmbeddings(input_type="query")
 

@@ -102,7 +102,7 @@ python -m venv .venv
 .venv\Scripts\activate          # Windows
 pip install -r requirements.txt
 cp .env.example .env            # Fill in API keys (NVIDIA_API_KEY required)
-uvicorn backend.main:app --reload
+uvicorn backend.src.main:app --reload
 
 # Frontend (separate terminal)
 cd frontend

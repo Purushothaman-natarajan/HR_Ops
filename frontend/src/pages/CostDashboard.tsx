@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { api } from "../api/client";
-import { Icon } from "./Icons";
+import { Icon } from "../components/Icons";
 
 interface CostEntry {
   agent: string;

@@ -92,6 +92,29 @@ def serialize_graph_result(
     events = serialize_trace_events(trace_log)
     total_cost = result.get("total_cost_usd", 0.0)
 
+    hitl_req = result.get("hitl_request")
+    serialized_hitl = None
+    if hitl_req:
+        if isinstance(hitl_req, dict):
+            serialized_hitl = hitl_req
+        else:
+            created_at_dt = getattr(hitl_req, "created_at", None)
+            created_at_str = ""
+            if created_at_dt:
+                if hasattr(created_at_dt, "isoformat"):
+                    created_at_str = created_at_dt.isoformat()
+                else:
+                    created_at_str = str(created_at_dt)
+            serialized_hitl = {
+                "interaction_id": getattr(hitl_req, "interaction_id", ""),
+                "query": getattr(hitl_req, "query", ""),
+                "status": getattr(hitl_req, "status", "pending"),
+                "created_at": created_at_str,
+                "assigned_role": getattr(hitl_req, "assigned_role", "hr_manager"),
+                "session_id": getattr(hitl_req, "session_id", ""),
+                "context": getattr(hitl_req, "context", {}),
+            }
+
     return {
         "run_id": run_id,
         "langfuse_trace_id": langfuse_trace_id,
@@ -106,4 +129,6 @@ def serialize_graph_result(
         "duration_ms": sum(e.get("duration_ms", 0) for e in events),
         "trace_events": events,
         "anomaly_results": _serialize_anomaly_results(anomalies),
+        "hitl_needed": bool(result.get("hitl_needed", False)),
+        "hitl_request": serialized_hitl,
     }

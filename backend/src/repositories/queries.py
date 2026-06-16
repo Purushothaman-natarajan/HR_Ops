@@ -6,8 +6,8 @@ from sqlalchemy import inspect as sa_inspect
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from backend.src.database.connection import SessionLocal
-from backend.src.database.models import (
+from backend.src.repositories.connection import SessionLocal
+from backend.src.repositories.models import (
     Attendance,
     Employee,
     Leave,

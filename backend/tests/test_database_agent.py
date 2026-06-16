@@ -7,7 +7,7 @@ from backend.src.guardrails.tool_validator import tool_guardrail
 from backend.src.tools.api_mocks import execute_db_query, get_database_schema
 
 
-from backend.config.settings import settings
+from backend.src.core.settings import settings
 
 def _get_active_db_path() -> Path:
     """Return the path to the active SQLite database."""

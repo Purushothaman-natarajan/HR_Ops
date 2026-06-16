@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 import sqlite3
 
-from backend.config.settings import settings
+from backend.src.core.settings import settings
 
 logger = logging.getLogger("hr_ops.db_schema_store")
 

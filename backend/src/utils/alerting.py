@@ -2,7 +2,7 @@
 
 import logging
 
-from backend.config.settings import settings
+from backend.src.core.settings import settings
 
 logger = logging.getLogger("hr_ops.alerting")
 

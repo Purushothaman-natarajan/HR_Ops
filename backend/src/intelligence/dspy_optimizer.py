@@ -17,7 +17,7 @@ _OPTIMIZED_DIR = Path("dspy_optimized")
 
 def _ensure_llm():
     """Configure the DSPy language model using available API keys."""
-    from backend.config.settings import settings
+    from backend.src.core.settings import settings
 
     if settings.openai_api_key:
         lm = dspy.LM("openai/gpt-4o-mini", api_key=settings.openai_api_key)

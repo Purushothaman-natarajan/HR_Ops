@@ -15,7 +15,7 @@ from backend.src.api.serializers import serialize_graph_result
 from backend.src.core.exceptions import GraphExecutionError, ModelNotAvailableError
 from backend.src.graph import build_full_graph
 from backend.src.services.feedback_service import feedback_store
-from backend.src.utils.langfuse_setup import create_trace, get_langfuse_client
+from backend.src.infrastructure.langfuse_setup import create_trace, get_langfuse_client
 from backend.src.utils.pii_redaction import redact_run_data
 from backend.src.utils.trace_sampling import should_sample
 from backend.src.utils.trace_store import trace_store

@@ -18,7 +18,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     """Application settings sourced from environment variables (with .env support) and lazily cached YAML configs."""
 
-    _project_root = Path(__file__).parent.parent.parent
+    _project_root = Path(__file__).parent.parent.parent.parent
     model_config = SettingsConfigDict(
         env_file=str(_project_root / ".env"),
         env_file_encoding="utf-8",
@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     environment: Literal["development", "production"] = "development"
     log_level: str = "INFO"
     log_file: str = "./backend/data/hr_ops.log"
-    agui_timeout_seconds: int = 300
+    agui_timeout_seconds: int = 86400
     app_role: str = "admin"
     startup_reindex: bool = True
 
@@ -62,7 +62,7 @@ class Settings(BaseSettings):
     def _load_yaml(self, name: str) -> dict:
         """Read a YAML config file from the config/ directory, caching its contents after the first read."""
         if name not in self._config_cache:
-            path = Path(__file__).parent / f"{name}.yaml"
+            path = Path(__file__).parent.parent.parent / "config" / f"{name}.yaml"
             with open(path) as f:
                 self._config_cache[name] = yaml.safe_load(f)
         return self._config_cache[name]
