@@ -1,0 +1,14 @@
+{
+  "database": {
+    "type": "sqlite",
+    "connection_string": "sqlite:///./backend/data/hr_ops.db",
+    "connected": true
+  },
+  "chat_hook": {
+    "enabled": false,
+    "webhook_url": "",
+    "events": [
+      "leave_request"
+    ]
+  }
+}
