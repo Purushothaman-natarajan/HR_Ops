@@ -1449,10 +1449,16 @@
 
 .chat-examples {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 12px;
   margin-top: 28px;
   width: 100%;
+}
+
+@media (max-width: 680px) {
+  .chat-examples {
+    grid-template-columns: 1fr;
+  }
 }
 
 .chat-examples button.btn {
