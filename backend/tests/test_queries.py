@@ -6,6 +6,7 @@ from backend.src.database.connection import SessionLocal, engine
 @pytest.fixture
 def clean_session():
     """Yield a database session and clean up any test data inserted during the test."""
+    Base.metadata.create_all(bind=engine)
     session = SessionLocal()
     # Keep track of employee IDs to delete from Performance (we won't touch employees table)
     test_employees = []
@@ -41,7 +42,7 @@ def clean_session():
     session.close()
 
 
-def test_query_performance_empty():
+def test_query_performance_empty(clean_session):
     """Test that query_performance returns an empty list for an employee without records."""
     # Check an employee that does not exist
     result = query_performance("EMP_NONEXISTENT")
