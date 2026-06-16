@@ -8,9 +8,10 @@ Loaded lazily on first property access and cached thereafter.
 """
 
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
 import yaml
+from pydantic import BeforeValidator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -45,6 +46,17 @@ class Settings(BaseSettings):
     rl_alpha: float = 0.1
     rl_gamma: float = 0.9
     rl_batch_size: int = 10
+
+    def parse_cors(v: str | list[str]) -> list[str] | str:
+        if isinstance(v, str) and not v.startswith("["):
+            return [i.strip() for i in v.split(",")]
+        return v
+
+    cors_origins: Annotated[list[str] | str, BeforeValidator(parse_cors)] = [
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "http://localhost:8000",
+    ]
 
     # ------------------------------------------------------------------
     # YAML loader — reads once, caches forever (per process)
