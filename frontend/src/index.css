@@ -12,6 +12,7 @@
   --color-primary-hover: #4f46e5;
   --color-primary-light: #eef2ff;
   --color-primary-dark: #4338ca;
+  --color-accent: var(--color-primary);
 
   /* ── Semantic ──────────────────────────────────────── */
   --color-success: #10b981;

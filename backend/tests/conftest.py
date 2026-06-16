@@ -12,6 +12,13 @@ from backend.config.settings import settings
 from backend.scripts.load_db import load_csv
 
 
+@pytest.fixture(autouse=True)
+def mock_embeddings(monkeypatch):
+    """Mock NVIDIA embeddings to avoid real API calls during tests."""
+    from backend.src.memory.cache import _ENCODER
+    monkeypatch.setattr(_ENCODER, "embed_query", lambda text: [0.1] * 4096)
+
+
 def _get_active_db_path() -> Path:
     db_url = settings.database_url
     if db_url.startswith("sqlite:///"):

@@ -150,8 +150,22 @@ export function RLDashboard() {
                         Pulls: <strong>{arm.pulls}</strong>
                       </div>
                       {arm.theta.length > 0 && (
-                        <div style={{ marginTop: 2 }}>
-                          Theta: [{arm.theta.slice(0, 4).map((v) => v.toFixed(2)).join(", ")}...]
+                        <div style={{ marginTop: 4 }}>
+                          <span style={{ fontSize: 10, fontWeight: 600, color: "var(--color-text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>Theta</span>
+                          <code style={{
+                            display: "inline-block",
+                            marginLeft: 6,
+                            fontFamily: "var(--font-mono)",
+                            fontSize: 11,
+                            background: "var(--color-bg)",
+                            color: "var(--color-primary)",
+                            padding: "2px 8px",
+                            borderRadius: 4,
+                            border: "1px solid var(--color-border)",
+                            fontWeight: 500,
+                          }}>
+                            [{arm.theta.slice(0, 5).map((v) => v.toFixed(3)).join(", ")}{arm.theta.length > 5 ? ", ..." : ""}]
+                          </code>
                         </div>
                       )}
                     </div>

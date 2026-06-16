@@ -967,6 +967,20 @@
   word-break: break-word;
 }
 
+.trace-item-body pre {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  overflow-x: auto;
+  max-width: 100%;
+  background: var(--color-bg);
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+}
+
+
 /* Empty state */
 .empty-state {
   display: flex;
@@ -1574,6 +1588,86 @@
   color: #fff;
 }
 
+/* Code and Pre blocks in Chat Bubble */
+.chat-bubble-content.markdown pre {
+  background: #0f172a;
+  color: #f8fafc;
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  overflow-x: auto;
+  margin: 12px 0;
+  max-width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.chat-bubble-content.markdown code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+/* Inline code inside chat bubble text */
+.chat-bubble-content.markdown :not(pre) > code {
+  background: rgba(15, 23, 42, 0.06);
+  color: var(--color-primary-dark);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.chat-bubble-user .chat-bubble-content.markdown :not(pre) > code {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+}
+
+/* Markdown tables in assistant bubbles */
+.chat-bubble-content.markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 14px 0;
+  font-size: 12px;
+  line-height: 1.5;
+  background: var(--color-surface);
+  border-radius: var(--radius);
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+}
+
+.chat-bubble-content.markdown th {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-weight: 600;
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 2px solid var(--color-border);
+}
+
+.chat-bubble-content.markdown td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--color-border-light);
+  color: var(--color-text-secondary);
+  word-break: break-word;
+}
+
+.chat-bubble-content.markdown tr:last-child td {
+  border-bottom: none;
+}
+
+.chat-bubble-content.markdown tr:nth-child(even) td {
+  background: var(--color-border-light);
+}
+
+/* Markdown blockquotes */
+.chat-bubble-content.markdown blockquote {
+  border-left: 4px solid var(--color-primary);
+  background: var(--color-primary-light);
+  padding: 8px 16px;
+  margin: 12px 0;
+  border-radius: 0 var(--radius) var(--radius) 0;
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+
 .chat-bubble-actions {
   display: flex;
   align-items: center;
@@ -1640,6 +1734,8 @@
   border-top: 1px solid var(--color-border);
   padding-top: 10px;
   width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 .trace-collapsible-trigger {
@@ -1691,6 +1787,8 @@
   border-radius: var(--radius);
   padding: 12px;
   border: 1px solid rgba(255, 255, 255, 0.05);
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 @keyframes slideDown {

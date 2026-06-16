@@ -63,21 +63,25 @@ function SourceCitation({ doc }: { doc: { source: string; score: number; chunk: 
         padding: "4px 10px",
         cursor: "pointer",
         transition: "all 0.15s",
-        maxWidth: expanded ? 420 : "none",
+        maxWidth: "100%",
+        width: expanded ? "min(100%, 480px)" : "auto",
+        wordBreak: "break-all",
       }}
       onClick={() => setExpanded(!expanded)}
       title={`Click to ${expanded ? "collapse" : "expand"} source chunk`}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, width: "100%" }}>
         <Icon name="doc" size={12} style={{ color: "var(--color-accent)", flexShrink: 0 }} />
-        <span style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text)" }}>{filename}</span>
+        <span style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
+          {filename}
+        </span>
         {scoreLabel && (
-          <span style={{ fontSize: 10, color: "var(--color-text-muted)", marginLeft: 2 }}>{scoreLabel}</span>
+          <span style={{ fontSize: 10, color: "var(--color-text-muted)", marginLeft: 2, flexShrink: 0 }}>{scoreLabel}</span>
         )}
         <Icon
           name="arrow"
           size={10}
-          style={{ color: "var(--color-text-muted)", marginLeft: "auto", transform: expanded ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.15s" }}
+          style={{ color: "var(--color-text-muted)", marginLeft: 4, transform: expanded ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.15s", flexShrink: 0 }}
         />
       </div>
       {expanded && doc.chunk && (
@@ -91,6 +95,7 @@ function SourceCitation({ doc }: { doc: { source: string; score: number; chunk: 
           borderTop: "1px solid var(--color-border)",
           paddingTop: 6,
           whiteSpace: "pre-wrap",
+          wordBreak: "break-word",
         }}>
           {doc.chunk.slice(0, 600)}{doc.chunk.length > 600 ? "…" : ""}
         </div>

@@ -233,11 +233,11 @@ function HitlItemCard({
     <div 
       className="hitl-card card" 
       style={{ 
+        border: "1px solid var(--color-border)",
         borderLeft: `5px solid ${statusColor}`,
         borderRadius: 12,
         boxShadow: "var(--shadow-sm)",
         transition: "transform 0.2s, box-shadow 0.2s",
-        border: "1px solid var(--color-border)",
         background: "var(--color-surface)",
         overflow: "hidden"
       }}
