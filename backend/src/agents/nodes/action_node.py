@@ -56,9 +56,9 @@ def _build_name_search_fallback(query: str, schema_tables: list[str]) -> dict:
     """
     # Check for common employee name lookup patterns
     name_patterns = [
-        r"(?:find|search|look\s*up|who\s*is|employee\s+named?)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)",
-        r"named?\s+['\"]?([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)['\"]?",
-        r"([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s+(?:employee|record|profile)",
+        r"(?:find|search|look\s*up|who\s*is|employee\s+named?)\s+(?:data\s+about\s+)?(?:employee\s+)?([a-zA-Z]+(?:\s+[a-zA-Z]+)*)",
+        r"named?\s+['\"]?([a-zA-Z]+(?:\s+[a-zA-Z]+)*)['\"]?",
+        r"([a-zA-Z]+(?:\s+[a-zA-Z]+)*)\s+(?:employee|record|profile)",
     ]
 
     emp_table = next((t for t in schema_tables if "employee" in t.lower()), "employees")

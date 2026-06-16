@@ -177,6 +177,7 @@ export interface PendingItem {
   status: string;
   assigned_role?: string;
   session_id?: string;
+  context?: Record<string, any>;
 }
 
 /** Standard API response envelope wrapping all backend responses.

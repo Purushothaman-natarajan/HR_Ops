@@ -20,6 +20,7 @@ from fastapi.responses import HTMLResponse
 
 from backend.config.settings import settings
 from backend.src.api.agui_routes import router as agui_router
+from backend.src.api.alert_routes import router as alert_router
 from backend.src.api.auth_routes import router as auth_router
 from backend.src.api.conversation_routes import router as conversation_router
 from backend.src.api.database_routes import router as database_router
@@ -122,6 +123,7 @@ app.add_middleware(RequestMetricsMiddleware)
 
 app.include_router(graph_router)
 app.include_router(agui_router)
+app.include_router(alert_router)
 app.include_router(trace_router)
 app.include_router(debug_router)
 app.include_router(policy_router)

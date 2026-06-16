@@ -35,3 +35,4 @@ class PendingRequest(BaseModel):
     status: str = "pending"
     session_id: str = ""
     assigned_role: str = "hr_manager"
+    context: dict = Field(default_factory=dict)

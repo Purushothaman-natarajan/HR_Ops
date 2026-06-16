@@ -3,14 +3,12 @@ import { api } from "../api/client";
 import { Icon } from "./Icons";
 import type { PendingItem } from "../types";
 
-/** HITL Panel — review pending escalations, approve/reject, and continue conversation from any item.
+/** HITL Panel — review pending agent escalations, approve/reject, and resume conversations.
  *
- * - Lists all pending interactions with Approve / Reject controls
- * - Shows a "Continue in Chat" button that fires onContinueSession with the session_id
- * - Keeps a resolved log for the current session
- *
- * @example
- * <HITLPanel onContinueSession={(sid, mode) => navigateTo("query", sid)} />
+ * - Lists pending escalations with fully exposed context, proposed action, confidence, and reasoning
+ * - Shows an interactive "Approve" and "Reject" decision portal
+ * - Provides a "Continue in Chat" option to seamlessly pick up the conversation
+ * - Keeps a resolved log for operator review
  */
 interface HITLPanelProps {
   onContinueSession?: (sessionId: string, mode?: "standard" | "advanced") => void;
@@ -23,6 +21,7 @@ interface ResolvedItem {
   response: string;
   resolved_at: string;
   session_id?: string;
+  context?: Record<string, any>;
 }
 
 export function HITLPanel({ onContinueSession }: HITLPanelProps) {
@@ -46,7 +45,6 @@ export function HITLPanel({ onContinueSession }: HITLPanelProps) {
 
   useEffect(() => {
     fetchItems();
-    // Poll every 15 seconds
     const t = setInterval(fetchItems, 15_000);
     return () => clearInterval(t);
   }, [fetchItems]);
@@ -63,6 +61,7 @@ export function HITLPanel({ onContinueSession }: HITLPanelProps) {
           response: responseText || "Processed by operator.",
           resolved_at: new Date().toISOString(),
           session_id: item.session_id,
+          context: item.context,
         },
         ...prev,
       ]);
@@ -72,67 +71,81 @@ export function HITLPanel({ onContinueSession }: HITLPanelProps) {
   };
 
   const tabBtnStyle = (active: boolean): React.CSSProperties => ({
-    padding: "6px 16px",
-    borderRadius: 6,
+    padding: "8px 20px",
+    borderRadius: 8,
     border: "none",
     cursor: "pointer",
     fontSize: 13,
     fontWeight: 600,
-    background: active ? "var(--color-accent)" : "transparent",
+    background: active ? "linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%)" : "transparent",
     color: active ? "#fff" : "var(--color-text-secondary)",
-    transition: "all 0.15s",
+    transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    boxShadow: active ? "0 4px 12px rgba(99, 102, 241, 0.25)" : "none",
   });
 
   return (
-    <div>
-      <div className="page-header">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-          <div>
-            <h1 className="page-title">Human-in-the-Loop</h1>
-            <p className="page-desc">Review agent escalations, approve or reject, and resume conversations</p>
-          </div>
-          <button className="btn btn-secondary btn-sm" onClick={fetchItems}>
-            <Icon name="arrow" size={12} style={{ transform: "rotate(270deg)" }} />
-            &nbsp;Refresh
+    <div style={{ maxWidth: 840, margin: "0 auto", padding: "24px 0" }}>
+      <div style={{ marginBottom: 24 }}>
+        <h1 className="page-title" style={{ fontSize: 24, fontWeight: 800, letterSpacing: "-0.025em" }}>
+          Human-in-the-Loop Review
+        </h1>
+        <p className="page-desc" style={{ marginTop: 4 }}>
+          Verify flagged compliance alerts, review anomaly confidence, and manage live routing escalations.
+        </p>
+      </div>
+
+      {/* Tabs & Refresh Button Row */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+        <div style={{ display: "flex", gap: 6, background: "rgba(15, 23, 42, 0.04)", borderRadius: 10, padding: 4, width: "fit-content" }}>
+          <button style={tabBtnStyle(activeTab === "pending")} onClick={() => setActiveTab("pending")}>
+            Pending Queue
+            {items.length > 0 && (
+              <span style={{ marginLeft: 2, background: "var(--color-error)", color: "#fff", borderRadius: 12, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>
+                {items.length}
+              </span>
+            )}
+          </button>
+          <button style={tabBtnStyle(activeTab === "resolved")} onClick={() => setActiveTab("resolved")}>
+            Resolved Log
+            {resolved.length > 0 && (
+              <span style={{ marginLeft: 2, background: "rgba(15, 23, 42, 0.1)", color: "var(--color-text)", borderRadius: 12, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>
+                {resolved.length}
+              </span>
+            )}
           </button>
         </div>
-      </div>
 
-      {/* Tabs */}
-      <div style={{ display: "flex", gap: 4, marginBottom: 20, background: "var(--color-surface)", borderRadius: 8, padding: 4, width: "fit-content" }}>
-        <button style={tabBtnStyle(activeTab === "pending")} onClick={() => setActiveTab("pending")}>
-          Pending
-          {items.length > 0 && (
-            <span style={{ marginLeft: 6, background: "var(--color-warning)", color: "#000", borderRadius: 10, padding: "1px 6px", fontSize: 10 }}>
-              {items.length}
-            </span>
-          )}
-        </button>
-        <button style={tabBtnStyle(activeTab === "resolved")} onClick={() => setActiveTab("resolved")}>
-          Resolved
-          {resolved.length > 0 && (
-            <span style={{ marginLeft: 6, background: "rgba(255,255,255,0.12)", borderRadius: 10, padding: "1px 6px", fontSize: 10 }}>
-              {resolved.length}
-            </span>
-          )}
+        <button className="btn btn-secondary" onClick={fetchItems} style={{ borderRadius: 8, height: 38, display: "flex", alignItems: "center", gap: 6 }}>
+          <Icon name="arrow" size={14} style={{ transform: "rotate(270deg)" }} />
+          Refresh
         </button>
       </div>
 
-      {loading ? (
-        <div className="card" style={{ marginBottom: 16 }}>
-          <div className="card-body" style={{ display: "flex", alignItems: "center", gap: 12 }}>
+      {loading && items.length === 0 && resolved.length === 0 ? (
+        <div className="card" style={{ borderRadius: 12, border: "1px solid var(--color-border)" }}>
+          <div className="card-body" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, padding: 48 }}>
             <div className="spinner" />
-            <span style={{ color: "var(--color-text-secondary)", fontSize: 13 }}>Loading pending items...</span>
+            <span style={{ color: "var(--color-text-secondary)", fontWeight: 500 }}>Retrieving escalations...</span>
           </div>
         </div>
       ) : activeTab === "pending" ? (
         items.length === 0 ? (
-          <div className="empty-state">
-            <Icon name="check" size={48} className="empty-state-icon" />
-            <div className="empty-state-text">No pending HITL requests. All clear!</div>
+          <div className="empty-state" style={{ padding: "64px 32px", background: "var(--color-surface)", borderRadius: 16, border: "1px dashed var(--color-border)" }}>
+            <div style={{ background: "rgba(16, 185, 129, 0.1)", color: "var(--color-success)", width: 56, height: 56, borderRadius: "50%", display: "flex", alignItems: "center", justifyItems: "center", margin: "0 auto 16px", justifyContent: "center" }}>
+              <Icon name="check" size={28} />
+            </div>
+            <div className="empty-state-text" style={{ fontSize: 16, fontWeight: 700, color: "var(--color-text)", marginBottom: 4 }}>
+              No Pending Actions
+            </div>
+            <div className="empty-state-text" style={{ fontSize: 13, color: "var(--color-text-muted)" }}>
+              All agent escalations have been processed. You're completely up to date!
+            </div>
           </div>
         ) : (
-          <div className="hitl-list">
+          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
             {items.map((item) => (
               <HitlItemCard
                 key={item.interaction_id}
@@ -145,11 +158,16 @@ export function HITLPanel({ onContinueSession }: HITLPanelProps) {
         )
       ) : (
         resolved.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-state-text">No resolved items in this session.</div>
+          <div className="empty-state" style={{ padding: "64px 32px", background: "var(--color-surface)", borderRadius: 16, border: "1px dashed var(--color-border)" }}>
+            <div className="empty-state-text" style={{ fontSize: 15, fontWeight: 600, color: "var(--color-text-secondary)" }}>
+              No Resolved Decisions Yet
+            </div>
+            <div className="empty-state-text" style={{ fontSize: 12, color: "var(--color-text-muted)", marginTop: 4 }}>
+              Decisions processed in this session will appear here.
+            </div>
           </div>
         ) : (
-          <div className="hitl-list">
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             {resolved.map((item) => (
               <ResolvedItemCard
                 key={item.interaction_id}
@@ -184,42 +202,172 @@ function HitlItemCard({
     setSubmitting(false);
   };
 
+  const anomaly = item.context?.anomaly_results?.[0];
+  const confidence = anomaly?.severity !== undefined ? anomaly.severity : 0.85;
+  const proposedAction = anomaly?.suggested_action || (item.context?.compliance_veto ? "veto-action" : "escalate-to-HR");
+  const anomalyField = anomaly?.anomaly_field || (item.context?.compliance_veto ? "compliance" : "policy");
+  
+  // Color configuration depending on severity/agent
+  const isHighRisk = confidence >= 0.8;
+  const statusColor = isHighRisk ? "var(--color-error)" : "var(--color-warning)";
+  const statusBg = isHighRisk ? "rgba(239, 68, 68, 0.08)" : "rgba(245, 158, 11, 0.08)";
+
   return (
-    <div className="hitl-card card" style={{ borderLeft: "4px solid var(--color-warning)" }}>
-      <div className="card-body">
-        <div className="hitl-card-header">
-          <span className="badge badge-warning">{item.assigned_role || "agent"}</span>
-          <span style={{ fontSize: 12, color: "var(--color-text-muted)" }}>{ageLabel}</span>
-          {item.session_id && (
-            <code style={{ fontSize: 11, color: "var(--color-text-muted)", marginLeft: 4 }}>
-              {item.session_id.slice(0, 12)}…
-            </code>
-          )}
+    <div 
+      className="hitl-card card" 
+      style={{ 
+        borderLeft: `5px solid ${statusColor}`,
+        borderRadius: 12,
+        boxShadow: "var(--shadow-sm)",
+        transition: "transform 0.2s, box-shadow 0.2s",
+        border: "1px solid var(--color-border)",
+        background: "var(--color-surface)",
+        overflow: "hidden"
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = "translateY(-2px)";
+        e.currentTarget.style.boxShadow = "var(--shadow-md)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = "translateY(0)";
+        e.currentTarget.style.boxShadow = "var(--shadow-sm)";
+      }}
+    >
+      <div className="card-body" style={{ padding: "24px" }}>
+        {/* Card Top Badges */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <span className="badge" style={{ background: "rgba(99, 102, 241, 0.12)", color: "var(--color-primary)", fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 12 }}>
+              ROLE: {item.assigned_role?.toUpperCase() || "OPERATOR"}
+            </span>
+            <span className="badge" style={{ background: statusBg, color: statusColor, fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 12 }}>
+              {anomalyField.toUpperCase()} ALERT
+            </span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <span style={{ fontSize: 12, color: "var(--color-text-muted)", display: "flex", alignItems: "center", gap: 4 }}>
+              <Icon name="clock" size={12} /> {ageLabel}
+            </span>
+            {item.session_id && (
+              <code style={{ fontSize: 11, background: "var(--color-bg)", padding: "2px 8px", borderRadius: 4, color: "var(--color-text-secondary)", border: "1px solid var(--color-border)" }}>
+                ID: {item.session_id.slice(0, 8)}
+              </code>
+            )}
+          </div>
         </div>
-        <div className="hitl-card-query">{item.query}</div>
+
+        {/* Structured Context Fields (Requirement D) */}
+        <div style={{ 
+          display: "grid", 
+          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", 
+          gap: 16, 
+          background: "var(--color-bg)", 
+          borderRadius: 8, 
+          padding: 16, 
+          marginBottom: 16,
+          border: "1px solid var(--color-border-light)"
+        }}>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+              Anomaly Category
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "var(--color-text)", marginTop: 4, display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: statusColor }} />
+              {anomalyField.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+              Proposed Action
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "var(--color-text)", marginTop: 4, fontFamily: "var(--font-mono)", color: "var(--color-primary)" }}>
+              {proposedAction.replace(/_/g, " ")}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+              Confidence Score
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: statusColor, marginTop: 4 }}>
+              {(confidence * 100).toFixed(0)}% Match
+            </div>
+          </div>
+        </div>
+
+        {/* Agent Reasoning */}
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-muted)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 6 }}>
+            Agent Reasoning &amp; Context
+          </div>
+          <div className="hitl-card-query" style={{ fontSize: 14, lineHeight: "1.6", color: "var(--color-text)", background: "rgba(255,255,255,0.6)", padding: 12, borderRadius: 6, border: "1px solid var(--color-border-light)" }}>
+            {anomaly?.description || item.query}
+          </div>
+        </div>
+
+        {/* Decision Input */}
         <textarea
           className="input hitl-textarea"
           value={responseText}
           onChange={(e) => setResponseText(e.target.value)}
-          placeholder="Optional response / decision notes..."
+          placeholder="Enter operator resolution comments or modification notes..."
           disabled={submitting}
           rows={2}
+          style={{ width: "100%", borderRadius: 8, padding: "10px 12px", border: "1px solid var(--color-border)", fontSize: 13, marginBottom: 16, background: "#fff", transition: "border 0.2s" }}
         />
-        <div className="hitl-actions">
-          <button className="btn btn-success" onClick={() => handle("approve")} disabled={submitting}>
-            {submitting ? "..." : "✓ Approve"}
+
+        {/* Decision Actions */}
+        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          <button 
+            className="btn btn-success" 
+            onClick={() => handle("approve")} 
+            disabled={submitting}
+            style={{ 
+              height: 38, 
+              padding: "0 18px", 
+              borderRadius: 8, 
+              fontWeight: 600, 
+              background: "linear-gradient(135deg, #10b981 0%, #059669 100%)", 
+              color: "#fff",
+              border: "none",
+              boxShadow: "0 2px 6px rgba(16, 185, 129, 0.15)",
+              display: "flex",
+              alignItems: "center",
+              gap: 6
+            }}
+          >
+            {submitting ? <div className="spinner" style={{ width: 14, height: 14, borderColor: "#fff" }} /> : <Icon name="check" size={14} />}
+            Approve Action
           </button>
-          <button className="btn btn-danger" onClick={() => handle("reject")} disabled={submitting}>
-            {submitting ? "..." : "✗ Reject"}
+          <button 
+            className="btn btn-danger" 
+            onClick={() => handle("reject")} 
+            disabled={submitting}
+            style={{ 
+              height: 38, 
+              padding: "0 18px", 
+              borderRadius: 8, 
+              fontWeight: 600, 
+              background: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)", 
+              color: "#fff",
+              border: "none",
+              boxShadow: "0 2px 6px rgba(239, 68, 68, 0.15)",
+              display: "flex",
+              alignItems: "center",
+              gap: 6
+            }}
+          >
+            {submitting ? <div className="spinner" style={{ width: 14, height: 14, borderColor: "#fff" }} /> : "✗"}
+            Reject Action
           </button>
+          
           {item.session_id && onContinueSession && (
             <button
-              className="btn btn-secondary btn-sm"
-              style={{ marginLeft: "auto", fontSize: 12 }}
+              className="btn btn-secondary"
+              style={{ marginLeft: "auto", borderRadius: 8, height: 38, fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}
               onClick={() => onContinueSession(item.session_id!, "advanced")}
             >
               <Icon name="arrow" size={12} />
-              &nbsp;Continue in Chat
+              Resume Chat
             </button>
           )}
         </div>
@@ -235,33 +383,68 @@ function ResolvedItemCard({
   item: ResolvedItem;
   onContinueSession?: (sessionId: string, mode?: "standard" | "advanced") => void;
 }) {
+  const anomaly = item.context?.anomaly_results?.[0];
+  const isApproved = item.action === "approve";
+  
   return (
-    <div className="hitl-card card" style={{ borderLeft: `4px solid ${item.action === "approve" ? "var(--color-success)" : "var(--color-error)"}` }}>
-      <div className="card-body">
-        <div className="hitl-card-header">
+    <div 
+      className="hitl-card card" 
+      style={{ 
+        borderLeft: `5px solid ${isApproved ? "var(--color-success)" : "var(--color-error)"}`,
+        borderRadius: 12,
+        background: "var(--color-surface)",
+        border: "1px solid var(--color-border)",
+        boxShadow: "var(--shadow-sm)"
+      }}
+    >
+      <div className="card-body" style={{ padding: "20px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span className={`badge ${item.action === "approve" ? "badge-success" : "badge-error"}`}>
-              {item.action === "approve" ? "✓ Approved" : "✗ Rejected"}
+            <span className="badge" style={{ 
+              background: isApproved ? "rgba(16, 185, 129, 0.12)" : "rgba(239, 68, 68, 0.12)", 
+              color: isApproved ? "var(--color-success)" : "var(--color-error)",
+              fontWeight: 700,
+              fontSize: 11,
+              padding: "3px 10px",
+              borderRadius: 12,
+              display: "flex",
+              alignItems: "center",
+              gap: 4
+            }}>
+              {isApproved ? <Icon name="check" size={12} /> : "✗"}
+              {isApproved ? "APPROVED" : "REJECTED"}
             </span>
             <span style={{ fontSize: 12, color: "var(--color-text-muted)" }}>
-              {new Date(item.resolved_at).toLocaleTimeString()}
+              {new Date(item.resolved_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </span>
           </div>
           {item.session_id && onContinueSession && (
             <button
-              className="btn btn-secondary btn-sm"
-              style={{ fontSize: 12, padding: "2px 8px", height: "auto", display: "inline-flex", alignItems: "center", gap: 4 }}
+              className="btn btn-secondary"
+              style={{ fontSize: 11, padding: "4px 10px", height: "auto", display: "inline-flex", alignItems: "center", gap: 4, borderRadius: 6 }}
               onClick={() => onContinueSession(item.session_id!, "advanced")}
             >
               <Icon name="arrow" size={10} />
-              Resume
+              Resume Context
             </button>
           )}
         </div>
-        <div className="hitl-card-query" style={{ opacity: 0.8 }}>{item.query}</div>
+        
+        <div style={{ fontSize: 13, color: "var(--color-text-secondary)", fontWeight: 500, marginBottom: 8 }}>
+          {anomaly?.description || item.query}
+        </div>
+        
         {item.response && (
-          <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 6, fontStyle: "italic" }}>
-            "{item.response}"
+          <div style={{ 
+            fontSize: 12, 
+            color: "var(--color-text-secondary)", 
+            background: "var(--color-bg)", 
+            padding: "8px 12px", 
+            borderRadius: 6, 
+            fontStyle: "italic",
+            border: "1px solid var(--color-border-light)"
+          }}>
+            Operator Notes: "{item.response}"
           </div>
         )}
       </div>

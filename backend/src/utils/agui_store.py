@@ -47,6 +47,7 @@ class AGUIStore:
                                 status=req.status,
                                 session_id=req.session_id,
                                 assigned_role=req.assigned_role,
+                                context=req.context,
                             )
                         )
             return pending

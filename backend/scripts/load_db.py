@@ -36,48 +36,56 @@ def load_csv(csv_path: Path, db_path: Path):
             break
             
     if eid_col:
-        df.rename(columns={eid_col: "employee_id"}, inplace=True)
+        df.rename(columns={eid_col: "Employee_ID"}, inplace=True)
     else:
-        if "Employee_ID" in df.columns:
-            df.rename(columns={"Employee_ID": "employee_id"}, inplace=True)
+        if "employee_id" in df.columns:
+            df.rename(columns={"employee_id": "Employee_ID"}, inplace=True)
             
-    # Normalize all column names to lowercase for SQLAlchemy compatibility
-    df.columns = [c.lower() for c in df.columns]
-    
-    # Rename employee_name to name
-    if "employee_name" in df.columns:
-        df.rename(columns={"employee_name": "name"}, inplace=True)
-        
-    # Ensure employee_id is string
-    if "employee_id" in df.columns:
-        df["employee_id"] = df["employee_id"].astype(str)
+    # Try to standardize Employee_Name key if present
+    ename_col = None
+    for col in df.columns:
+        if col.lower().replace("_", "") in ["employeename", "name"]:
+            ename_col = col
+            break
+            
+    if ename_col:
+        df.rename(columns={ename_col: "Employee_Name"}, inplace=True)
         
     # Auto-enhance with default attributes if they are missing
     import random
     random.seed(42)
     
-    if "leaves_accrued" not in df.columns:
-        logger.info("Columns 'leaves_accrued' missing, generating random accruals...")
-        df['leaves_accrued'] = [random.randint(20, 30) for _ in range(len(df))]
+    cols_lower = [c.lower() for c in df.columns]
+    
+    if "leaves_accrued" not in cols_lower:
+        logger.info("Columns 'Leaves_Accrued' missing, generating random accruals...")
+        df['Leaves_Accrued'] = [random.randint(20, 30) for _ in range(len(df))]
         
-    if "leaves_taken" not in df.columns:
-        logger.info("Columns 'leaves_taken' missing, generating random usages...")
-        df['leaves_taken'] = [random.randint(0, 15) for _ in range(len(df))]
+    if "leaves_taken" not in cols_lower:
+        logger.info("Columns 'Leaves_Taken' missing, generating random usages...")
+        df['Leaves_Taken'] = [random.randint(0, 15) for _ in range(len(df))]
         
-    if "work_location" not in df.columns:
-        logger.info("Columns 'work_location' missing, generating random locations...")
+    if "work_location" not in cols_lower:
+        logger.info("Columns 'Work_Location' missing, generating random locations...")
         locations = ["New York", "Chicago", "San Francisco", "London", "Remote"]
-        df['work_location'] = [random.choice(locations) for _ in range(len(df))]
+        df['Work_Location'] = [random.choice(locations) for _ in range(len(df))]
         
-    if "performance_rating" not in df.columns:
-        logger.info("Columns 'performance_rating' missing, generating random ratings...")
-        df['performance_rating'] = [float(random.choice([3, 4, 5])) for _ in range(len(df))]
+    if "performance_rating" not in cols_lower:
+        logger.info("Columns 'Performance_Rating' missing, generating random ratings...")
+        df['Performance_Rating'] = [float(random.choice([3, 4, 5])) for _ in range(len(df))]
         
-    if "manager_id" not in df.columns:
-        logger.info("Column 'manager_id' missing, generating manager assignments...")
-        emp_ids = df["employee_id"].tolist() if "employee_id" in df.columns else [str(i) for i in range(len(df))]
+    if "manager_id" not in cols_lower:
+        logger.info("Column 'Manager_ID' missing, generating manager assignments...")
+        eid_name = "Employee_ID" if "Employee_ID" in df.columns else (df.columns[0] if len(df.columns) > 0 else "Employee_ID")
+        emp_ids = df[eid_name].tolist() if eid_name in df.columns else [str(i) for i in range(len(df))]
         manager_pool = emp_ids[:min(5, len(emp_ids))]
-        df['manager_id'] = [random.choice(manager_pool) if eid not in manager_pool else "CEO" for eid in emp_ids]
+        df['Manager_ID'] = [random.choice(manager_pool) if eid not in manager_pool else "CEO" for eid in emp_ids]
+            
+    # Ensure Employee_ID is string
+    if "Employee_ID" in df.columns:
+        df["Employee_ID"] = df["Employee_ID"].astype(str)
+
+
 
         
     # Seed into SQL database

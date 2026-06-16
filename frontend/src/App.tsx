@@ -4,6 +4,7 @@ import { Icon } from "./components/Icons";
 import { StatusIndicator } from "./components/StatusIndicator";
 import { VectorDBStatus } from "./components/VectorDBStatus";
 import { DatabaseStatus } from "./components/DatabaseStatus";
+import { SchedulerStatus } from "./components/SchedulerStatus";
 import { Dashboard } from "./components/Dashboard";
 import { ChatInterface } from "./components/ChatInterface";
 import { HITLPanel } from "./components/HITLPanel";
@@ -83,6 +84,7 @@ function AppInner() {
               <StatusIndicator />
               <VectorDBStatus />
               <DatabaseStatus />
+              <SchedulerStatus />
             </div>
             {(() => {
               if (!allowedPages.includes(activePage)) return <AccessDenied />;

@@ -457,6 +457,16 @@ export const api = {
       }),
   },
 
+  alerts: {
+    getScheduler: () =>
+      request<APIResponse<{ interval_seconds: number; running: boolean }>>("/alerts/scheduler"),
+    updateScheduler: (interval_seconds: number, running?: boolean) =>
+      request<APIResponse<{ interval_seconds: number; running: boolean }>>("/alerts/scheduler", {
+        method: "POST",
+        body: JSON.stringify({ interval_seconds, running }),
+      }),
+  },
+
   debug: {
     /** List recent API request entries stored for debugging.
      *

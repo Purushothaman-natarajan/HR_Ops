@@ -96,12 +96,33 @@ async def rerank_documents(
             resp.raise_for_status()
             data = resp.json()
 
-        indices = _parse_rankings(data)
-        if not indices:
+        rankings = data.get("rankings") or data.get("results") or []
+        scored = []
+        for r in rankings:
+            idx = r.get("index")
+            score = r.get("logit") if "logit" in r else r.get("relevance_score", 0)
+            if idx is not None:
+                scored.append((idx, score))
+        scored.sort(key=lambda x: x[1], reverse=True)
+
+        if not scored:
             logger.warning("No rankings returned — using original order")
             return documents
 
-        ranked = [documents[i] for i in indices if i < len(documents)]
+        import math
+
+        ranked = []
+        for idx, score in scored:
+            if idx < len(documents):
+                doc = documents[idx]
+                try:
+                    # Convert logit to probability score using sigmoid function
+                    prob = 1.0 / (1.0 + math.exp(-score))
+                except Exception:
+                    prob = 0.0
+                doc.metadata["score"] = prob
+                ranked.append(doc)
+
         logger.debug(
             "Re-ranked %d docs from %d candidates (model=%s, timeout=%.1fs)",
             len(ranked), len(documents), model, effective_timeout,

@@ -273,3 +273,27 @@ class TestIntegrationsAPI:
         r = client.post("/integrations", json={"database": {}, "chat_hook": {}})
         assert r.status_code == 400
         assert r.json()["success"] is False
+
+
+class TestSchedulerAPI:
+    def test_get_scheduler(self):
+        r = client.get("/alerts/scheduler")
+        assert r.status_code == 200
+        body = r.json()
+        assert body["success"] is True
+        assert "interval_seconds" in body["data"]
+        assert "running" in body["data"]
+
+    def test_post_scheduler_invalid_interval(self):
+        r = client.post("/alerts/scheduler", json={"interval_seconds": 4})
+        assert r.status_code == 400
+        assert r.json()["success"] is False
+
+    def test_post_scheduler_valid(self):
+        r = client.post("/alerts/scheduler", json={"interval_seconds": 10, "running": False})
+        assert r.status_code == 200
+        body = r.json()
+        assert body["success"] is True
+        assert body["data"]["interval_seconds"] == 10
+        assert body["data"]["running"] is False
+

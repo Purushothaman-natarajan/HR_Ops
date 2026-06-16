@@ -24,14 +24,19 @@ export function IntegrationsManager() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  // Editable form state
   const [dbType, setDbType] = useState("sqlite");
   const [connStr, setConnStr] = useState("");
   const [hookEnabled, setHookEnabled] = useState(false);
   const [webhookUrl, setWebhookUrl] = useState("");
   const [events, setEvents] = useState<string[]>(["leave_request", "escalation"]);
 
+  // Scheduler states
+  const [schedulerInterval, setSchedulerInterval] = useState<number>(3600);
+  const [schedulerUnit, setSchedulerUnit] = useState<"seconds" | "minutes" | "hours">("hours");
+  const [schedulerRunning, setSchedulerRunning] = useState<boolean>(true);
+
   useEffect(() => {
+    // Load integrations config
     api.integrations.get()
       .then((r) => {
         setConfig(r.data);
@@ -41,7 +46,25 @@ export function IntegrationsManager() {
         setWebhookUrl(r.data.chat_hook?.webhook_url || "");
         setEvents(r.data.chat_hook?.events || ["leave_request", "escalation"]);
       })
-      .catch(() => setError("Failed to load integrations config"))
+      .catch(() => setError("Failed to load integrations config"));
+
+    // Load scheduler config
+    api.alerts.getScheduler()
+      .then((r) => {
+        const sec = r.data.interval_seconds;
+        setSchedulerRunning(r.data.running);
+        if (sec % 3600 === 0) {
+          setSchedulerInterval(sec / 3600);
+          setSchedulerUnit("hours");
+        } else if (sec % 60 === 0) {
+          setSchedulerInterval(sec / 60);
+          setSchedulerUnit("minutes");
+        } else {
+          setSchedulerInterval(sec);
+          setSchedulerUnit("seconds");
+        }
+      })
+      .catch(() => console.warn("Failed to load scheduler settings"))
       .finally(() => setLoading(false));
   }, []);
 
@@ -54,12 +77,21 @@ export function IntegrationsManager() {
     setError("");
     setSuccess("");
     try {
+      // Save integrations configuration
       const res = await api.integrations.update({
         database: { type: dbType, connection_string: connStr },
         chat_hook: { enabled: hookEnabled, webhook_url: webhookUrl, events },
       });
       setConfig(res.data);
-      setSuccess("Integrations configuration saved successfully.");
+
+      // Save scheduler configuration
+      let seconds = schedulerInterval;
+      if (schedulerUnit === "hours") seconds = schedulerInterval * 3600;
+      else if (schedulerUnit === "minutes") seconds = schedulerInterval * 60;
+      const schedRes = await api.alerts.updateScheduler(seconds, schedulerRunning);
+      setSchedulerRunning(schedRes.data.running);
+
+      setSuccess("Integrations and scheduler configurations saved successfully.");
     } catch (e) {
       setError(`Failed to save: ${e}`);
     } finally {
@@ -137,6 +169,74 @@ export function IntegrationsManager() {
             />
             <p style={{ fontSize: 11, color: "var(--color-text-muted)", marginTop: 4, marginBottom: 0 }}>
               For SQLite: <code>sqlite:///./path/to/file.db</code> &nbsp;|&nbsp; For PostgreSQL: <code>postgresql://user:pass@host:5432/dbname</code>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Scheduled Anomaly Scan Configuration */}
+      <div className="card" style={{ marginBottom: 20, padding: "20px 24px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+          <Icon name="clock" size={18} style={{ color: "var(--color-accent)" }} />
+          <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0, color: "var(--color-text)" }}>Scheduled Anomaly Scan</h3>
+          <label style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+            <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{schedulerRunning ? "Active" : "Inactive"}</span>
+            <div
+              onClick={() => setSchedulerRunning(!schedulerRunning)}
+              style={{
+                width: 36,
+                height: 20,
+                borderRadius: 10,
+                background: schedulerRunning ? "var(--color-accent)" : "var(--color-border)",
+                position: "relative",
+                cursor: "pointer",
+                transition: "background 0.2s",
+              }}
+            >
+              <div style={{
+                position: "absolute",
+                top: 2,
+                left: schedulerRunning ? 18 : 2,
+                width: 16,
+                height: 16,
+                borderRadius: "50%",
+                background: "#fff",
+                transition: "left 0.2s",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+              }} />
+            </div>
+          </label>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 14, opacity: schedulerRunning ? 1 : 0.5, transition: "opacity 0.2s" }}>
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", display: "block", marginBottom: 6 }}>
+              Scan Frequency / Interval
+            </label>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                className="input"
+                type="number"
+                min="5"
+                disabled={!schedulerRunning}
+                value={schedulerInterval}
+                onChange={(e) => setSchedulerInterval(Math.max(5, parseInt(e.target.value) || 5))}
+                style={{ width: "60%" }}
+              />
+              <select
+                className="input"
+                value={schedulerUnit}
+                disabled={!schedulerRunning}
+                onChange={(e) => setSchedulerUnit(e.target.value as any)}
+                style={{ width: "40%" }}
+              >
+                <option value="seconds">Seconds</option>
+                <option value="minutes">Minutes</option>
+                <option value="hours">Hours</option>
+              </select>
+            </div>
+            <p style={{ fontSize: 11, color: "var(--color-text-muted)", marginTop: 6, marginBottom: 0 }}>
+              The scheduler triggers automated workforce scans at this frequency to proactively detect policy violations and payroll anomalies.
             </p>
           </div>
         </div>

@@ -108,9 +108,18 @@ def similarity_search(query: str, k: int | None = None, collection_name: str = "
     cfg = settings.embed_config.get("vector_store", {})
     try:
         store = get_vector_store(collection_name)
-        result = store.similarity_search(query, k=k or cfg.get("default_k", 4))
-        logger.debug("similarity_search query=%.50s hits=%d", query, len(result))
-        return result
+        results = store.similarity_search_with_score(query, k=k or cfg.get("default_k", 4))
+        
+        docs = []
+        for doc, distance in results:
+            # Convert L2 distance or cosine distance to similarity score in [0, 1] range
+            # Using 1 / (1 + distance) is robust for mapping any positive distance to [0, 1]
+            similarity = 1.0 / (1.0 + distance)
+            doc.metadata["score"] = similarity
+            docs.append(doc)
+            
+        logger.debug("similarity_search query=%.50s hits=%d", query, len(docs))
+        return docs
     except Exception as e:
         logger.error("similarity_search failed: query=%.50s error=%s", query, e)
         return []

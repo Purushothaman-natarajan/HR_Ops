@@ -149,6 +149,7 @@ export function ChatInterface({
   const [totalCost, setTotalCost] = useState(0);
   const [ratedTurns, setRatedTurns] = useState<Record<number, 1 | 0 | -1>>({});
   const [liveEvents, setLiveEvents] = useState<NodeEvent[]>([]);
+  const liveEventsRef = useRef<NodeEvent[]>([]);
   const [resumeLoading, setResumeLoading] = useState(!!resumeSessionId);
   const esRef = useRef<EventSource | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -193,6 +194,7 @@ export function ChatInterface({
     if (!q || loading) return;
     setInput("");
     setError("");
+    liveEventsRef.current = [];
     setLiveEvents([]);
 
     const userMsg: ConversationMessage = { role: "user", content: q };
@@ -213,7 +215,8 @@ export function ChatInterface({
     es.addEventListener("node_complete", (e: MessageEvent) => {
       try {
         const eventData: NodeEvent = JSON.parse(e.data);
-        setLiveEvents((prev) => [...prev, eventData]);
+        liveEventsRef.current.push(eventData);
+        setLiveEvents([...liveEventsRef.current]);
       } catch {
         // ignore parse errors
       }
@@ -229,8 +232,8 @@ export function ChatInterface({
 
         setSessionId((prev) => prev || newSessionId);
 
-        // Capture the live events that were displayed during streaming
-        const currentLiveEvents = [...liveEvents];
+        // Capture the trace events from completion payload, falling back to streamed events
+        const currentLiveEvents = events.length > 0 ? events : [...liveEventsRef.current];
 
         const assistantMsg: ConversationMessage = {
           role: "assistant",
@@ -241,6 +244,7 @@ export function ChatInterface({
         setMessages((prev) => [...prev, assistantMsg]);
         setTotalCost((prev) => prev + cost);
         setLiveEvents([]);
+        liveEventsRef.current = [];
         if (events.length > 0) {
           setTraceEvents(events);
         }
@@ -273,7 +277,7 @@ export function ChatInterface({
       es.close();
       esRef.current = null;
     });
-  }, [input, loading, sessionId, mode, employeeId, liveEvents]);
+  }, [input, loading, sessionId, mode, employeeId]);
 
   const handleRating = async (turnIndex: number, rating: 1 | 0 | -1) => {
     if (ratedTurns[turnIndex] !== undefined) return;
@@ -405,10 +409,22 @@ export function ChatInterface({
               )}
               {msg.role === "assistant" && msg.liveEvents && msg.liveEvents.length > 0 && (
                 <div style={{ marginTop: 12, borderTop: "1px solid var(--color-border)", paddingTop: 8 }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-muted)", letterSpacing: "0.06em", marginBottom: 6 }}>
-                    TRACE EVENTS ({msg.liveEvents.length})
-                  </div>
-                  <TraceViewer events={msg.liveEvents} />
+                  <details>
+                    <summary style={{
+                      fontSize: 10,
+                      fontWeight: 700,
+                      color: "var(--color-text-muted)",
+                      letterSpacing: "0.06em",
+                      cursor: "pointer",
+                      userSelect: "none",
+                      listStyle: "inside"
+                    }}>
+                      TRACE EVENTS ({msg.liveEvents.length})
+                    </summary>
+                    <div style={{ marginTop: 10 }}>
+                      <TraceViewer events={msg.liveEvents} />
+                    </div>
+                  </details>
                 </div>
               )}
               {msg.role === "assistant" && (

@@ -1,8 +1,14 @@
 from fastapi import APIRouter, Request
+from pydantic import BaseModel
 from backend.src.core.response import get_correlation_id, success_response, error_response
 from backend.src.utils.alert_store import alert_store
+from backend.src.services.scheduler import scheduler
 
 router = APIRouter(prefix="/alerts", tags=["alerts"])
+
+class SchedulerConfig(BaseModel):
+    interval_seconds: int
+    running: bool | None = None
 
 @router.get("/")
 async def list_alerts(request: Request):
@@ -17,3 +23,36 @@ async def mark_alert_read(alert_id: str, request: Request):
     if not success:
         return error_response(message="Alert not found", correlation_id=correlation_id, status_code=404)
     return success_response(data={"id": alert_id, "status": "read"}, correlation_id=correlation_id)
+
+@router.get("/scheduler")
+async def get_scheduler_status(request: Request):
+    correlation_id = get_correlation_id(request)
+    return success_response(
+        data={
+            "interval_seconds": scheduler.interval_seconds,
+            "running": scheduler._task is not None
+        },
+        correlation_id=correlation_id
+    )
+
+@router.post("/scheduler")
+async def update_scheduler_config(config: SchedulerConfig, request: Request):
+    correlation_id = get_correlation_id(request)
+    if config.interval_seconds < 5:
+        return error_response(message="Interval must be at least 5 seconds", correlation_id=correlation_id, status_code=400)
+    
+    was_running = scheduler._task is not None
+    target_running = config.running if config.running is not None else was_running
+    
+    scheduler.stop()
+    scheduler.interval_seconds = config.interval_seconds
+    if target_running:
+        scheduler.start()
+        
+    return success_response(
+        data={
+            "interval_seconds": scheduler.interval_seconds,
+            "running": scheduler._task is not None
+        },
+        correlation_id=correlation_id
+    )

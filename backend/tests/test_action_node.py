@@ -37,11 +37,11 @@ def test_build_name_search_fallback():
     # Name search
     res = _build_name_search_fallback("find John Doe", tables)
     assert res["name"] == "execute_db_query"
-    assert "John Doe" in res["args"]["sql_query"]
+    assert "%John Doe%" in res["args"]["parameters"]
 
     res = _build_name_search_fallback("employee named 'Jane Smith'", tables)
     assert res["name"] == "execute_db_query"
-    assert "Jane Smith" in res["args"]["sql_query"]
+    assert "%Jane Smith%" in res["args"]["parameters"]
 
     # Generic count/select (avoiding 'employee' to prevent the greedy regex match in _build_name_search_fallback)
     res = _build_name_search_fallback("count all staff", tables)
@@ -81,7 +81,7 @@ async def test_action_node_malformed_llm_response(mock_guardrail_registry, mock_
     assert mock_execute_tool.call_count == 1
     args, kwargs = mock_execute_tool.call_args
     assert args[0] == "execute_db_query"
-    assert "John Doe" in kwargs["sql_query"]
+    assert "%John Doe%" in kwargs["parameters"]
 
     # Verify trace log contains the fallback information
     trace = result["trace_log"][-1]
