@@ -13,20 +13,94 @@ from backend.src.utils.model_router import llm_call
 logger = logging.getLogger("hr_ops.nodes.policy")
 
 
+def _check_cache(query: str, cache_enabled: bool, activities: list) -> str | None:
+    """Check semantic cache and update activities."""
+    activities.append(Activity(
+        type="cache_check", label="Checking semantic cache",
+        detail="Comparing query against cached policy answers",
+        status="completed",
+    ))
+    cached = semantic_cache.get(query) if cache_enabled else None
+    if cached:
+        activities[-1].detail = "Cache HIT — returning cached answer"
+    else:
+        activities[-1].detail = "Cache MISS — proceeding with RAG retrieval"
+    return cached
+
+
+async def _retrieve_and_rerank(query: str, activities: list) -> tuple[list, list]:
+    """Retrieve and rerank relevant policies."""
+    activities.append(Activity(
+        type="search", label="Searching vector DB for relevant policies",
+        detail=f"Query: {query[:80]}...",
+        status="running",
+    ))
+    docs = similarity_search(query, k=4)
+    doc_count = len(docs) if docs else 0
+    activities[-1].status = "completed"
+    activities[-1].detail = f"Found {doc_count} matching documents"
+    activities[-1].metadata = {
+        "doc_count": doc_count,
+        "sources": [getattr(d, "metadata", {}).get("source", "unknown") for d in (docs or [])],
+    }
+
+    reranker_config = settings.embed_config.get("reranker", {})
+    rerank_enabled = reranker_config.get("enabled", True)
+    if rerank_enabled and docs:
+        activities.append(Activity(
+            type="rerank", label="Reranking retrieved documents",
+            detail=f"Reranking {doc_count} documents by relevance",
+            status="running",
+        ))
+        from backend.src.utils.reranker import rerank_documents
+        docs = await rerank_documents(query, docs, top_k=4)
+        activities[-1].status = "completed"
+        activities[-1].detail = f"Reranked to top {len(docs)} documents"
+
+    retrieval_docs = []
+    for d in (docs or []):
+        retrieval_docs.append({
+            "source": getattr(d, "metadata", {}).get("source", "unknown"),
+            "score": getattr(d, "metadata", {}).get("score", 0.0),
+            "chunk": d.page_content[:200],
+        })
+    return docs, retrieval_docs
+
+
+async def _generate_answer(query: str, docs: list, activities: list) -> tuple[str, float]:
+    """Generate answer using LLM."""
+    context = "\n\n".join(d.page_content for d in docs) if docs else "No policies retrieved."
+    prompt = (
+        f"Retrieved HR policies:\n{context}\n\n"
+        f"User question: {query}\n\n"
+        f"Provide a concise, policy-backed answer."
+    )
+    doc_count = len(docs) if docs else 0
+    activities.append(Activity(
+        type="llm_call", label="Generating answer with LLM",
+        detail=f"Context: {doc_count} policy chunks, max_tokens=512",
+        status="running",
+    ))
+    answer, cost = await llm_call("rag", prompt, max_tokens=512)
+    activities[-1].status = "completed"
+    activities[-1].detail = f"Generated {len(answer)}-char response"
+
+    # Run output guardrails (soft check — log warnings but don't block)
+    output_gr = guardrail_registry.check_output({"text": answer})
+    if not output_gr.passed:
+        logger.warning("Output guardrail flagged in policy_node: %s", output_gr.message)
+
+    return answer, cost
+
+
 async def policy_node(state: SharedState) -> dict:
     """Retrieve relevant policies and generate an answer; checks semantic cache first."""
     start = datetime.now(timezone.utc)
     activities = []
     cache_enabled = settings.feature_flags.get("semantic_cache", {}).get("enabled", True)
 
-    activities.append(Activity(
-        type="cache_check", label="Checking semantic cache",
-        detail="Comparing query against cached policy answers",
-        status="completed",
-    ))
-    cached = semantic_cache.get(state.query) if cache_enabled else None
+    cached = _check_cache(state.query, cache_enabled, activities)
     if cached:
-        activities[-1].detail = "Cache HIT — returning cached answer"
         elapsed = (datetime.now(timezone.utc) - start).total_seconds() * 1000
         return {
             "final_response": cached,
@@ -44,62 +118,8 @@ async def policy_node(state: SharedState) -> dict:
             ],
         }
 
-    activities[-1].detail = "Cache MISS — proceeding with RAG retrieval"
-
-    activities.append(Activity(
-        type="search", label="Searching vector DB for relevant policies",
-        detail=f"Query: {state.query[:80]}...",
-        status="running",
-    ))
-    docs = similarity_search(state.query, k=4)
-    doc_count = len(docs) if docs else 0
-    activities[-1].status = "completed"
-    activities[-1].detail = f"Found {doc_count} matching documents"
-    activities[-1].metadata = {
-        "doc_count": doc_count,
-        "sources": [getattr(d, "metadata", {}).get("source", "unknown") for d in (docs or [])],
-    }
-
-    reranker_config = settings.embed_config.get("reranker", {})
-    rerank_enabled = reranker_config.get("enabled", True)
-    retrieval_docs = []
-    if rerank_enabled and docs:
-        activities.append(Activity(
-            type="rerank", label="Reranking retrieved documents",
-            detail=f"Reranking {doc_count} documents by relevance",
-            status="running",
-        ))
-        from backend.src.utils.reranker import rerank_documents
-        docs = await rerank_documents(state.query, docs, top_k=4)
-        activities[-1].status = "completed"
-        activities[-1].detail = f"Reranked to top {len(docs)} documents"
-
-    for d in (docs or []):
-        retrieval_docs.append({
-            "source": getattr(d, "metadata", {}).get("source", "unknown"),
-            "score": getattr(d, "metadata", {}).get("score", 0.0),
-            "chunk": d.page_content[:200],
-        })
-
-    context = "\n\n".join(d.page_content for d in docs) if docs else "No policies retrieved."
-    prompt = (
-        f"Retrieved HR policies:\n{context}\n\n"
-        f"User question: {state.query}\n\n"
-        f"Provide a concise, policy-backed answer."
-    )
-    activities.append(Activity(
-        type="llm_call", label="Generating answer with LLM",
-        detail=f"Context: {doc_count} policy chunks, max_tokens=512",
-        status="running",
-    ))
-    answer, cost = await llm_call("rag", prompt, max_tokens=512)
-    activities[-1].status = "completed"
-    activities[-1].detail = f"Generated {len(answer)}-char response"
-
-    # Run output guardrails (soft check — log warnings but don't block)
-    output_gr = guardrail_registry.check_output({"text": answer})
-    if not output_gr.passed:
-        logger.warning("Output guardrail flagged in policy_node: %s", output_gr.message)
+    docs, retrieval_docs = await _retrieve_and_rerank(state.query, activities)
+    answer, cost = await _generate_answer(state.query, docs, activities)
 
     if cache_enabled:
         semantic_cache.set(state.query, answer)
