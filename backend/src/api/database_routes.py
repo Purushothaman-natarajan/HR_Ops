@@ -65,6 +65,10 @@ async def api_upload_database(request: Request, file: UploadFile = File(...)):
         from backend.src.memory.cache import semantic_cache
         semantic_cache.clear()
 
+        # Invalidate database schema cache and force reload
+        from backend.src.services.db_schema_store import refresh_schema
+        refresh_schema()
+
         # Fetch status to return
         status = get_db_status()
         return success_response(

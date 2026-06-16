@@ -130,7 +130,35 @@ function SourcesPanel({ events }: { events: NodeEvent[] }) {
   );
 }
 
+function TraceCollapsible({ events }: { events: NodeEvent[] }) {
+  const [isOpen, setIsOpen] = useState(false);
 
+  return (
+    <div className="trace-collapsible">
+      <button
+        type="button"
+        className="trace-collapsible-trigger"
+        onClick={() => setIsOpen(!isOpen)}
+        title={isOpen ? "Collapse execution trace" : "Expand execution trace"}
+      >
+        <Icon name="trace" size={12} className="trace-trigger-icon" />
+        <span className="trace-trigger-text">
+          EXECUTION TRACE ({events.length} event{events.length !== 1 ? "s" : ""})
+        </span>
+        <Icon
+          name="chevron-down"
+          size={12}
+          className={`trace-trigger-arrow ${isOpen ? "open" : ""}`}
+        />
+      </button>
+      {isOpen && (
+        <div className="trace-collapsible-content">
+          <TraceViewer events={events} />
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function ChatInterface({
   employeeId = "",
@@ -155,15 +183,23 @@ export function ChatInterface({
   const bottomRef = useRef<HTMLDivElement>(null);
   const modeTemplate = MODE_TEMPLATES[mode];
 
-  // Load resumed session history on mount
+  // Load resumed session history when resumeSessionId changes
   useEffect(() => {
     if (!resumeSessionId) return;
+    setSessionId(resumeSessionId);
     setResumeLoading(true);
+    setMessages([]);
+    setTraceEvents([]);
+    setLiveEvents([]);
+    setRatedTurns({});
+    setError("");
+    setShowTrace(false);
+    
     api.conversation.get(resumeSessionId)
       .then((res) => {
         const msgs = res.data.messages || [];
         setMessages(msgs);
-        if (res.data.mode) setMode(res.data.mode);
+        if (res.data.mode) setMode(res.data.mode as Mode);
         setTotalCost(res.data.total_cost ?? res.data.total_cost_usd ?? 0);
       })
       .catch(() => {
@@ -335,20 +371,26 @@ export function ChatInterface({
         </div>
         <div className="chat-header-right">
           {!sessionId && (
-            <div className="chat-mode-selector">
-              <span className="chat-mode-label">Mode:</span>
-              <select
-                className="input"
-                style={{ width: 130, padding: "4px 8px", fontSize: 12 }}
-                value={mode}
-                onChange={(e) => setMode(e.target.value as Mode)}
+            <div className="chat-mode-selector-pill">
+              <button
+                type="button"
+                className={`mode-pill-btn ${mode === "standard" ? "active" : ""}`}
+                onClick={() => setMode("standard")}
+                title="Focused questions on leave, attendance, compensation and policies"
               >
-                <option value="standard">Standard</option>
-                <option value="advanced">Advanced</option>
-              </select>
-              <span className={`badge ${mode === "advanced" ? "badge-warning" : "badge-info"}`}>
-                {mode === "advanced" ? "RL + Triggers" : "Basic"}
-              </span>
+                <Icon name="doc" size={13} />
+                <span>Standard</span>
+              </button>
+              <button
+                type="button"
+                className={`mode-pill-btn ${mode === "advanced" ? "active" : ""}`}
+                onClick={() => setMode("advanced")}
+                title="RL routing, compliance veto checks and anomaly investigation actions"
+              >
+                <Icon name="rl" size={13} />
+                <span>Advanced</span>
+                <span className="pill-badge-sparkle">RL</span>
+              </button>
             </div>
           )}
 
@@ -408,24 +450,7 @@ export function ChatInterface({
                 <SourcesPanel events={msg.liveEvents} />
               )}
               {msg.role === "assistant" && msg.liveEvents && msg.liveEvents.length > 0 && (
-                <div style={{ marginTop: 12, borderTop: "1px solid var(--color-border)", paddingTop: 8 }}>
-                  <details>
-                    <summary style={{
-                      fontSize: 10,
-                      fontWeight: 700,
-                      color: "var(--color-text-muted)",
-                      letterSpacing: "0.06em",
-                      cursor: "pointer",
-                      userSelect: "none",
-                      listStyle: "inside"
-                    }}>
-                      TRACE EVENTS ({msg.liveEvents.length})
-                    </summary>
-                    <div style={{ marginTop: 10 }}>
-                      <TraceViewer events={msg.liveEvents} />
-                    </div>
-                  </details>
-                </div>
+                <TraceCollapsible events={msg.liveEvents} />
               )}
               {msg.role === "assistant" && (
                 <div className="chat-bubble-actions">

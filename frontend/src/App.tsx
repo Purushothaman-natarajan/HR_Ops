@@ -97,7 +97,7 @@ function AppInner() {
                   const onMount = rs ? () => setResumeSession(null) : undefined;
                   return (
                     <ChatInterface
-                      key={rs?.sessionId || "new"}
+                      key="query-chat"
                       employeeId={role === "employee" ? employeeId : ""}
                       resumeSessionId={rs?.sessionId}
                       resumeMode={rs?.mode}
