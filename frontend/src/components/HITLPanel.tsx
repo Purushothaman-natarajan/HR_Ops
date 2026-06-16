@@ -239,29 +239,29 @@ function ResolvedItemCard({
     <div className="hitl-card card" style={{ borderLeft: `4px solid ${item.action === "approve" ? "var(--color-success)" : "var(--color-error)"}` }}>
       <div className="card-body">
         <div className="hitl-card-header">
-          <span className={`badge ${item.action === "approve" ? "badge-success" : "badge-error"}`}>
-            {item.action === "approve" ? "✓ Approved" : "✗ Rejected"}
-          </span>
-          <span style={{ fontSize: 12, color: "var(--color-text-muted)" }}>
-            {new Date(item.resolved_at).toLocaleTimeString()}
-          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span className={`badge ${item.action === "approve" ? "badge-success" : "badge-error"}`}>
+              {item.action === "approve" ? "✓ Approved" : "✗ Rejected"}
+            </span>
+            <span style={{ fontSize: 12, color: "var(--color-text-muted)" }}>
+              {new Date(item.resolved_at).toLocaleTimeString()}
+            </span>
+          </div>
+          {item.session_id && onContinueSession && (
+            <button
+              className="btn btn-secondary btn-sm"
+              style={{ fontSize: 12, padding: "2px 8px", height: "auto", display: "inline-flex", alignItems: "center", gap: 4 }}
+              onClick={() => onContinueSession(item.session_id!, "advanced")}
+            >
+              <Icon name="arrow" size={10} />
+              Resume
+            </button>
+          )}
         </div>
         <div className="hitl-card-query" style={{ opacity: 0.8 }}>{item.query}</div>
         {item.response && (
           <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 6, fontStyle: "italic" }}>
             "{item.response}"
-          </div>
-        )}
-        {item.session_id && onContinueSession && (
-          <div style={{ marginTop: 10 }}>
-            <button
-              className="btn btn-secondary btn-sm"
-              style={{ fontSize: 12 }}
-              onClick={() => onContinueSession(item.session_id!, "advanced")}
-            >
-              <Icon name="arrow" size={12} />
-              &nbsp;Resume Conversation
-            </button>
           </div>
         )}
       </div>
