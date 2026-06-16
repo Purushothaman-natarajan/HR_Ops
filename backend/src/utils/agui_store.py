@@ -75,6 +75,21 @@ class AGUIStore:
 
         action = (metadata or {}).get("action", "")
 
+        # If there is a pending tool call, execute it on approval
+        pending_tool_call = (req.context or {}).get("pending_tool_call")
+        if pending_tool_call and action == "approve":
+            try:
+                from backend.src.tools.api_mocks import execute_tool
+                tool_name = pending_tool_call.get("name")
+                tool_args = pending_tool_call.get("args", {})
+                logger.info("Executing approved pending tool call: %s(%s)", tool_name, tool_args)
+                tool_result = execute_tool(tool_name, **tool_args)
+                logger.info("Approved tool execution result: %s", tool_result)
+                resp.response = f"Approved & Executed successfully. Details: {resp.response}"
+            except Exception as e:
+                logger.exception("Failed to execute approved pending tool call")
+                resp.response = f"Approved but execution failed: {e}. Details: {resp.response}"
+
         # If it's an anomaly interaction, update the anomaly bandit
         anomalies = (req.context or {}).get("anomaly_results", [])
         if anomalies:

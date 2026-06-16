@@ -215,7 +215,11 @@ async def action_node(state: SharedState) -> dict:
             "  - If the query mentions a person's name (like 'John', 'ALICE', 'find Bob'), "
             "use search_employee_by_name with the name.\n"
             "  - Do NOT use get_database_schema unless the user explicitly asks about schema.\n"
-            "  - Use ? placeholders in SQL, provide values in 'parameters' list.\n\n"
+            "  - Use ? placeholders in SQL, provide values in 'parameters' list.\n"
+            "  - If the query asks to create, record, request, or apply for something (like applying for leave), "
+            "you MUST generate an INSERT statement instead of a SELECT query. For leave requests, insert into the `leaves` table "
+            "(columns: employee_id, leave_type, start_date, end_date, status, reason) with status set to 'Pending'.\n"
+            "  - If the query asks to modify or update data, generate an UPDATE statement.\n\n"
             f"Database Schema Understanding:\n{schema_understanding}\n\n"
             f"Query: {state.query}\n\n"
             "Reply ONLY with valid JSON:\n"
@@ -270,32 +274,54 @@ async def action_node(state: SharedState) -> dict:
             activities[-1].detail = "Guardrail PASSED"
 
             # ── Step 4: Execute tool ─────────────────────────────────────────
-            activities.append(Activity(
-                type="tool_call", label=f"Executing {call.get('name', 'tool')}",
-                detail=f"Args: {json.dumps(call.get('args', {}))}",
-                status="running",
-            ))
-            tool_args = dict(call["args"])
-            if call["name"] == "escalate_to_human":
-                ctx = dict(tool_args.get("context") or {})
-                ctx["session_id"] = state.session_id
-                tool_args["context"] = ctx
+            # Intercept database write queries and modify_record calls for HITL approval
+            is_write_query = False
+            if call["name"] == "execute_db_query":
+                sql_query = call["args"].get("sql_query", "").strip().upper()
+                is_write_query = any(sql_query.startswith(kw) for kw in ["UPDATE", "INSERT", "DELETE", "CREATE", "DROP", "ALTER", "REPLACE"])
+            elif call["name"] == "modify_record":
+                is_write_query = True
 
-            raw_result = execute_tool(call["name"], **tool_args)
-            activities[-1].status = "completed"
-            activities[-1].detail = f"Tool returned: {json.dumps(raw_result)[:120]}"
-            tool_call_info["result"] = raw_result.get("result")
+            if is_write_query:
+                state.rl_context["pending_tool_call"] = call
+                state.hitl_needed = True
+                activities.append(Activity(
+                    type="decision", label="Intercepted write query",
+                    detail=f"Intercepted {call['name']} for approval",
+                    status="completed",
+                ))
+                result_text = f"The requested database modification has been recorded and submitted for human approval."
+                tool_call_info["result"] = {
+                    "status": "pending_approval",
+                    "query": call["args"].get("sql_query") if call["name"] == "execute_db_query" else f"Modify {call['args'].get('field')} for {call['args'].get('employee_id')}"
+                }
+            else:
+                activities.append(Activity(
+                    type="tool_call", label=f"Executing {call.get('name', 'tool')}",
+                    detail=f"Args: {json.dumps(call.get('args', {}))}",
+                    status="running",
+                ))
+                tool_args = dict(call["args"])
+                if call["name"] == "escalate_to_human":
+                    ctx = dict(tool_args.get("context") or {})
+                    ctx["session_id"] = state.session_id
+                    tool_args["context"] = ctx
 
-            # ── Step 5: Synthesise readable response ─────────────────────────
-            inner = raw_result.get("result", raw_result)
-            activities.append(Activity(
-                type="llm_call", label="Synthesising human-readable response",
-                detail="Converting raw tool result to natural language",
-                status="running",
-            ))
-            result_text = await _synthesise_response(state.query, call["name"], inner)
-            activities[-1].status = "completed"
-            activities[-1].detail = f"Response: {result_text[:80]}..."
+                raw_result = execute_tool(call["name"], **tool_args)
+                activities[-1].status = "completed"
+                activities[-1].detail = f"Tool returned: {json.dumps(raw_result)[:120]}"
+                tool_call_info["result"] = raw_result.get("result")
+
+                # ── Step 5: Synthesise readable response ─────────────────────────
+                inner = raw_result.get("result", raw_result)
+                activities.append(Activity(
+                    type="llm_call", label="Synthesising human-readable response",
+                    detail="Converting raw tool result to natural language",
+                    status="running",
+                ))
+                result_text = await _synthesise_response(state.query, call["name"], inner)
+                activities[-1].status = "completed"
+                activities[-1].detail = f"Response: {result_text[:80]}..."
 
     except Exception as e:
         result_text = f"Error executing tool `{call.get('name', 'unknown')}`: {e}"
@@ -312,6 +338,8 @@ async def action_node(state: SharedState) -> dict:
 
     elapsed = (datetime.now(timezone.utc) - start).total_seconds() * 1000
     return {
+        "hitl_needed": state.hitl_needed,
+        "rl_context": state.rl_context,
         "executed_actions": [result_text],
         "final_response": result_text,
         "messages": state.messages + [
