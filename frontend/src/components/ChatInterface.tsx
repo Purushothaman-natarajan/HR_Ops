@@ -25,7 +25,7 @@ const MODE_TEMPLATES: Record<Mode, { description: string; placeholder: string; e
     examples: [
       "Review whether a retroactive salary adjustment for EMP0001 is allowed under compensation policy.",
       "Check if sharing EMP0002 HR records with an external vendor is compliant.",
-      "Find all employees named John and show their department.",
+      "Find all employees named Daniel Taylor and show their department.",
     ],
   },
 };
