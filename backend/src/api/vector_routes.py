@@ -20,14 +20,26 @@ async def api_vector_status(request: Request):
     correlation_id = get_correlation_id(request)
     try:
         store = get_vector_store()
-        count = store._collection.count()
+        chunk_count = store._collection.count()
         persist = getattr(store, "_persist_directory", str(store._collection._persist_directory) if hasattr(store._collection, "_persist_directory") else "")
+        
+        # Calculate unique source files in collection
+        import os
+        data = store._collection.get(include=["metadatas"])
+        unique_sources = set()
+        if data and data.get("metadatas"):
+            for m in data["metadatas"]:
+                if m and m.get("source"):
+                    unique_sources.add(os.path.basename(m["source"]))
+        doc_count = len(unique_sources)
+
         cfg = settings.embed_config.get("embedding", {})
         return success_response(
             data={
                 "available": True,
                 "collection": "hr_policies",
-                "document_count": count,
+                "document_count": doc_count,
+                "chunk_count": chunk_count,
                 "embedding_model": cfg.get("model_name", "nvidia/nv-embed-v1"),
                 "dimension": cfg.get("dimension", 4096),
                 "persist_dir": persist,

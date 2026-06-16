@@ -5,6 +5,7 @@ interface VectorStoreInfo {
   available: boolean;
   collection: string;
   document_count: number;
+  chunk_count: number;
   embedding_model: string;
   dimension: number;
   persist_dir: string;
@@ -50,7 +51,7 @@ export function VectorDBStatus() {
           : info && !info.available
             ? `Embeddings: unavailable`
             : info
-              ? `Embeddings: ${info.embedding_model} (${info.document_count} docs)`
+              ? `Embeddings: ${info.embedding_model} (${info.document_count} docs, ${info.chunk_count} chunks)`
               : "Embeddings: checking..."}
       </span>
     </div>
