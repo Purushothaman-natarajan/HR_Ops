@@ -5,7 +5,7 @@ import { api } from "../api/client";
 import { TraceViewer } from "./TraceViewer";
 import { ActivityPanel, LiveActivityPanel } from "./ActivityPanel";
 import { Icon } from "./Icons";
-import type { ConversationMessage, TraceEvent, ActivityEvent, ConversationSession } from "../types";
+import type { ConversationMessage, TraceEvent, ConversationSession } from "../types";
 
 type Mode = "standard" | "advanced";
 
@@ -42,19 +42,7 @@ interface ChatInterfaceProps {
 }
 
 /** Multi-turn conversation chat with session management, source citations, and inline ratings. */
-interface NodeEvent {
-  node: string;
-  agent_role: string;
-  duration_ms: number;
-  output_text: string;
-  input_text: string;
-  cost_usd: number;
-  model_used: string;
-  activities?: ActivityEvent[];
-  reasoning?: string;
-  retrieved_docs?: Array<{ source: string; score: number; chunk: string }>;
-  tool_call?: Record<string, unknown>;
-}
+type NodeEvent = TraceEvent;
 
 /** Source citation chip — shows file name, score, and expandable chunk text. */
 function SourceCitation({ doc }: { doc: { source: string; score: number; chunk: string } }) {
@@ -505,10 +493,7 @@ export function ChatInterface({
               </div>
               {msg.role === "assistant" && msg.liveEvents && msg.liveEvents.length > 0 && (
                 <ActivityPanel
-                  events={msg.liveEvents.map((e) => ({
-                    ...e,
-                    cost_usd: e.cost_usd,
-                  }))}
+                  events={msg.liveEvents}
                   totalCost={msg.cost}
                   compact
                 />
@@ -523,6 +508,14 @@ export function ChatInterface({
               {/* Source Citations — shown for each assistant message that has retrieved docs */}
               {msg.role === "assistant" && msg.liveEvents && msg.liveEvents.length > 0 && (
                 <SourcesPanel events={msg.liveEvents} />
+              )}
+              {msg.role === "assistant" && msg.liveEvents && msg.liveEvents.length > 0 && (
+                <div style={{ marginTop: 12, borderTop: "1px solid var(--color-border)", paddingTop: 8 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-muted)", letterSpacing: "0.06em", marginBottom: 6 }}>
+                    TRACE EVENTS ({msg.liveEvents.length})
+                  </div>
+                  <TraceViewer events={msg.liveEvents} />
+                </div>
               )}
               {msg.role === "assistant" && (
                 <div className="chat-bubble-actions">

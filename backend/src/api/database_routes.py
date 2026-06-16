@@ -3,7 +3,7 @@
 import logging
 import shutil
 from pathlib import Path
-from fastapi import APIRouter, Request, UploadFile, File, HTTPException
+from fastapi import APIRouter, Request, UploadFile, File
 
 from backend.src.core.response import get_correlation_id, success_response, error_response
 from backend.src.database.connection import get_db_status
