@@ -160,7 +160,7 @@ export function DatabaseStatus() {
                     <div
                       style={{
                         display: "flex",
-                        justify: "space-between",
+                        justifyContent: "space-between",
                         fontSize: 13,
                         borderBottom: "1px solid var(--color-border)",
                         paddingBottom: 6,
@@ -173,7 +173,7 @@ export function DatabaseStatus() {
                       <div
                         style={{
                           display: "flex",
-                          justify: "space-between",
+                          justifyContent: "space-between",
                           fontSize: 13,
                           borderBottom: "1px solid var(--color-border)",
                           paddingBottom: 6,
@@ -187,7 +187,7 @@ export function DatabaseStatus() {
                       <div
                         style={{
                           display: "flex",
-                          justify: "space-between",
+                          justifyContent: "space-between",
                           fontSize: 13,
                           borderBottom: "1px solid var(--color-border)",
                           paddingBottom: 6,
@@ -201,7 +201,7 @@ export function DatabaseStatus() {
                       <div
                         style={{
                           display: "flex",
-                          justify: "space-between",
+                          justifyContent: "space-between",
                           fontSize: 13,
                           borderBottom: "1px solid var(--color-border)",
                           paddingBottom: 6,
@@ -215,7 +215,7 @@ export function DatabaseStatus() {
                       <div
                         style={{
                           display: "flex",
-                          justify: "space-between",
+                          justifyContent: "space-between",
                           fontSize: 13,
                           borderBottom: "1px solid var(--color-border)",
                           paddingBottom: 6,

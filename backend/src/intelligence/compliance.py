@@ -178,7 +178,10 @@ def evaluate_action(action_text: str, context: dict | None = None) -> Evaluation
         # Condition match (only checked if keyword hit OR context provided)
         condition_hit = _check_condition(condition, ctx) if condition else False
 
-        triggered = keyword_hit or condition_hit
+        if condition:
+            triggered = (keyword_hit and condition_hit) if keywords else condition_hit
+        else:
+            triggered = keyword_hit
         if not triggered:
             report_results.append(ComplianceResult(
                 rule_id=rid, category=rule.get("category", ""),

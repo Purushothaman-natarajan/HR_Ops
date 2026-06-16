@@ -79,7 +79,11 @@ _FORBIDDEN_NAME_WORDS = {
     "policy", "leave", "holiday", "vacation", "rules", "guidelines", "handbook",
     "schema", "table", "database", "query", "record", "system", "hr", "ops",
     "payroll", "salary", "bonus", "attendance", "performance", "training",
-    "safety", "employee", "staff", "person", "info", "information", "data", "all"
+    "safety", "employee", "staff", "person", "info", "information", "data", "all",
+    "and", "or", "but", "show", "list", "get", "find", "search", "who", "whom", 
+    "whose", "what", "where", "when", "why", "how", "their", "his", "her", "its", 
+    "them", "they", "him", "she", "me", "my", "your", "our", "us", "department", 
+    "dept", "office", "location", "role", "title", "position", "manager", "boss"
 }
 
 _EMP_ID_PATTERN = re.compile(r"\b(EMP\d{4,})\b", re.IGNORECASE)
@@ -89,8 +93,10 @@ def _is_valid_name(name: str) -> bool:
     name_lower = name.lower()
     if len(name_lower) < 2:
         return False
-    words = set(name_lower.split())
-    if words & _FORBIDDEN_NAME_WORDS:
+    words = name_lower.split()
+    if len(words) > 3:
+        return False
+    if set(words) & _FORBIDDEN_NAME_WORDS:
         return False
     return True
 
@@ -180,15 +186,8 @@ async def action_node(state: SharedState) -> dict:
         logger.info("action_node: pre-screened as %s(%s)", call["name"], call["args"])
     else:
         # ── Step 2: LLM tool parsing ─────────────────────────────────────────
-        from backend.src.tools.api_mocks import get_database_schema
-        schema_res = get_database_schema()
-        schema_str = ""
-        if schema_res.get("success"):
-            schema_str = "\nActive Database Schema:\n"
-            for table, cols in schema_res.get("schema", {}).items():
-                schema_str += f"- Table: {table}\n"
-                for col in cols:
-                    schema_str += f"  - {col['name']} ({col['type']}){' [PK]' if col['pk'] else ''}\n"
+        from backend.src.services.db_schema_store import get_schema_understanding
+        schema_understanding = await get_schema_understanding()
 
         prompt = (
             "Extract a tool call from the HR query.\n"
@@ -203,8 +202,8 @@ async def action_node(state: SharedState) -> dict:
             "  - If the query mentions a person's name (like 'John', 'ALICE', 'find Bob'), "
             "use search_employee_by_name with the name.\n"
             "  - Do NOT use get_database_schema unless the user explicitly asks about schema.\n"
-            "  - Use ? placeholders in SQL, provide values in 'parameters' list.\n"
-            f"{schema_str}\n"
+            "  - Use ? placeholders in SQL, provide values in 'parameters' list.\n\n"
+            f"Database Schema Understanding:\n{schema_understanding}\n\n"
             f"Query: {state.query}\n\n"
             "Reply ONLY with valid JSON:\n"
             '{"name": "tool_name", "args": {...}}'

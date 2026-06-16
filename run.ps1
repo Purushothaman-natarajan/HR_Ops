@@ -34,27 +34,12 @@ if (-not (Test-Path "frontend\node_modules")) {
     Pop-Location
 }
 
-function Start-RedirectedProcess($filePath, $arguments, $workingDir) {
-    $psi = New-Object System.Diagnostics.ProcessStartInfo
-    $psi.FileName = $filePath
-    $psi.Arguments = $arguments
-    $psi.WorkingDirectory = $workingDir
-    $psi.UseShellExecute = $false
-    $psi.RedirectStandardOutput = $true
-    $psi.RedirectStandardError = $true
-    $psi.CreateNoWindow = $true
-    $p = New-Object System.Diagnostics.Process
-    $p.StartInfo = $psi
-    $null = $p.Start()
-    return $p
-}
-
 Write-Host "[1/4] Starting backend on http://localhost:8000 ..." -ForegroundColor $cGreen
-$backend = Start-RedirectedProcess "cmd.exe" "/c $python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload" $rootDir
+$backend = Start-Process -FilePath $python -ArgumentList "-m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload" -WorkingDirectory $rootDir -NoNewWindow -PassThru
 Write-Host "       BACKEND PID: $($backend.Id)" -ForegroundColor $cGray
 
 Write-Host "[2/4] Starting frontend on http://localhost:5173 ..." -ForegroundColor $cGreen
-$frontend = Start-RedirectedProcess "cmd.exe" "/c cd /d `"$rootDir\frontend`" && npm run dev" $rootDir
+$frontend = Start-Process -FilePath "npm.cmd" -ArgumentList "run dev" -WorkingDirectory "$rootDir\frontend" -NoNewWindow -PassThru
 Write-Host "       FRONTEND PID: $($frontend.Id)" -ForegroundColor $cGray
 
 Write-Host "[3/4] Waiting for backend to be ready..." -ForegroundColor $cGreen
@@ -96,16 +81,6 @@ Write-Host ""
 
 try {
     do {
-        $beLine = $backend.StandardOutput.ReadLine()
-        if ($beLine) { Write-Host "[BACKEND] $beLine" -ForegroundColor $cGray }
-        $beErr = $backend.StandardError.ReadLine()
-        if ($beErr) { Write-Host "[BACKEND] $beErr" -ForegroundColor $cRed }
-
-        $feLine = $frontend.StandardOutput.ReadLine()
-        if ($feLine) { Write-Host "[FRONTEND] $feLine" -ForegroundColor $cGold }
-        $feErr = $frontend.StandardError.ReadLine()
-        if ($feErr) { Write-Host "[FRONTEND] $feErr" -ForegroundColor $cRed }
-
         $backendAlive  = -not $backend.HasExited
         $frontendAlive = -not $frontend.HasExited
 
@@ -113,12 +88,12 @@ try {
         if (-not $backendAlive) { Write-Host "[WARN] Backend exited" -ForegroundColor $cRed; break }
         if (-not $frontendAlive) { Write-Host "[WARN] Frontend exited" -ForegroundColor $cRed }
 
-        Start-Sleep -Milliseconds 200
+        Start-Sleep -Seconds 1
     } while ($backendAlive -or $frontendAlive)
 
 } finally {
-    if (-not $backend.HasExited) { $backend.Kill() }
-    if (-not $frontend.HasExited) { $frontend.Kill() }
+    if (-not $backend.HasExited) { Stop-Process -Id $backend.Id -Force -ErrorAction SilentlyContinue }
+    if (-not $frontend.HasExited) { Stop-Process -Id $frontend.Id -Force -ErrorAction SilentlyContinue }
 }
 
 Write-Host "`nAll services stopped." -ForegroundColor $cYellow

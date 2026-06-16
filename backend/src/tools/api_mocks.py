@@ -304,10 +304,10 @@ TOOL_REGISTRY: dict[str, Any] = {  # Maps tool names to their implementation fun
 }
 
 
-def execute_tool(name: str, **kwargs) -> dict:
+def execute_tool(tool_name: str, **kwargs) -> dict:
     """Dispatch a tool call by name, passing keyword arguments, and return the result wrapped in a result envelope."""
-    fn = TOOL_REGISTRY.get(name)
+    fn = TOOL_REGISTRY.get(tool_name)
     if not fn:
-        raise ValueError(f"Unknown tool: {name}")
+        raise ValueError(f"Unknown tool: {tool_name}")
     result = fn(**kwargs)
-    return {"tool": name, "result": result}
+    return {"tool": tool_name, "result": result}

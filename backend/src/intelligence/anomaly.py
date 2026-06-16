@@ -439,6 +439,19 @@ def detect_compliance_anomalies(employees: list[dict]) -> list[AnomalyResult]:
                     supporting_data={"employee_id": eid, "tenure_years": round(tenure, 1), "rating": rating, "org_mean": round(perf_mean, 2)},
                 ))
 
+        # Rule 18b — compliance_status is flagged
+        if e.get("compliance_status") == "flagged":
+            results.append(AnomalyResult(
+                detected=True,
+                severity=0.8,
+                confidence_score=0.9,
+                description=f"[COMPLY-STATUS] Employee {name} has flagged compliance status",
+                anomaly_field="compliance_status",
+                anomaly_type="compliance_flagged_status",
+                recommended_action="escalate_hr_review",
+                supporting_data={"employee_id": eid, "compliance_status": "flagged"},
+            ))
+
     return results
 
 

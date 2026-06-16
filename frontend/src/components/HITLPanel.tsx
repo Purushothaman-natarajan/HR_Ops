@@ -290,7 +290,7 @@ function HitlItemCard({
             </div>
             <div style={{ fontSize: 14, fontWeight: 600, color: "var(--color-text)", marginTop: 4, display: "flex", alignItems: "center", gap: 6 }}>
               <span style={{ width: 6, height: 6, borderRadius: "50%", background: statusColor }} />
-              {anomalyField.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}
+              {anomalyField.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase())}
             </div>
           </div>
           <div>

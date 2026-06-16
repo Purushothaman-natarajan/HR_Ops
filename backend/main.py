@@ -44,7 +44,10 @@ from backend.src.utils.logger import get_logger
 from backend.src.utils.model_router import close_nvidia_http_client
 from backend.src.services import policy_service
 from backend.src.services.scheduler import scheduler
-from backend.src.services.db_schema_store import get_schema_prompt as _warmup_schema
+from backend.src.services.db_schema_store import (
+    get_schema_prompt as _warmup_schema,
+    warmup_schema_understanding as _warmup_schema_understanding,
+)
 
 logger = get_logger("hr_ops")
 
@@ -95,6 +98,7 @@ async def lifespan(app: FastAPI):
     loop = asyncio.get_running_loop()
     loop.create_task(asyncio.to_thread(_warmup_embeddings))
     loop.create_task(asyncio.to_thread(_warmup_schema))  # cache DB schema for Text-to-SQL
+    loop.create_task(_warmup_schema_understanding())     # generate LLM schema understanding
     if settings.startup_reindex:
         loop.create_task(policy_service._migrate_if_needed())
     else:

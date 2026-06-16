@@ -5,7 +5,7 @@ import { api } from "../api/client";
 import { TraceViewer } from "./TraceViewer";
 import { ActivityPanel, LiveActivityPanel } from "./ActivityPanel";
 import { Icon } from "./Icons";
-import type { ConversationMessage, TraceEvent, ConversationSession } from "../types";
+import type { ConversationMessage, TraceEvent } from "../types";
 
 type Mode = "standard" | "advanced";
 

@@ -51,7 +51,7 @@ const ICON_SVGS = {
       <line x1="4" y1="22" x2="4" y2="15" />
     </>
   ),
-  trace: (
+  layers: (
     <>
       <polygon points="12 2 2 7 12 12 22 7 12 2" />
       <polyline points="2 17 12 22 22 17" />

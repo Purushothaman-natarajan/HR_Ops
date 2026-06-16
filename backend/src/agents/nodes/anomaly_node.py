@@ -59,7 +59,8 @@ async def anomaly_node(state: SharedState) -> dict:
         detail="Fetching all employees for anomaly sweep",
         status="running",
     ))
-    employees = query_all_employees()
+    import asyncio
+    employees = await asyncio.to_thread(query_all_employees)
     activities[-1].status = "completed"
     activities[-1].detail = f"Loaded {len(employees)} employees from DB"
 
@@ -69,7 +70,7 @@ async def anomaly_node(state: SharedState) -> dict:
         detail="Payroll Z-score+IQR, leave-abuse patterns, compliance violations",
         status="running",
     ))
-    results = run_anomaly_detection(employees)
+    results = await asyncio.to_thread(run_anomaly_detection, employees)
     anomaly_count = len(results)
 
     # Bucket anomalies by routing decision
@@ -95,7 +96,8 @@ async def anomaly_node(state: SharedState) -> dict:
     # ── 3. Episodic memory recall ────────────────────────────────────────────
     past_context = ""
     try:
-        past_incidents = episodic_memory.recall_similar_incidents(state.query, k=3)
+        import asyncio
+        past_incidents = await asyncio.to_thread(episodic_memory.recall_similar_incidents, state.query, k=3)
         if past_incidents:
             past_context = "\n".join(f"• {inc['content']}" for inc in past_incidents)
             activities.append(Activity(
@@ -119,18 +121,22 @@ async def anomaly_node(state: SharedState) -> dict:
 
     # ── 5. Store critical anomalies to episodic memory ───────────────────────
     try:
-        for anomaly in results:
-            if anomaly.severity >= 0.75:
-                episodic_memory.store_incident(
-                    trigger_type=anomaly.anomaly_type or "anomaly",
-                    query=anomaly.description,
-                    result_summary=(
-                        f"Action: {anomaly.recommended_action} | "
-                        f"Confidence: {anomaly.confidence_score:.0%} | "
-                        f"Data: {anomaly.supporting_data}"
-                    ),
-                    severity=anomaly.severity,
-                )
+        import asyncio
+        critical_anomalies = [a for a in results if a.severity >= 0.85]
+        # Limit to top 5 to avoid overloading the vector DB and network API
+        critical_anomalies = sorted(critical_anomalies, key=lambda x: x.severity, reverse=True)[:5]
+        for anomaly in critical_anomalies:
+            await asyncio.to_thread(
+                episodic_memory.store_incident,
+                trigger_type=anomaly.anomaly_type or "anomaly",
+                query=anomaly.description,
+                result_summary=(
+                    f"Action: {anomaly.recommended_action} | "
+                    f"Confidence: {anomaly.confidence_score:.0%} | "
+                    f"Data: {anomaly.supporting_data}"
+                ),
+                severity=anomaly.severity,
+            )
     except Exception as e:
         logger.warning("Episodic memory store failed: %s", e)
 

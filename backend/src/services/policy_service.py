@@ -208,8 +208,9 @@ async def _migrate_if_needed():
         return
     needs_reindex = False
     try:
+        import asyncio
         store = get_vector_store("hr_policies")
-        existing = store.get()
+        existing = await asyncio.to_thread(store.get)
         db_count = len(existing.get("ids", [])) if existing else 0
         on_disk = sum(
             1 for p in POLICIES_DIR.iterdir()
@@ -245,8 +246,10 @@ async def _reindex_all():
     chunker = RecursiveChunking(chunk_size=800, chunk_overlap=150)
     store = get_vector_store("hr_policies")
 
+    import asyncio
+
     # 1. Retrieve all existing chunks from the database to check for duplicates & hashes
-    existing = store.get()
+    existing = await asyncio.to_thread(store.get)
     existing_files: dict[str, dict] = {}
 
     if existing and existing.get("ids"):
@@ -277,7 +280,7 @@ async def _reindex_all():
         if duplicates_to_delete:
             logger.info("Deleting %d duplicate or invalid chunk records from database...", len(duplicates_to_delete))
             try:
-                store.delete(duplicates_to_delete)
+                await asyncio.to_thread(store.delete, duplicates_to_delete)
             except Exception:
                 logger.exception("Failed to delete duplicate/invalid chunks")
 
@@ -322,7 +325,7 @@ async def _reindex_all():
                 old_ids = existing_files[filename]["ids"]
                 logger.info("Policy %s changed/mismatched — deleting %d old chunks...", filename, len(old_ids))
                 try:
-                    store.delete(old_ids)
+                    await asyncio.to_thread(store.delete, old_ids)
                 except Exception:
                     logger.exception("Failed to delete old chunks for changed policy %s", filename)
 
@@ -351,7 +354,7 @@ async def _reindex_all():
             if batch_docs:
                 batch_size = 10
                 for idx in range(0, len(batch_docs), batch_size):
-                    store.add_documents(batch_docs[idx:idx + batch_size], ids=batch_ids[idx:idx + batch_size])
+                    await asyncio.to_thread(store.add_documents, batch_docs[idx:idx + batch_size], ids=batch_ids[idx:idx + batch_size])
                 logger.info("Indexed %d chunks for %s", len(batch_docs), filename)
                 total_indexed_chunks += len(batch_docs)
 
@@ -360,7 +363,7 @@ async def _reindex_all():
         if existing_file not in indexed_files:
             logger.info("Policy file %s was deleted from disk — removing %d chunks from vector database...", existing_file, len(info["ids"]))
             try:
-                store.delete(info["ids"])
+                await asyncio.to_thread(store.delete, info["ids"])
             except Exception:
                 logger.exception("Failed to delete chunks for removed file %s", existing_file)
 

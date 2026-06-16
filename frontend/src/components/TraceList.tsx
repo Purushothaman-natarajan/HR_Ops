@@ -314,7 +314,7 @@ function TraceRow({
                     onClick={(e) => {
                       e.stopPropagation();
                       // Auto-detect mode from the run itself or default to advanced
-                      onContinueSession(run.session_id);
+                      onContinueSession(run.session_id!);
                     }}
                     style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
                   >

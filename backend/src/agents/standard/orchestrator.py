@@ -154,16 +154,8 @@ async def _policy_node(state: SharedState) -> dict:
 async def _action_node(state: SharedState) -> dict:
     """Parse a tool call from the query and execute it (lookup, modify, or escalate)."""
     start = datetime.now(timezone.utc)
-    # Fetch active database schema dynamically to inject into prompt
-    from backend.src.tools.api_mocks import get_database_schema
-    schema_res = get_database_schema()
-    schema_str = ""
-    if schema_res.get("success"):
-        schema_str = "\nActive Database Schema:\n"
-        for table, cols in schema_res.get("schema", {}).items():
-            schema_str += f"- Table: {table}\n"
-            for col in cols:
-                schema_str += f"  - {col['name']} ({col['type']}){ ' [PK]' if col['pk'] else '' }\n"
+    from backend.src.services.db_schema_store import get_schema_understanding
+    schema_understanding = await get_schema_understanding()
 
     prompt = (
         f"Extract the tool call from the query. Valid tools:\n"
@@ -172,8 +164,8 @@ async def _action_node(state: SharedState) -> dict:
         f"- lookup_employee(employee_id: str)\n"
         f"- modify_record(employee_id: str, field: str, value: any)\n"
         f"- escalate_to_human(employee_id: str, reason: str)\n\n"
-        f"Use `execute_db_query` with parameterized SQLite queries to retrieve or modify records in the active database tables. ALWAYS use `?` placeholders for user inputs to prevent SQL injection and supply the values in the `parameters` list.\n"
-        f"{schema_str}\n"
+        f"Use `execute_db_query` with parameterized SQLite queries to retrieve or modify records in the active database tables. ALWAYS use `?` placeholders for user inputs to prevent SQL injection and supply the values in the `parameters` list.\n\n"
+        f"Database Schema Understanding:\n{schema_understanding}\n\n"
         f"Query: {state.query}\n\n"
         f"Reply with a JSON object: {{\"name\": \"tool_name\", \"args\": {{...}}}}"
     )

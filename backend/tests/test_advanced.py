@@ -146,7 +146,7 @@ class TestAnomalyDetection:
         ]
         results = run_anomaly_detection(employees)
         detected = [r for r in results if r.detected]
-        assert any("Salary" in r.description for r in detected)
+        assert any("salary" in r.description.lower() for r in detected)
 
     def test_detects_compliance_flag(self):
         employees = [

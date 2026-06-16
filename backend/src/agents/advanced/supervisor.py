@@ -31,9 +31,10 @@ class SupervisorCache:
         self.ttl_seconds = ttl_seconds
         self._store: dict[str, dict] = {}
 
-    def _embed(self, text: str) -> list[float]:
+    async def _embed(self, text: str) -> list[float]:
         if _SUPERVISOR_ENCODER:
-            return _SUPERVISOR_ENCODER.embed_query(text)
+            import asyncio
+            return await asyncio.to_thread(_SUPERVISOR_ENCODER.embed_query, text)
         return []
 
     def _cosine_sim(self, a: list[float], b: list[float]) -> float:
@@ -43,8 +44,8 @@ class SupervisorCache:
         b_arr = np.array(b)
         return float(np.dot(a_arr, b_arr) / (np.linalg.norm(a_arr) * np.linalg.norm(b_arr) + 1e-10))
 
-    def get(self, query: str) -> str | None:
-        q_emb = self._embed(query)
+    async def get(self, query: str) -> str | None:
+        q_emb = await self._embed(query)
         now = time.time()
         for key, entry in list(self._store.items()):
             if now - entry["ts"] > self.ttl_seconds:
@@ -57,12 +58,13 @@ class SupervisorCache:
         logger.debug("Supervisor cache MISS: query=%.50s", query)
         return None
 
-    def set(self, query: str, agent: str):
+    async def set(self, query: str, agent: str):
         import hashlib
         key = hashlib.md5(query.encode()).hexdigest()
+        q_emb = await self._embed(query)
         self._store[key] = {
             "agent": agent,
-            "embedding": self._embed(query),
+            "embedding": q_emb,
             "ts": time.time(),
         }
 
@@ -91,7 +93,7 @@ async def supervisor_decision(state: SharedState) -> dict:
             detail="Comparing query embedding against cached classifications",
             status="completed",
         ))
-        cached_agent = supervisor_cache.get(state.query)
+        cached_agent = await supervisor_cache.get(state.query)
         if cached_agent:
             llm_decision = cached_agent
             reasoning_detail = f"Cache hit: routed to {cached_agent}"
@@ -127,7 +129,7 @@ async def supervisor_decision(state: SharedState) -> dict:
             llm_decision = llm_decision.strip().lower()
             activities[-1].status = "completed"
             activities[-1].detail = f"LLM classified as: {llm_decision}"
-            supervisor_cache.set(state.query, llm_decision)
+            await supervisor_cache.set(state.query, llm_decision)
             reasoning_detail = f"LLM classified as '{llm_decision}'"
     elif trigger == TriggerType.SCHEDULED:
         llm_decision = "anomaly"

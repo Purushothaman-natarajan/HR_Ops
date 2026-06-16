@@ -6,7 +6,7 @@ describe('API Metrics Client', () => {
     // Clear metrics before each test
     clearApiMetrics();
     // Mock the global fetch
-    global.fetch = vi.fn();
+    globalThis.fetch = vi.fn();
     // Mock performance.now to have predictable durations
     vi.spyOn(performance, 'now').mockReturnValueOnce(100).mockReturnValueOnce(250);
   });
@@ -22,7 +22,7 @@ describe('API Metrics Client', () => {
 
   it('should record a metric on successful API call', async () => {
     const mockResponse = { status: 'ok' };
-    (global.fetch as any).mockResolvedValueOnce({
+    (globalThis.fetch as any).mockResolvedValueOnce({
       ok: true,
       status: 200,
       json: async () => mockResponse,
@@ -44,7 +44,7 @@ describe('API Metrics Client', () => {
   });
 
   it('should record a metric on failed API call (HTTP error)', async () => {
-    (global.fetch as any).mockResolvedValueOnce({
+    (globalThis.fetch as any).mockResolvedValueOnce({
       ok: false,
       status: 500,
       statusText: 'Internal Server Error',
@@ -64,7 +64,7 @@ describe('API Metrics Client', () => {
   });
 
   it('should record a metric on network error', async () => {
-    (global.fetch as any).mockRejectedValueOnce(new Error('Network error'));
+    (globalThis.fetch as any).mockRejectedValueOnce(new Error('Network error'));
 
     await expect(api.health()).rejects.toThrow('Network error');
 
@@ -81,13 +81,12 @@ describe('API Metrics Client', () => {
   it('should enforce MAX_METRICS limit (500)', async () => {
     // Fill up to max
     const MAX_METRICS = 500;
-    const initialTime = Date.now();
 
     // We bypass fetch for speed and call the unexported recordMetric indirectly
     // To do that, we mock performance to always return standard values
     // to not clutter the test, and mock fetch to return immediately.
     vi.restoreAllMocks();
-    global.fetch = vi.fn().mockResolvedValue({
+    globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
       json: async () => ({ status: 'ok' }),
@@ -108,7 +107,7 @@ describe('API Metrics Client', () => {
   });
 
   it('should clear metrics', async () => {
-    (global.fetch as any).mockResolvedValueOnce({
+    (globalThis.fetch as any).mockResolvedValueOnce({
       ok: true,
       status: 200,
       json: async () => ({ status: 'ok' }),
@@ -122,7 +121,7 @@ describe('API Metrics Client', () => {
   });
 
   it('should handle POST requests correctly in metrics', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (globalThis.fetch as any).mockResolvedValueOnce({
         ok: true,
         status: 201,
         json: async () => ({ session_id: '123' }),
