@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HR Ops — Self-Healing HR Operations Platform</title>
+  <meta name="description" content="A LangGraph Multi-Agent system for self-healing HR operations, including RL routing, anomaly detection, compliance guardrails, and human-in-the-loop validation.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Sticky Navbar -->
+  <nav class="hrops-navbar" id="home">
+    <div class="hrops-container hrops-nav-container">
+      <a href="#home" class="hrops-brand">
+        <div class="hrops-brand-badge">HR</div>
+        <span>HR Ops</span>
+      </a>
+      <div class="hrops-nav-links">
+        <a href="#home" class="hrops-nav-link">Home</a>
+        <a href="#architecture" class="hrops-nav-link">Architecture</a>
+        <a href="#agents" class="hrops-nav-link">Agents</a>
+        <a href="#intelligence" class="hrops-nav-link">Intelligence</a>
+        <a href="#stack" class="hrops-nav-link">Stack</a>
+        <a href="#roadmap" class="hrops-nav-link">Roadmap</a>
+      </div>
+      <a href="https://github.com/purushothaman-natarajan/HR_Ops" target="_blank" rel="noopener noreferrer" class="hrops-nav-github">
+        <svg height="16" viewBox="0 0 16 16" width="16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path></svg>
+        <span>GitHub</span>
+      </a>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <header class="hrops-hero">
+    <div class="hrops-container">
+      <div class="hrops-hero-badge">
+        <span class="hrops-badge-dot" style="width:8px; height:8px; background-color:var(--color-primary); border-radius:50%; display:inline-block;"></span>
+        LangGraph Multi-Agent System
+      </div>
+      <h1 class="hrops-hero-title">Self-Healing HR Operations Platform</h1>
+      <p class="hrops-hero-subtitle">Multi-agent orchestration with RL-driven routing, anomaly detection, compliance enforcement, and human-in-the-loop oversight</p>
+      
+      <div class="hrops-hero-ctas">
+        <a href="#setup" class="hrops-btn hrops-btn-primary">Get Started</a>
+        <a href="https://github.com/purushothaman-natarajan/HR_Ops" target="_blank" rel="noopener noreferrer" class="hrops-btn hrops-btn-secondary">View on GitHub</a>
+      </div>
+
+      <div class="hrops-hero-stats">
+        <div class="hrops-stat-card">
+          <div class="hrops-stat-num">7</div>
+          <div class="hrops-stat-label">Agents Orchestrated</div>
+        </div>
+        <div class="hrops-stat-card">
+          <div class="hrops-stat-num">23</div>
+          <div class="hrops-stat-label">Anomaly Rules</div>
+        </div>
+        <div class="hrops-stat-card">
+          <div class="hrops-stat-num">20</div>
+          <div class="hrops-stat-label">Compliance Rules</div>
+        </div>
+        <div class="hrops-stat-card">
+          <div class="hrops-stat-num">6</div>
+          <div class="hrops-stat-label">Chunking Strategies</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Quick Setup Section -->
+  <section class="hrops-section" id="setup">
+    <div class="hrops-container">
+      <div class="hrops-section-header">
+        <span class="hrops-section-badge">Installation</span>
+        <h2 class="hrops-section-title">Quick Setup</h2>
+        <p class="hrops-section-subtitle">Get the HR Operations environment up and running in three simple steps.</p>
+      </div>
+
+      <div class="hrops-setup-grid">
+        <div class="hrops-setup-steps">
+          <div class="hrops-step">
+            <div class="hrops-step-num">1</div>
+            <div class="hrops-step-content">
+              <h3>Clone the Repository</h3>
+              <p>Download the latest version of the HR Ops platform codebase directly from GitHub.</p>
+            </div>
+          </div>
+          <div class="hrops-step">
+            <div class="hrops-step-num">2</div>
+            <div class="hrops-step-content">
+              <h3>Navigate to Project Folder</h3>
+              <p>Change your working directory to the cloned repository folder containing script launchers.</p>
+            </div>
+          </div>
+          <div class="hrops-step">
+            <div class="hrops-step-num">3</div>
+            <div class="hrops-step-content">
+              <h3>Run the Launcher</h3>
+              <p>Execute the provided PowerShell setup script to set up virtual environments and dependencies.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="hrops-code-widget">
+          <div class="hrops-code-header">
+            <div class="hrops-code-dots">
+              <span class="hrops-code-dot"></span>
+              <span class="hrops-code-dot"></span>
+              <span class="hrops-code-dot"></span>
+            </div>
+            <div class="hrops-code-title">powershell</div>
+            <button class="hrops-code-copy-btn" id="copy-btn">
+              <svg height="12" viewBox="0 0 16 16" width="12" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25v-7.5z"></path><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25v-7.5zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25h-7.5z"></path></svg>
+              <span>Copy</span>
+            </button>
+          </div>
+          <div class="hrops-code-body">
+            <div class="hrops-code-line">
+              <span class="hrops-code-prompt">PS&gt;</span>
+              <span class="hrops-code-cmd" id="code-snippet-1">git clone https://github.com/purushothaman-natarajan/HR_Ops.git</span>
+            </div>
+            <div class="hrops-code-line">
+              <span class="hrops-code-prompt">PS&gt;</span>
+              <span class="hrops-code-cmd" id="code-snippet-2">cd HR_Ops</span>
+            </div>
+            <div class="hrops-code-line">
+              <span class="hrops-code-prompt">PS&gt;</span>
+              <span class="hrops-code-cmd" id="code-snippet-3">.\run.ps1</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Architecture Decisions Section -->
+  <section class="hrops-section" id="architecture">
+    <div class="hrops-container">
+      <div class="hrops-section-header">
+        <span class="hrops-section-badge">System Design</span>
+        <h2 class="hrops-section-title">Architecture & Decisions</h2>
+        <p class="hrops-section-subtitle">Visualizing the multi-agent state graph and key engineering decisions.</p>
+      </div>
+
+      <!-- CSS Flowchart -->
+      <div class="hrops-flowchart-container">
+        <!-- Row 1: Supervisor -->
+        <div class="hrops-flowchart-row">
+          <div class="hrops-flowchart-node supervisor">
+            <div class="hrops-flowchart-node-label">Supervisor Node</div>
+            <div class="hrops-flowchart-node-subtitle">LLM + RL Bandit (LinUCB)</div>
+          </div>
+        </div>
+        
+        <div class="hrops-flowchart-connector-vertical"></div>
+        
+        <!-- Row 2: Four Core Nodes -->
+        <div class="hrops-flowchart-row">
+          <div class="hrops-flowchart-multi-split">
+            <!-- Branch 1: Policy Agent -->
+            <div style="position: relative; display: flex; flex-direction: column; align-items: center;">
+              <div class="hrops-flowchart-branch-line"></div>
+              <div class="hrops-flowchart-node">
+                <div class="hrops-flowchart-node-label">Policy Agent</div>
+                <div class="hrops-flowchart-node-subtitle">RAG via ChromaDB</div>
+              </div>
+              <div class="hrops-flowchart-branch-line-down"></div>
+            </div>
+            
+            <!-- Branch 2: Action Agent -->
+            <div style="position: relative; display: flex; flex-direction: column; align-items: center;">
+              <div class="hrops-flowchart-branch-line"></div>
+              <div class="hrops-flowchart-node">
+                <div class="hrops-flowchart-node-label">Action Agent</div>
+                <div class="hrops-flowchart-node-subtitle">Tool Parsing & Execution</div>
+              </div>
+              <div class="hrops-flowchart-branch-line-down"></div>
+            </div>
+            
+            <!-- Branch 3: Anomaly Engine -->
+            <div style="position: relative; display: flex; flex-direction: column; align-items: center;">
+              <div class="hrops-flowchart-branch-line"></div>
+              <div class="hrops-flowchart-node">
+                <div class="hrops-flowchart-node-label">Anomaly Engine</div>
+                <div class="hrops-flowchart-node-subtitle">23-Rule Engine Pipeline</div>
+              </div>
+            </div>
+            
+            <!-- Branch 4: Compliance Rules -->
+            <div style="position: relative; display: flex; flex-direction: column; align-items: center;">
+              <div class="hrops-flowchart-branch-line"></div>
+              <div class="hrops-flowchart-node">
+                <div class="hrops-flowchart-node-label">Compliance Rules</div>
+                <div class="hrops-flowchart-node-subtitle">YAML Rules Engine</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="hrops-flowchart-connector-vertical"></div>
+        
+        <!-- Row 3: Parallel Check Container -->
+        <div class="hrops-flowchart-row">
+          <div class="hrops-flowchart-node parallel">
+            <div class="hrops-flowchart-node-label">Parallel Check</div>
+            <div class="hrops-flowchart-node-subtitle">asyncio.gather() concurrent checks</div>
+            <div class="hrops-flowchart-parallel-inner">
+              <div class="hrops-flowchart-subnode">Anomaly (bg check)</div>
+              <div class="hrops-flowchart-subnode">Compliance (bg check)</div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="hrops-flowchart-connector-vertical"></div>
+        
+        <!-- Row 4: HITL / END Decision -->
+        <div class="hrops-flowchart-row">
+          <div class="hrops-flowchart-decision-row">
+            <div class="hrops-flowchart-node" style="border-color: var(--color-warning); background-color: var(--color-warning-light);">
+              <div class="hrops-flowchart-node-label">HITL Review</div>
+              <div class="hrops-flowchart-node-subtitle">UI Escalate Node</div>
+            </div>
+            <div class="hrops-flowchart-node" style="border-color: var(--color-success); background-color: var(--color-success-light);">
+              <div class="hrops-flowchart-node-label">END Node</div>
+              <div class="hrops-flowchart-node-subtitle">Execution Complete</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 6 Design Decision Cards -->
+      <div class="hrops-decisions-grid">
+        <div class="hrops-decision-card">
+          <div class="hrops-decision-icon">01</div>
+          <h3 class="hrops-decision-title">Parallel Background Checks</h3>
+          <p class="hrops-decision-desc">Anomaly + Compliance run concurrently via <code>asyncio.gather()</code> after Policy/Action nodes. Reduces platform response latency by ~50% while protecting read-only queries from irrelevant HITL delays.</p>
+        </div>
+        <div class="hrops-decision-card">
+          <div class="hrops-decision-icon">02</div>
+          <h3 class="hrops-decision-title">RL-Augmented Routing</h3>
+          <p class="hrops-decision-desc">Supervisor uses LLM classification + LinUCB bandit re-ranking (8-dim context) to optimize routing. Learns dynamically from feedback + auto-rewards, while core system tasks bypass the bandit.</p>
+        </div>
+        <div class="hrops-decision-card">
+          <div class="hrops-decision-icon">03</div>
+          <h3 class="hrops-decision-title">Multi-Layer Semantic Cache</h3>
+          <p class="hrops-decision-desc">Dual caching layers: Supervisor cache (0.95 threshold, 1h TTL) and Response cache (0.95, 24h TTL) for maximum speed. Both utilize nv-embed-v1 to maintain vector space consistency.</p>
+        </div>
+        <div class="hrops-decision-card">
+          <div class="hrops-decision-icon">04</div>
+          <h3 class="hrops-decision-title">Confidence Anomaly Routing</h3>
+          <p class="hrops-decision-desc">Intelligent triage: Auto-escalates for confidence &ge;0.85, triggers human-in-the-loop (HITL) for 0.65&ndash;0.85, and logs informational events for &lt;0.65. De-duplicates by employee and anomaly type.</p>
+        </div>
+        <div class="hrops-decision-card">
+          <div class="hrops-decision-icon">05</div>
+          <h3 class="hrops-decision-title">Deterministic Compliance</h3>
+          <p class="hrops-decision-desc">Fully auditable YAML-driven rules engine with keyword + conditional evaluations. Actions include veto, flag, or warn. Embedded with 6 hard-veto keywords to block sensitive operations unconditionally.</p>
+        </div>
+        <div class="hrops-decision-card">
+          <div class="hrops-decision-icon">06</div>
+          <h3 class="hrops-decision-title">Self-Healing Loop</h3>
+          <p class="hrops-decision-desc">Continuous alignment: User feedback updates the RL bandit weights, triggering DSPy MIPROv2 prompt optimization schedules weekly to improve overall graph routing efficiency.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Agent System Section -->
+  <section class="hrops-section" id="agents">
+    <div class="hrops-container">
+      <div class="hrops-section-header">
+        <span class="hrops-section-badge">Orchestration</span>
+        <h2 class="hrops-section-title">The Multi-Agent System</h2>
+        <p class="hrops-section-subtitle">Seven specialized autonomous nodes collaborating within the state graph.</p>
+      </div>
+
+      <div class="hrops-table-card">
+        <div class="hrops-table-wrapper">
+          <table class="hrops-table">
+            <thead>
+              <tr>
+                <th>Agent</th>
+                <th>Role & Capabilities</th>
+                <th>File Reference</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <div class="hrops-agent-name">
+                    <span>Supervisor</span>
+                    <span class="hrops-agent-badge badge-core">Core</span>
+                  </div>
+                </td>
+                <td class="hrops-text-secondary">LLM classification + RL bandit re-ranking + multi-layer semantic caching</td>
+                <td><span class="hrops-agent-file">supervisor.py</span></td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="hrops-agent-name">
+                    <span>Policy</span>
+                    <span class="hrops-agent-badge badge-core">Core</span>
+                  </div>
+                </td>
+                <td class="hrops-text-secondary">RAG over HR policies, employee manuals, and documents via ChromaDB</td>
+                <td><span class="hrops-agent-file">policy_node.py</span></td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="hrops-agent-name">
+                    <span>Action</span>
+                    <span class="hrops-agent-badge badge-core">Core</span>
+                  </div>
+                </td>
+                <td class="hrops-text-secondary">Pre-screening, tool argument parsing, guardrail checks, execution, and synthesis</td>
+                <td><span class="hrops-agent-file">action_node.py</span></td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="hrops-agent-name">
+                    <span>Anomaly</span>
+                    <span class="hrops-agent-badge badge-utility">Utility</span>
+                  </div>
+                </td>
+                <td class="hrops-text-secondary">23-rule statistical anomaly detection pipeline + long-term episodic memory</td>
+                <td><span class="hrops-agent-file">anomaly_node.py</span></td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="hrops-agent-name">
+                    <span>Compliance</span>
+                    <span class="hrops-agent-badge badge-utility">Utility</span>
+                  </div>
+                </td>
+                <td class="hrops-text-secondary">YAML-driven deterministic rule compliance engine enforcing organizational guardrails</td>
+                <td><span class="hrops-agent-file">compliance_node.py</span></td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="hrops-agent-name">
+                    <span>HITL</span>
+                    <span class="hrops-agent-badge badge-utility">Utility</span>
+                  </div>
+                </td>
+                <td class="hrops-text-secondary">Sends review requests to the AG-UI for human oversight and routing feedback</td>
+                <td><span class="hrops-agent-file">hitl_escalation_node.py</span></td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="hrops-agent-name">
+                    <span>Parallel Check</span>
+                    <span class="hrops-agent-badge badge-utility">Utility</span>
+                  </div>
+                </td>
+                <td class="hrops-text-secondary">Coordinates concurrent execution of anomaly and compliance nodes via asyncio.gather</td>
+                <td><span class="hrops-agent-file">parallel_check_node.py</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Intelligence Layer Section -->
+  <section class="hrops-section" id="intelligence">
+    <div class="hrops-container">
+      <div class="hrops-section-header">
+        <span class="hrops-section-badge">Intelligence</span>
+        <h2 class="hrops-section-title">Intelligence Layer</h2>
+        <p class="hrops-section-subtitle">Deep dive into the reinforcement learning, compliance metrics, rules engine, and prompt optimizer.</p>
+      </div>
+
+      <div class="hrops-tabs-container">
+        <div class="hrops-tabs-header">
+          <button class="hrops-tab-btn active" onclick="switchTab(event, 'rl-routing')">RL Routing</button>
+          <button class="hrops-tab-btn" onclick="switchTab(event, 'anomaly-detection')">Anomaly Detection</button>
+          <button class="hrops-tab-btn" onclick="switchTab(event, 'compliance-engine')">Compliance Engine</button>
+          <button class="hrops-tab-btn" onclick="switchTab(event, 'dspy-optimization')">DSPy Optimization</button>
+        </div>
+
+        <!-- Tab 1: RL Routing -->
+        <div id="rl-routing" class="hrops-tab-content active">
+          <div class="hrops-intelligence-grid">
+            <div class="hrops-tab-info">
+              <h3>LinUCB Contextual Bandit</h3>
+              <p>The routing supervisor implements a Linear Upper Confidence Bound (LinUCB) contextual bandit algorithm. It dynamically re-ranks 4 candidate agent arms using an 8-dimensional context representing request intent, user role, history, and latency constraints.</p>
+              <div class="hrops-tab-stats">
+                <span class="hrops-tab-stat-badge">4 Agent Arms</span>
+                <span class="hrops-tab-stat-badge">8-Dim Context</span>
+                <span class="hrops-tab-stat-badge">Pickle Persistence</span>
+                <span class="hrops-tab-stat-badge">Batch Rewards</span>
+              </div>
+            </div>
+            <div>
+              <table class="hrops-mini-table">
+                <thead>
+                  <tr>
+                    <th>Feature</th>
+                    <th>Specification</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Bandit Algorithm</td>
+                    <td>LinUCB (Contextual)</td>
+                  </tr>
+                  <tr>
+                    <td>State Representation</td>
+                    <td>8-dimensional dense context vector</td>
+                  </tr>
+                  <tr>
+                    <td>Persistence Layer</td>
+                    <td>Automatic pickle serialization on-change</td>
+                  </tr>
+                  <tr>
+                    <td>Action Space</td>
+                    <td>[Policy, Action, Anomaly, Compliance]</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 2: Anomaly Detection -->
+        <div id="anomaly-detection" class="hrops-tab-content">
+          <div class="hrops-intelligence-grid">
+            <div class="hrops-tab-info">
+              <h3>23-Rule Statistical Engine</h3>
+              <p>Anomalies are detected using statistical outlier detection (Z-score and Interquartile Range) across four primary operations categories. Built-in episodic memory prevents repeating alarms for identical contexts.</p>
+              <div class="hrops-tab-stats">
+                <span class="hrops-tab-stat-badge">23 Predefined Rules</span>
+                <span class="hrops-tab-stat-badge">Z-Score Outliers</span>
+                <span class="hrops-tab-stat-badge">IQR Bounds</span>
+                <span class="hrops-tab-stat-badge">Ghost Employee Logic</span>
+              </div>
+            </div>
+            <div>
+              <table class="hrops-mini-table">
+                <thead>
+                  <tr>
+                    <th>Domain</th>
+                    <th>Rules</th>
+                    <th>Examples</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Payroll (R1-R6)</td>
+                    <td>Z-score, IQR, outlier</td>
+                    <td>Salary outlier detection</td>
+                  </tr>
+                  <tr>
+                    <td>Leave (R7-R12)</td>
+                    <td>High ratio, overrun, hoarding</td>
+                    <td>Leave abuse patterns</td>
+                  </tr>
+                  <tr>
+                    <td>Compliance (R13-R18)</td>
+                    <td>Low performance, promo gap</td>
+                    <td>Policy violations</td>
+                  </tr>
+                  <tr>
+                    <td>Inactive (R19-R23)</td>
+                    <td>Ghost employee, drain</td>
+                    <td>Workforce monitoring</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 3: Compliance Engine -->
+        <div id="compliance-engine" class="hrops-tab-content">
+          <div class="hrops-intelligence-grid">
+            <div class="hrops-tab-info">
+              <h3>YAML Rules Compliance</h3>
+              <p>A deterministic check evaluates organizational guidelines before any tool execution. Rules are loaded dynamically from YAML files, enabling swift, non-compiled policy updates and auditable history logging.</p>
+              <div class="hrops-tab-stats">
+                <span class="hrops-tab-stat-badge">20 Standard Rules</span>
+                <span class="hrops-tab-stat-badge">5 Major Categories</span>
+                <span class="hrops-tab-stat-badge">6 Hard-Veto Words</span>
+                <span class="hrops-tab-stat-badge">Veto/Flag/Warn Actions</span>
+              </div>
+            </div>
+            <div>
+              <table class="hrops-mini-table">
+                <thead>
+                  <tr>
+                    <th>Action</th>
+                    <th>Impact</th>
+                    <th>Rules Enforced</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><strong>Veto</strong></td>
+                    <td>Hard blocks execution instantly</td>
+                    <td>PII leak, Salary caps, Admin ops</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Flag</strong></td>
+                    <td>Triggers HITL validation request</td>
+                    <td>Suspicious changes, Promotion requests</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Warn</strong></td>
+                    <td>Appends alert log message to run</td>
+                    <td>Overtime limits, Missing paperwork</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 4: DSPy Optimization -->
+        <div id="dspy-optimization" class="hrops-tab-content">
+          <div class="hrops-intelligence-grid">
+            <div class="hrops-tab-info">
+              <h3>MIPROv2 Optimizer</h3>
+              <p>Prompt instructions and routing signatures are optimized autonomously using the DSPy MIPROv2 (Multi-instruction Prompt Optimization) pipeline. It runs on a schedule, synthesizing logs and human correction inputs into improved LLM prompts.</p>
+              <div class="hrops-tab-stats">
+                <span class="hrops-tab-stat-badge">MIPROv2 Algorithm</span>
+                <span class="hrops-tab-stat-badge">6 Candidate Prompts</span>
+                <span class="hrops-tab-stat-badge">Weekly Schedule</span>
+                <span class="hrops-tab-stat-badge">HITL Feedback Tuning</span>
+              </div>
+            </div>
+            <div>
+              <table class="hrops-mini-table">
+                <thead>
+                  <tr>
+                    <th>Setting</th>
+                    <th>Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Optimizer Strategy</td>
+                    <td>DSPy MIPROv2 (Multi-instruction)</td>
+                  </tr>
+                  <tr>
+                    <td>Candidates Gen</td>
+                    <td>6 parallel variations per run</td>
+                  </tr>
+                  <tr>
+                    <td>Weekly Cron</td>
+                    <td>Sunday 3:00 AM UTC</td>
+                  </tr>
+                  <tr>
+                    <td>Tuning Metric</td>
+                    <td>HITL-resolved routing correctness</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Memory & Guardrails Section -->
+  <section class="hrops-section">
+    <div class="hrops-container">
+      <div class="hrops-two-col">
+        <!-- Memory System -->
+        <div class="hrops-col-card">
+          <h3 class="hrops-col-title">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"></path><path d="M12 6v6l4 2"></path></svg>
+            Memory System
+          </h3>
+          <div class="hrops-list-group">
+            <div class="hrops-list-item">
+              <div class="hrops-list-icon">✓</div>
+              <div class="hrops-list-content">
+                <h4>ChromaDB Vector Store</h4>
+                <p>Retains knowledge bases using <code>nv-embed-v1</code> 4096-dimensional high-fidelity embeddings.</p>
+              </div>
+            </div>
+            <div class="hrops-list-item">
+              <div class="hrops-list-icon">✓</div>
+              <div class="hrops-list-content">
+                <h4>Episodic Memory</h4>
+                <p>Stores previous incident resolutions, allowing agents to query contextually similar events.</p>
+              </div>
+            </div>
+            <div class="hrops-list-item">
+              <div class="hrops-list-icon">✓</div>
+              <div class="hrops-list-content">
+                <h4>Multi-Tier Semantic Cache</h4>
+                <p>Configured with a semantic similarity threshold of 0.95 and a 24-hour time-to-live cache validity window.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="hrops-chunking-badges">
+            <span class="hrops-chunk-badge">Recursive</span>
+            <span class="hrops-chunk-badge">Fixed Size</span>
+            <span class="hrops-chunk-badge">Semantic</span>
+            <span class="hrops-chunk-badge">Parent Document</span>
+            <span class="hrops-chunk-badge">Agentic</span>
+            <span class="hrops-chunk-badge">Late Chunking</span>
+          </div>
+        </div>
+
+        <!-- Guardrails -->
+        <div class="hrops-col-card">
+          <h3 class="hrops-col-title">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-purple)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+            System Guardrails
+          </h3>
+          <div class="hrops-guardrules">
+            <div class="hrops-guardrails-grid">
+              <div class="hrops-guard-category">
+                <h4>Input Guard</h4>
+                <ul class="hrops-guard-list">
+                  <li>PII auto-detection</li>
+                  <li>Prompt injection filter</li>
+                  <li>Blocklist topics</li>
+                </ul>
+              </div>
+              <div class="hrops-guard-category">
+                <h4>Output Guard</h4>
+                <ul class="hrops-guard-list">
+                  <li>PII redaction engine</li>
+                  <li>Professional tone filter</li>
+                  <li>Hallucination check</li>
+                </ul>
+              </div>
+              <div class="hrops-guard-category">
+                <h4>Tool Guard</h4>
+                <ul class="hrops-guard-list">
+                  <li>Parameter structure validation</li>
+                  <li>Safe whitelisted commands</li>
+                  <li>Rollback capability</li>
+                </ul>
+              </div>
+              <div class="hrops-guard-category">
+                <h4>Model Guard</h4>
+                <ul class="hrops-guard-list">
+                  <li>Cost cap threshold ($0.50/call)</li>
+                  <li>Timeout threshold (30s)</li>
+                  <li>Context window compression</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Tech Stack Section -->
+  <section class="hrops-section" id="stack">
+    <div class="hrops-container">
+      <div class="hrops-section-header">
+        <span class="hrops-section-badge">Technologies</span>
+        <h2 class="hrops-section-title">Technology Stack</h2>
+        <p class="hrops-section-subtitle">A robust, production-grade toolbelt for building autonomous AI operations agents.</p>
+      </div>
+
+      <div class="hrops-stack-grid">
+        <div class="hrops-stack-card">
+          <h3>Backend Core</h3>
+          <div class="hrops-badge-grid">
+            <span class="hrops-tech-badge">Python</span>
+            <span class="hrops-tech-badge">FastAPI</span>
+            <span class="hrops-tech-badge">LangGraph</span>
+            <span class="hrops-tech-badge">LangChain</span>
+            <span class="hrops-tech-badge">LiteLLM</span>
+          </div>
+        </div>
+        <div class="hrops-stack-card">
+          <h3>Data & Vector</h3>
+          <div class="hrops-badge-grid">
+            <span class="hrops-tech-badge">ChromaDB</span>
+            <span class="hrops-tech-badge">SQLAlchemy</span>
+            <span class="hrops-tech-badge">SQLite</span>
+          </div>
+        </div>
+        <div class="hrops-stack-card">
+          <h3>Intelligence</h3>
+          <div class="hrops-badge-grid">
+            <span class="hrops-tech-badge">DSPy Optimization</span>
+            <span class="hrops-tech-badge">NumPy</span>
+            <span class="hrops-tech-badge">scikit-learn</span>
+          </div>
+        </div>
+        <div class="hrops-stack-card">
+          <h3>Observability</h3>
+          <div class="hrops-badge-grid">
+            <span class="hrops-tech-badge">Langfuse</span>
+            <span class="hrops-tech-badge">LangChain Community</span>
+          </div>
+        </div>
+        <div class="hrops-stack-card">
+          <h3>Frontend</h3>
+          <div class="hrops-badge-grid">
+            <span class="hrops-tech-badge">React</span>
+            <span class="hrops-tech-badge">TypeScript</span>
+            <span class="hrops-tech-badge">Vite</span>
+          </div>
+        </div>
+        <div class="hrops-stack-card">
+          <h3>Infrastructure</h3>
+          <div class="hrops-badge-grid">
+            <span class="hrops-tech-badge">Docker</span>
+            <span class="hrops-tech-badge">NVIDIA NIM</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Roadmap Section -->
+  <section class="hrops-section" id="roadmap">
+    <div class="hrops-container">
+      <div class="hrops-section-header">
+        <span class="hrops-section-badge">Evolution</span>
+        <h2 class="hrops-section-title">Platform Roadmap</h2>
+        <p class="hrops-section-subtitle">Planned features and strategic goals for the HR Ops ecosystem.</p>
+      </div>
+
+      <div class="hrops-roadmap-grid">
+        <!-- In Progress -->
+        <div class="hrops-roadmap-card">
+          <span class="hrops-roadmap-tag tag-progress">In Progress</span>
+          <h3>Integration</h3>
+          <ul class="hrops-roadmap-list">
+            <li>
+              <svg fill="none" stroke="var(--color-warning)" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+              <span>Production HRIS connector mapping and sync.</span>
+            </li>
+            <li>
+              <svg fill="none" stroke="var(--color-warning)" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+              <span>Multi-tenant Role-Based Access Control (RBAC) layers.</span>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Planned -->
+        <div class="hrops-roadmap-card">
+          <span class="hrops-roadmap-tag tag-planned">Planned</span>
+          <h3>Channels</h3>
+          <ul class="hrops-roadmap-list">
+            <li>
+              <svg fill="none" stroke="var(--color-primary)" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
+              <span>Hands-free queries using interactive Voice interfaces.</span>
+            </li>
+            <li>
+              <svg fill="none" stroke="var(--color-primary)" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+              <span>Automated scheduled reporting with custom email triggers.</span>
+            </li>
+            <li>
+              <svg fill="none" stroke="var(--color-primary)" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+              <span>Chat integration pipelines for Slack & Microsoft Teams.</span>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Long-term -->
+        <div class="hrops-roadmap-card">
+          <span class="hrops-roadmap-tag tag-long">Long-term</span>
+          <h3>Security</h3>
+          <ul class="hrops-roadmap-list">
+            <li>
+              <svg fill="none" stroke="var(--color-purple)" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+              <span>Autonomous resolution loops for pre-approved anomalies.</span>
+            </li>
+            <li>
+              <svg fill="none" stroke="var(--color-purple)" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+              <span>Cross-organizational benchmarking via anonymized insights.</span>
+            </li>
+            <li>
+              <svg fill="none" stroke="var(--color-purple)" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+              <span>Audit logs for SOC 2 Type II compliance reviews.</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="hrops-footer">
+    <div class="hrops-container">
+      <div class="hrops-footer-grid">
+        <div class="hrops-footer-brand">HR Ops Platform</div>
+        <div class="hrops-footer-links">
+          <a href="#home" class="hrops-footer-link">Home</a>
+          <a href="#architecture" class="hrops-footer-link">Architecture</a>
+          <a href="#agents" class="hrops-footer-link">Agents</a>
+          <a href="#intelligence" class="hrops-footer-link">Intelligence</a>
+          <a href="https://github.com/purushothaman-natarajan/HR_Ops" target="_blank" rel="noopener noreferrer" class="hrops-footer-link">GitHub Repository</a>
+        </div>
+      </div>
+      <div class="hrops-footer-bottom">
+        <span>&copy; 2026 HR Ops System. All rights reserved. Serviced via GitHub Pages.</span>
+        <span>Contact: purushothaman.natarajan@example.com</span>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // Copy Snippet Logic
+    const copyBtn = document.getElementById('copy-btn');
+    copyBtn.addEventListener('click', () => {
+      const codeLines = [
+        document.getElementById('code-snippet-1').innerText,
+        document.getElementById('code-snippet-2').innerText,
+        document.getElementById('code-snippet-3').innerText
+      ];
+      const codeText = codeLines.join('\n');
+      
+      function updateUI() {
+        const spanText = copyBtn.querySelector('span');
+        spanText.innerText = 'Copied!';
+        copyBtn.style.color = '#10b981';
+        setTimeout(() => {
+          spanText.innerText = 'Copy';
+          copyBtn.style.color = 'rgba(255, 255, 255, 0.5)';
+        }, 2000);
+      }
+
+      function fallbackCopy(text) {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.top = "0";
+        textArea.style.left = "0";
+        textArea.style.position = "fixed";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try {
+          document.execCommand('copy');
+        } catch (err) {
+          console.error('Fallback copy failed', err);
+        }
+        document.body.removeChild(textArea);
+      }
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(codeText)
+          .then(updateUI)
+          .catch(err => {
+            console.error('Clipboard API copy failed, using fallback', err);
+            fallbackCopy(codeText);
+            updateUI();
+          });
+      } else {
+        fallbackCopy(codeText);
+        updateUI();
+      }
+    });
+
+    // Interactive Tabs Logic
+    function switchTab(evt, tabId) {
+      // Get all elements with class="hrops-tab-content" and hide them
+      const tabcontents = document.getElementsByClassName("hrops-tab-content");
+      for (let i = 0; i < tabcontents.length; i++) {
+        tabcontents[i].classList.remove("active");
+      }
+
+      // Get all elements with class="hrops-tab-btn" and remove the class "active"
+      const tablinks = document.getElementsByClassName("hrops-tab-btn");
+      for (let i = 0; i < tablinks.length; i++) {
+        tablinks[i].classList.remove("active");
+      }
+
+      // Show the current tab, and add an "active" class to the button that opened the tab
+      document.getElementById(tabId).classList.add("active");
+      evt.currentTarget.classList.add("active");
+    }
+  </script>
+
+</body>
+</html>
