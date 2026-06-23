@@ -15,7 +15,7 @@ from backend.src.core.response import (
     get_correlation_id,
     success_response,
 )
-from backend.src.intelligence.rl_layer import rl_agent
+from backend.src.intelligence.rl_layer import rl_agent, anomaly_bandit
 from backend.src.services.feedback_service import feedback_store
 
 logger = logging.getLogger("hr_ops.feedback_routes")
@@ -134,12 +134,12 @@ async def api_feedback_stats(request: Request):
 
 
 @router.get("/rl/state")
-async def api_rl_state(request: Request):
+async def api_rl_state(request: Request, type: str = "standard"):
     """Inspect the internal bandit agent state and pending feedback count.
 
     ---
     Request:
-        GET /feedback/rl/state
+        GET /feedback/rl/state?type=standard (or advanced)
 
     Response 200:
         {
@@ -159,6 +159,9 @@ async def api_rl_state(request: Request):
         }
     """
     correlation_id = get_correlation_id(request)
-    state = rl_agent.get_state()
+    if type == "advanced":
+        state = anomaly_bandit.get_state()
+    else:
+        state = rl_agent.get_state()
     state["pending_feedbacks"] = feedback_store.buffer_size
     return success_response(data=state, correlation_id=correlation_id)

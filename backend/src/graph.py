@@ -25,6 +25,13 @@ def _should_continue(state: SharedState) -> str:
     return END
 
 
+def _route_after_action(state: SharedState) -> str:
+    """Route from action node. Hybrid queries proceed to policy; standard queries go to parallel check."""
+    if state.current_agent == "hybrid":
+        return "policy"
+    return "parallel_check"
+
+
 def _route_from_supervisor(state: SharedState) -> str:
     """Return the agent route chosen by the supervisor, respecting feature flags."""
     route = state.current_agent or "policy"
@@ -62,14 +69,24 @@ def build_full_graph() -> CompiledStateGraph:
         {
             "policy": "policy",
             "action": "action",
+            "hybrid": "action",
             "anomaly": "anomaly",
             "compliance": "compliance",
         },
     )
 
-    # Policy and action fan out to parallel background checks (anomaly + compliance run concurrently)
-    for node in ("policy", "action"):
-        graph.add_edge(node, "parallel_check")
+    # Policy fans out to parallel background checks
+    graph.add_edge("policy", "parallel_check")
+
+    # Action branches: hybrid goes to policy, otherwise to parallel background checks
+    graph.add_conditional_edges(
+        "action", 
+        _route_after_action, 
+        {
+            "policy": "policy", 
+            "parallel_check": "parallel_check"
+        }
+    )
 
     # Standalone anomaly/compliance (when routed directly from supervisor) go straight to HITL check
     for node in ("anomaly", "compliance"):

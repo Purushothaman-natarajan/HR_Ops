@@ -23,9 +23,30 @@ foreach ($port in @(8000, 5173)) {
 }
 Start-Sleep 1
 
-$python = if (Test-Path ".venv\Scripts\python.exe") { (Resolve-Path ".venv\Scripts\python.exe").Path }
-          elseif (Test-Path "venv\Scripts\python.exe") { (Resolve-Path "venv\Scripts\python.exe").Path }
-          else { "python" }
+$python = "python"
+try {
+    if (-not (Test-Path ".venv")) {
+        Write-Host "[PRE] Creating backend virtual environment..." -ForegroundColor $cYellow
+        python -m venv .venv
+    }
+    Write-Host "[PRE] Syncing backend dependencies inside .venv..." -ForegroundColor $cYellow
+    # Execute python within the virtualenv context to run pip
+    & ".\.venv\Scripts\python.exe" -m pip install -r requirements.txt
+    
+    # Verify that the virtual environment Python can import binary C extensions (like numpy).
+    # AppLocker policy will block DLL/PYD execution from user-space virtual environments.
+    & ".\.venv\Scripts\python.exe" -c "import numpy"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Virtual environment Python execution blocked by Application Control policy."
+    }
+    
+    $python = (Resolve-Path ".\.venv\Scripts\python.exe").Path
+    Write-Host "[PRE] Virtual environment synced successfully." -ForegroundColor $cGreen
+} catch {
+    Write-Host "[WARN] Virtual environment check/execution failed (possibly due to Application Control policy)." -ForegroundColor $cYellow
+    Write-Host "       Falling back to system Python environment..." -ForegroundColor $cYellow
+    $python = "python"
+}
 
 if (-not (Test-Path "frontend\node_modules")) {
     Write-Host "[PRE] Installing frontend dependencies..." -ForegroundColor $cYellow

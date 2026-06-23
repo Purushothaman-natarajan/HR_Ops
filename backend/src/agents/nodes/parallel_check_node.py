@@ -40,28 +40,30 @@ async def parallel_check_node(state: SharedState) -> dict:
         comp_result.get("compliance_veto", False),
     )
 
-    # Merge hitl_needed from both checks (either can trigger escalation)
+    # Merge hitl_needed and auto_escalate_needed from both checks (either can trigger escalation)
     hitl_from_anomaly = anom_result.get("hitl_needed", False) if isinstance(anom_result, dict) else False
+    auto_escalate_from_anomaly = anom_result.get("auto_escalate_needed", False) if isinstance(anom_result, dict) else False
     hitl_from_compliance = comp_result.get("hitl_needed", False) if isinstance(comp_result, dict) else False
 
-    # Don't escalate read-only queries based on background anomalies/compliance.
-    # Policy queries: never escalate from background checks.
-    # Action queries with no pending write: only escalate if the action node itself requested it.
-    # Only allow background anomaly/compliance to trigger HITL for write operations (pending_tool_call).
+    # Don't escalate read-only queries based on background anomalies/compliance,
+    # UNLESS there is a high-confidence auto-escalate anomaly detected in the background.
+    # Policy queries/read action queries: bypass background checks EXCEPT for compliance vetos or high-conf auto-escalations.
     current_agent = state.current_agent or "policy"
     has_pending_write = bool(state.rl_context.get("pending_tool_call"))
 
     if current_agent == "policy" or (current_agent == "action" and not has_pending_write):
+        # Read-only queries: NEVER escalate from background anomalies/compliance.
+        # Background anomaly results are logged but should not block user queries.
         hitl_needed = state.hitl_needed
         logger.info(
-            "Skipping background HITL for read-only %s query: anomaly_hitl=%s, compliance_hitl=%s, state_hitl=%s",
-            current_agent, hitl_from_anomaly, hitl_from_compliance, state.hitl_needed,
+            "Skipping background HITL for read-only %s query: anomaly_hitl=%s, compliance_hitl=%s, auto_escalate=%s, state_hitl=%s, result=%s",
+            current_agent, hitl_from_anomaly, hitl_from_compliance, auto_escalate_from_anomaly, state.hitl_needed, hitl_needed,
         )
     else:
-        hitl_needed = state.hitl_needed or hitl_from_anomaly or hitl_from_compliance
+        hitl_needed = state.hitl_needed or hitl_from_anomaly or hitl_from_compliance or auto_escalate_from_anomaly
         logger.info(
-            "Background HITL merge for %s query (pending_write=%s): anomaly_hitl=%s, compliance_hitl=%s, state_hitl=%s, result=%s",
-            current_agent, has_pending_write, hitl_from_anomaly, hitl_from_compliance, state.hitl_needed, hitl_needed,
+            "Background HITL merge for %s query (pending_write=%s): anomaly_hitl=%s, compliance_hitl=%s, auto_escalate=%s, state_hitl=%s, result=%s",
+            current_agent, has_pending_write, hitl_from_anomaly, hitl_from_compliance, auto_escalate_from_anomaly, state.hitl_needed, hitl_needed,
         )
 
     return {

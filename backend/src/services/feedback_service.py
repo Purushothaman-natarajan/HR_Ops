@@ -26,9 +26,25 @@ class FeedbackStore:
     reaches the configured rl_batch_size.
     """
     def __init__(self):
+        from pathlib import Path
         self._buffer: list[dict] = []
         self._history: list[dict] = []
         self._lock = Lock()
+        self._persist_path = Path("backend/data/feedback_history.jsonl")
+        self._load_history()
+
+    def _load_history(self):
+        """Load historically recorded feedback entries from the JSONL file."""
+        if self._persist_path.exists():
+            try:
+                import json
+                with open(self._persist_path, "r", encoding="utf-8") as f:
+                    for line in f:
+                        if line.strip():
+                            self._history.append(json.loads(line.strip()))
+                logger.info("Loaded %d historic feedback entries from %s", len(self._history), self._persist_path)
+            except Exception as e:
+                logger.warning("Failed to load historic feedback from %s: %s", self._persist_path, e)
 
     def record_feedback(
         self,
@@ -59,6 +75,16 @@ class FeedbackStore:
             "context": context,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
+        
+        # Persist feedback entry
+        try:
+            import json
+            self._persist_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(self._persist_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps(entry) + "\n")
+        except Exception as e:
+            logger.warning("Failed to persist feedback to %s: %s", self._persist_path, e)
+
         should_flush = False
         with self._lock:
             self._buffer.append(entry)
@@ -136,6 +162,16 @@ class FeedbackStore:
             "context": anomaly_context,
             "timestamp": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
         }
+        
+        # Persist anomaly feedback entry
+        try:
+            import json
+            self._persist_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(self._persist_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps(entry) + "\n")
+        except Exception as e:
+            logger.warning("Failed to persist anomaly feedback to %s: %s", self._persist_path, e)
+
         with self._lock:
             self._history.append(entry)
         logger.debug("AnomalyBandit reward recorded: action=%s reward=%.3f", selected_action, reward)

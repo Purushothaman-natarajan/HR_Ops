@@ -7,6 +7,7 @@ build/
 .venv/
 venv/
 env/
+libs/
 
 # Environment
 .env
@@ -52,3 +53,19 @@ htmlcov/
 # Linting
 .mypy_cache/
 .ruff_cache/
+
+# Temporary / backup files
+*.bak
+*.tmp
+*.temp
+
+# Gemini / Antigravity workspace files
+.gemini/
+artifacts/
+
+# TypeScript build cache
+*.tsbuildinfo
+libs/*
+
+# ESLint cache
+.eslintcache

@@ -26,6 +26,14 @@ async def mark_alert_read(alert_id: str, request: Request):
     return success_response(data={"id": alert_id, "status": "read"}, correlation_id=correlation_id)
 
 
+@router.get("/system-summary")
+async def get_system_summary(request: Request):
+    """Return a consolidated summary of all active system-generated alerts without duplicates."""
+    correlation_id = get_correlation_id(request)
+    summary = alert_store.get_consolidated_system_summary()
+    return success_response(data={"summary": summary}, correlation_id=correlation_id)
+
+
 @router.get("/scan-outcomes")
 async def get_scan_outcomes(request: Request):
     """Return structured scan outcomes for the Scan Outcomes UI page."""

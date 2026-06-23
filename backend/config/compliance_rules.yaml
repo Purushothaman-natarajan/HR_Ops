@@ -147,6 +147,13 @@ rules:
       value: 50
     keywords: ["bulk export", "download all", "export employees", "dump records"]
 
+  - id: PRIVACY_003
+    category: data_privacy
+    severity: high
+    action: flag
+    description: "Sharing employee HR records or PII with external vendors/third parties requires DPO authorization and a Data Processing Agreement (DPA)"
+    keywords: ["share", "sharing", "external vendor", "third party", "vendor transfer", "HR records", "send records"]
+
   # ── Conduct & Ethics Rules ─────────────────────────────────────────────────
 
   - id: CONDUCT_001

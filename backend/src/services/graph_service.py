@@ -24,6 +24,50 @@ logger = logging.getLogger("hr_ops.services.graph")
 
 _graph_instance = None
 
+# Active tracking variables for priority-based cooperative yielding
+import asyncio
+_active_user_queries = 0
+_no_active_queries_event = asyncio.Event()
+_no_active_queries_event.set()
+
+
+class UserQueryTracker:
+    """Async context manager that tracks active user-initiated (reactive or system) queries."""
+
+    def __init__(self, trigger: str):
+        self.is_user = trigger in ("reactive", "system")
+
+    async def __aenter__(self):
+        global _active_user_queries
+        if self.is_user:
+            _active_user_queries += 1
+            _no_active_queries_event.clear()
+            logger.debug("User query started. Active user queries: %d", _active_user_queries)
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        global _active_user_queries
+        if self.is_user:
+            _active_user_queries = max(0, _active_user_queries - 1)
+            if _active_user_queries == 0:
+                _no_active_queries_event.set()
+            logger.debug("User query finished. Active user queries: %d", _active_user_queries)
+
+
+async def cooperative_yield(trigger_type_or_state: str | TriggerType | SharedState) -> None:
+    """Yield control and pause execution if a high-priority user query is active.
+
+    Ensures that background scans yield CPU, DB, and API priority to user queries.
+    """
+    trigger_type = trigger_type_or_state
+    if hasattr(trigger_type_or_state, "trigger_type"):
+        trigger_type = trigger_type_or_state.trigger_type
+
+    from backend.src.agents.state import TriggerType
+    if (trigger_type == TriggerType.SCHEDULED or trigger_type == "scheduled") and _active_user_queries > 0:
+        logger.info("High-priority user query is active. Pausing scheduled scan to prioritize user experience...")
+        await _no_active_queries_event.wait()
+        logger.info("Resuming scheduled scan.")
+
 
 def _get_graph():
     """Return the cached singleton LangGraph instance, building it if necessary."""
@@ -41,7 +85,7 @@ async def run_graph(query: str, trigger: str = "reactive", existing_state: Share
 
     Args:
         query: User input string.
-        trigger: Execution mode — 'reactive' or 'scheduled'.
+        trigger: Execution mode — 'reactive', 'system', or 'scheduled'.
         existing_state: Optional pre-existing state for continuation.
 
     Returns:
@@ -74,15 +118,17 @@ async def run_graph(query: str, trigger: str = "reactive", existing_state: Share
             langfuse_trace_id=langfuse_trace_id,
         )
 
-    try:
-        graph = _get_graph()
-        result = await graph.ainvoke(state)
-    except ModelNotAvailableError:
-        raise
-    except Exception as e:
-        logger.exception("Graph execution failed: run_id=%s", run_id)
-        _log_langfuse_error(langfuse_trace_id, str(e))
-        raise GraphExecutionError(str(e)) from e
+    async with UserQueryTracker(trigger):
+        try:
+            graph = _get_graph()
+            await cooperative_yield(trigger)
+            result = await graph.ainvoke(state)
+        except ModelNotAvailableError:
+            raise
+        except Exception as e:
+            logger.exception("Graph execution failed: run_id=%s", run_id)
+            _log_langfuse_error(langfuse_trace_id, str(e))
+            raise GraphExecutionError(str(e)) from e
 
     feedback_store.record_auto_rewards(result)
 

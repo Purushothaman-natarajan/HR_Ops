@@ -109,13 +109,15 @@ class AGUIStore:
         if anomalies:
             anomaly = anomalies[0]
             # Form the anomaly context dictionary needed for the bandit feature vector
+            # The hint feature MUST use the original rule's recommended action
+            original_rule_action = anomaly.get("suggested_action") or anomaly.get("recommended_action", "flag_for_review")
             anomaly_context = {
-                "recommended_action": anomaly.get("recommended_action", "flag_for_review"),
+                "recommended_action": original_rule_action,
                 "confidence_score": anomaly.get("confidence_score", 0.7),
                 "severity": anomaly.get("severity", 0.5),
                 "anomaly_type": anomaly.get("anomaly_type", ""),
             }
-            proposed_action = anomaly_context["recommended_action"]
+            proposed_action = anomaly.get("recommended_action", "flag_for_review")
             
             if action == "approve":
                 feedback_store.record_anomaly_bandit_reward(anomaly_context, proposed_action, 1.0, session_id=session_id)
@@ -155,13 +157,14 @@ class AGUIStore:
                         anomalies = (req.context or {}).get("anomaly_results", [])
                         if anomalies:
                             anomaly = anomalies[0]
+                            original_rule_action = anomaly.get("suggested_action") or anomaly.get("recommended_action", "flag_for_review")
                             anomaly_context = {
-                                "recommended_action": anomaly.get("recommended_action", "flag_for_review"),
+                                "recommended_action": original_rule_action,
                                 "confidence_score": anomaly.get("confidence_score", 0.7),
                                 "severity": anomaly.get("severity", 0.5),
                                 "anomaly_type": anomaly.get("anomaly_type", ""),
                             }
-                            proposed_action = anomaly_context["recommended_action"]
+                            proposed_action = anomaly.get("recommended_action", "flag_for_review")
                             feedback_store.record_anomaly_bandit_reward(anomaly_context, proposed_action, -1.0, session_id=req.session_id)
             if resolved_ids:
                 self._clear_caches()

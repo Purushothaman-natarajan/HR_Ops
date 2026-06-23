@@ -33,6 +33,7 @@ dependencies = [
     "sentence-transformers>=2.7.0",
     "pandas>=2.2.2",
     "python-dotenv>=1.0.1",
+    "python-jose[cryptography]>=3.3.0",
 ]
 
 [project.optional-dependencies]

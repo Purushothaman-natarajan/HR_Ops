@@ -95,41 +95,41 @@ chunking:
 # Referenced by backend/src/utils/model_router.py
 models:
   default_provider: nvidia
-  default_model: nvidia/meta/llama-3.1-8b-instruct
+  default_model: nvidia/z-ai/glm-5.1
   agents:
     triage:
-      primary: nvidia/meta/llama-3.1-8b-instruct
-      fallback: nvidia/meta/llama-3.1-70b-instruct
+      primary: nvidia/z-ai/glm-5.1
+      fallback: nvidia/google/gemma-4-31b-it
       cost_floor: 0.001
       reasoning_effort: none
       top_p: 0.95
     rag:
-      primary: nvidia/meta/llama-3.1-8b-instruct
-      fallback: nvidia/meta/llama-3.1-70b-instruct
+      primary: nvidia/z-ai/glm-5.1
+      fallback: nvidia/google/gemma-4-31b-it
       cost_floor: 0.001
       reasoning_effort: none
       top_p: 0.95
     narrative:
-      primary: nvidia/meta/llama-3.1-8b-instruct
-      fallback: nvidia/meta/llama-3.1-70b-instruct
+      primary: nvidia/z-ai/glm-5.1
+      fallback: nvidia/google/gemma-4-31b-it
       cost_floor: 0.01
       reasoning_effort: none
       top_p: 0.95
     compliance:
-      primary: nvidia/meta/llama-3.1-8b-instruct
-      fallback: nvidia/meta/llama-3.1-70b-instruct
+      primary: nvidia/z-ai/glm-5.1
+      fallback: nvidia/google/gemma-4-31b-it
       cost_floor: 0.001
       reasoning_effort: none
       top_p: 0.95
     anomaly:
-      primary: nvidia/meta/llama-3.1-8b-instruct
-      fallback: nvidia/meta/llama-3.1-70b-instruct
+      primary: nvidia/z-ai/glm-5.1
+      fallback: nvidia/google/gemma-4-31b-it
       cost_floor: 0.002
       reasoning_effort: none
       top_p: 0.95
     supervisor:
-      primary: nvidia/meta/llama-3.1-8b-instruct
-      fallback: nvidia/meta/llama-3.1-70b-instruct
+      primary: nvidia/z-ai/glm-5.1
+      fallback: nvidia/google/gemma-4-31b-it
       cost_floor: 0.01
       reasoning_effort: none
       top_p: 0.95
@@ -139,6 +139,12 @@ models:
 # Referenced by backend/src/utils/model_router.py
 cost:
   model_costs_per_1k:               # USD per 1K tokens (input / output)
+    nvidia/z-ai/glm-5.1:
+      input: 0.0001
+      output: 0.0004
+    nvidia/google/gemma-4-31b-it:
+      input: 0.0005
+      output: 0.001
     llama-3.1-8b-instruct:
       input: 0.0001
       output: 0.0004
@@ -157,13 +163,13 @@ cost:
   cost_tiers:
     cheap:
       max_cost_usd: 0.01
-      preferred_model: nvidia/meta/llama-3.1-8b-instruct
+      preferred_model: nvidia/z-ai/glm-5.1
     standard:
       max_cost_usd: 0.05
-      preferred_model: nvidia/meta/llama-3.1-8b-instruct
+      preferred_model: nvidia/z-ai/glm-5.1
     premium:
       max_cost_usd: 0.50
-      preferred_model: nvidia/meta/llama-3.1-8b-instruct
+      preferred_model: nvidia/z-ai/glm-5.1
   cost_weights:
     input_token: 1.0
     output_token: 2.0

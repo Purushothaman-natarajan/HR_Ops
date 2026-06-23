@@ -62,6 +62,25 @@ class AlertStore:
                             )
                             return existing_alert
 
+            # Drop duplicates logic for system-generated alerts
+            if trigger_type == "system" and self._alerts:
+                for idx, existing_alert in enumerate(self._alerts):
+                    if existing_alert.get("trigger_type") == "system" and existing_alert.get("query") == query:
+                        existing_alert["created_at"] = datetime.now(timezone.utc).isoformat()
+                        existing_alert["status"] = "new"
+                        existing_alert["result"] = result
+                        
+                        # Move it to the front of the list
+                        alert_to_move = self._alerts.pop(idx)
+                        self._alerts.insert(0, alert_to_move)
+                        self._cache_outcomes = None
+                        
+                        import logging
+                        logging.getLogger("hr_ops.alert_store").info(
+                            "Dropped duplicate system alert query='%s' for alert_id=%s. Updated timestamp and moved to top.", query, existing_alert["id"]
+                        )
+                        return existing_alert
+
             alert = {
                 "id": str(uuid.uuid4())[:8],
                 "query": query,
@@ -76,6 +95,21 @@ class AlertStore:
                 self._alerts.pop()
             self._cache_outcomes = None
             return alert
+
+    def get_consolidated_system_summary(self) -> str:
+        """Return a natural-language consolidated summary of all active system-generated alerts without duplicates."""
+        with self._lock:
+            system_alerts = [a for a in self._alerts if a.get("trigger_type") == "system" and a.get("status") == "new"]
+            if not system_alerts:
+                return "No active system-generated alerts."
+            
+            summary_lines = []
+            for a in system_alerts:
+                res = a.get("result") or {}
+                desc = res.get("final_response") or "Investigation pending."
+                summary_lines.append(f"- Alert: '{a.get('query')}' (Received: {a.get('created_at')}) -> Result: {desc}")
+            
+            return "\n".join(summary_lines)
 
     def get_alerts(self):
         with self._lock:

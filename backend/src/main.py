@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+# Pure-Python mock for ujson to prevent Application Control binary block errors
+import sys
+import json
+sys.modules['ujson'] = json
+
 """FastAPI application entry point for the HR Ops Platform.
 
 Sets up the ASGI app with CORS, request logging middleware, exception

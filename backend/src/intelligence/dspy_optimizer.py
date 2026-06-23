@@ -29,8 +29,8 @@ def _ensure_llm():
 
 
 def build_training_data() -> list[dspy.Example]:
-    """Return a small set of labelled HR query examples for DSPy optimization."""
-    return [
+    """Return a small set of labelled HR query examples for DSPy optimization, augmented by feedback logs."""
+    examples = [
         dspy.Example(
             query="How many annual leave days accrue each month, and how many can carry forward?",
             classification="policy",
@@ -64,6 +64,38 @@ def build_training_data() -> list[dspy.Example]:
             classification="action",
         ).with_inputs("query"),
     ]
+
+    persist_path = Path("backend/data/feedback_history.jsonl")
+    if persist_path.exists():
+        try:
+            import json
+            additional_count = 0
+            with open(persist_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    if not line.strip():
+                        continue
+                    entry = json.loads(line.strip())
+                    source = entry.get("source")
+                    reward = entry.get("reward", 0.0)
+                    context = entry.get("context", {})
+                    query_text = context.get("query")
+                    # We care about positive feedback or approved HITL actions for routing classification
+                    if query_text and source in ("hitl", "explicit") and reward > 0:
+                        action = entry.get("action")
+                        valid_actions = {"policy", "action", "anomaly", "compliance"}
+                        if action in valid_actions:
+                            examples.append(
+                                dspy.Example(
+                                    query=query_text,
+                                    classification=action,
+                                ).with_inputs("query")
+                            )
+                            additional_count += 1
+            logger.info("Augmented DSPy training set with %d examples from feedback history", additional_count)
+        except Exception as e:
+            logger.warning("Failed to augment DSPy training data: %s", e)
+
+    return examples
 
 
 def optimize_triage(minibatch: bool = True) -> dspy.Module:

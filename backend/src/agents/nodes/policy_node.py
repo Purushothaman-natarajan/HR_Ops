@@ -67,13 +67,21 @@ async def _retrieve_and_rerank(query: str, activities: list) -> tuple[list, list
     return docs, retrieval_docs
 
 
-async def _generate_answer(query: str, docs: list, activities: list) -> tuple[str, float]:
+async def _generate_answer(query: str, docs: list, activities: list, history: list) -> tuple[str, float]:
     """Generate answer using LLM."""
     context = "\n\n".join(d.page_content for d in docs) if docs else "No policies retrieved."
+    history_context = ""
+    if history:
+        recent = history[-4:]
+        history_context = "Conversation history & Tool execution context:\n" + "\n".join(
+            f"{m.get('role', 'unknown')}: {str(m.get('content', ''))[:500]}" for m in recent
+        ) + "\n\n"
+
     prompt = (
+        f"{history_context}"
         f"Retrieved HR policies:\n{context}\n\n"
         f"User question: {query}\n\n"
-        f"Provide a concise, policy-backed answer."
+        f"Provide a concise, policy-backed answer using any provided context."
     )
     doc_count = len(docs) if docs else 0
     activities.append(Activity(
@@ -119,7 +127,7 @@ async def policy_node(state: SharedState) -> dict:
         }
 
     docs, retrieval_docs = await _retrieve_and_rerank(state.query, activities)
-    answer, cost = await _generate_answer(state.query, docs, activities)
+    answer, cost = await _generate_answer(state.query, docs, activities, state.messages)
 
     if cache_enabled:
         semantic_cache.set(state.query, answer)

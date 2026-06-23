@@ -87,7 +87,7 @@ async def supervisor_decision(state: SharedState) -> dict:
     cached_agent = None
     activities = []
 
-    if trigger == TriggerType.REACTIVE:
+    if trigger in (TriggerType.REACTIVE, TriggerType.SYSTEM):
         activities.append(Activity(
             type="cache_check", label="Checking supervisor cache",
             detail="Comparing query embedding against cached classifications",
@@ -115,6 +115,7 @@ async def supervisor_decision(state: SharedState) -> dict:
                 f"Options:\n"
                 f"- policy: questions about HR policies, rules, benefits, guidelines, or general documentation.\n"
                 f"- action: queries seeking to retrieve, count, search, or modify employee details, databases, or records.\n"
+                f"- hybrid: queries requiring both database execution (action) and policy explanation (policy).\n"
                 f"- anomaly: tasks investigating data discrepancies, outliers, errors, or anomalies. ALSO choose this option for instructions requesting to 'run anomaly detection', 'run scan', 'check for anomalies', or generate anomaly reports across datasets.\n"
                 f"- compliance: tasks checking if actions or queries comply with rules/regulations.\n\n"
                 f"Query: {state.query}\n"
@@ -148,7 +149,7 @@ async def supervisor_decision(state: SharedState) -> dict:
             status="completed",
         ))
 
-    valid = {"policy", "action", "anomaly", "compliance"}
+    valid = {"policy", "action", "anomaly", "compliance", "hybrid"}
     llm_decision = llm_decision if llm_decision in valid else "policy"
     if llm_decision not in valid:
         reasoning_detail += f" (invalid, defaulted to policy)"
@@ -171,7 +172,7 @@ async def supervisor_decision(state: SharedState) -> dict:
     reasoning_detail += f" | RL bandit selected '{decision}'"
 
     # Override bandit if LLM detected a specialized system execution task (anomaly or compliance)
-    if llm_decision in ("anomaly", "compliance") and decision != llm_decision:
+    if llm_decision in ("anomaly", "compliance", "hybrid") and decision != llm_decision:
         logger.info("Supervisor override: routing specialized task '%s' directly (bandit chose '%s')", llm_decision, decision)
         decision = llm_decision
         activities.append(Activity(
@@ -190,7 +191,7 @@ async def supervisor_decision(state: SharedState) -> dict:
         "current_agent": decision,
         "rl_selected_action": decision,
         "rl_context": rl_context,
-        "supervisor_cache_hit": cached_agent is not None if trigger == TriggerType.REACTIVE else False,
+        "supervisor_cache_hit": cached_agent is not None if trigger in (TriggerType.REACTIVE, TriggerType.SYSTEM) else False,
         "trace_log": (state.trace_log or []) + [
             TraceEntry(
                 node="supervisor",
@@ -199,7 +200,7 @@ async def supervisor_decision(state: SharedState) -> dict:
                 output_text=f"LLM classification: {llm_decision}, RL decision: {decision}",
                 timestamp=start,
                 duration_ms=elapsed,
-                cache_hit=cached_agent is not None if trigger == TriggerType.REACTIVE else False,
+                cache_hit=cached_agent is not None if trigger in (TriggerType.REACTIVE, TriggerType.SYSTEM) else False,
                 reasoning=reasoning_detail,
                 alternatives=[
                     {"agent": agent, "score": getattr(rl_agent, "arm_scores", {}).get(agent, 0)}

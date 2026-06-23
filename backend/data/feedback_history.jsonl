@@ -1,0 +1,176 @@
+{"id": "43aac75e-b43", "session_id": "test_sess", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T16:54:42.166241+00:00"}
+{"id": "a5d9d48d-47c", "session_id": "test_sess", "action": "action", "reward": -1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T16:54:42.577796+00:00"}
+{"id": "76595af7-c47", "session_id": "shrug_test", "action": "policy", "reward": 0.0, "source": "explicit", "context": {"ui_action": "shrug"}, "timestamp": "2026-06-23T16:54:42.586553+00:00"}
+{"id": "e3edbfb4-e0b", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T16:54:42.607446+00:00"}
+{"id": "9f9480c0-c42", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T16:54:42.611762+00:00"}
+{"id": "ebe4bc59-3e0", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T16:54:42.615584+00:00"}
+{"id": "29c6903e-e63", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T16:54:42.619186+00:00"}
+{"id": "0da3bfd9-ead", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T16:54:42.622242+00:00"}
+{"id": "7f6ebcc7-7fe", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T16:54:42.629926+00:00"}
+{"id": "993a118b-6a0", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T16:54:42.633564+00:00"}
+{"id": "10cca901-10c", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T16:54:42.636699+00:00"}
+{"id": "2a1c3ac6-3df", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T16:54:42.640502+00:00"}
+{"id": "078efe57-ae9", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T16:54:42.643833+00:00"}
+{"id": "04ad2621-a88", "session_id": "HITL-TEST-WRITE", "action": "policy", "reward": 0.5, "source": "hitl", "context": {}, "timestamp": "2026-06-23T16:54:49.129368+00:00"}
+{"id": "eb07ca49-866", "session_id": "test_sess", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T16:55:24.423801+00:00"}
+{"id": "62f69f18-b67", "session_id": "test_sess", "action": "action", "reward": -1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T16:55:24.429215+00:00"}
+{"id": "8a8cf1db-437", "session_id": "shrug_test", "action": "policy", "reward": 0.0, "source": "explicit", "context": {"ui_action": "shrug"}, "timestamp": "2026-06-23T16:55:24.436907+00:00"}
+{"id": "8c68fc7c-9d1", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T16:55:24.456657+00:00"}
+{"id": "44e71d00-dda", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T16:55:24.460607+00:00"}
+{"id": "fef8cd15-2e0", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T16:55:24.466795+00:00"}
+{"id": "e620e7f5-f86", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T16:55:24.469896+00:00"}
+{"id": "8b12f02b-d64", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T16:55:24.472753+00:00"}
+{"id": "085df64c-be4", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T16:55:24.479322+00:00"}
+{"id": "7ea139f2-60e", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T16:55:24.483975+00:00"}
+{"id": "7312eb6f-854", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T16:55:24.487461+00:00"}
+{"id": "10f574bb-b4b", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T16:55:24.490544+00:00"}
+{"id": "b681f190-ec7", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T16:55:24.494323+00:00"}
+{"id": "e98f00ea-509", "session_id": "HITL-TEST-WRITE", "action": "policy", "reward": 0.5, "source": "hitl", "context": {}, "timestamp": "2026-06-23T16:55:32.987947+00:00"}
+{"id": "e8574215-1f0", "session_id": "test_sess", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T17:42:58.315203+00:00"}
+{"id": "3140a937-7d3", "session_id": "test_sess", "action": "action", "reward": -1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T17:42:58.320553+00:00"}
+{"id": "8dcccaf3-6a7", "session_id": "shrug_test", "action": "policy", "reward": 0.0, "source": "explicit", "context": {"ui_action": "shrug"}, "timestamp": "2026-06-23T17:42:58.333295+00:00"}
+{"id": "43d74944-ffa", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T17:42:58.367313+00:00"}
+{"id": "277615db-2ba", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T17:42:58.370920+00:00"}
+{"id": "2b23a419-8a2", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T17:42:58.374807+00:00"}
+{"id": "6383c992-d16", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T17:42:58.380887+00:00"}
+{"id": "2066ad18-2ff", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T17:42:58.384757+00:00"}
+{"id": "d3e09146-6a3", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T17:42:58.388122+00:00"}
+{"id": "51a452d4-379", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T17:42:58.391990+00:00"}
+{"id": "7c254a97-a9d", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T17:42:58.397247+00:00"}
+{"id": "2eb38733-0ea", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T17:42:58.400487+00:00"}
+{"id": "c0dd9ef4-051", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T17:42:58.403812+00:00"}
+{"id": "6a46f287-ae3", "session_id": "HITL-TEST-WRITE", "action": "policy", "reward": 0.5, "source": "hitl", "context": {}, "timestamp": "2026-06-23T17:43:16.236862+00:00"}
+{"id": "f8d72bab-d30", "session_id": "", "action": "anomaly:escalate_hr_review", "reward": -1.0, "source": "anomaly_bandit", "context": {"recommended_action": "flag_for_review", "confidence_score": 0.95, "severity": 0.95, "anomaly_type": "inactive_stale_last_active"}, "timestamp": "2026-06-23T17:48:45.315042+00:00"}
+{"id": "778a060d-859", "session_id": "4cba7cad-fb6", "action": "action", "reward": 0.3, "source": "auto", "context": {"classification": "action", "query": "Find all employees named Daniel Taylor and show their department."}, "timestamp": "2026-06-23T18:16:19.690295+00:00"}
+{"id": "019b7ba2-0e6", "session_id": "f37dfcf9-741", "action": "action", "reward": 0.3, "source": "auto", "context": {"classification": "action", "query": "Find all employees named Daniel Taylor and show their department.", "query_complexity": 0.325, "urgent": 0.0}, "timestamp": "2026-06-23T18:18:19.966714+00:00"}
+{"id": "1df72371-819", "session_id": "", "action": "anomaly:request_manager_review", "reward": -1.0, "source": "anomaly_bandit", "context": {"recommended_action": "flag_for_review", "confidence_score": 0.95, "severity": 0.95, "anomaly_type": "inactive_stale_last_active"}, "timestamp": "2026-06-23T18:20:51.910484+00:00"}
+{"id": "c8f135f7-5d2", "session_id": "f37dfcf9-741", "action": "anomaly:request_manager_review", "reward": -1.0, "source": "anomaly_bandit", "context": {"recommended_action": "flag_for_review", "confidence_score": 0.95, "severity": 0.95, "anomaly_type": "inactive_stale_last_active"}, "timestamp": "2026-06-23T18:23:22.062984+00:00"}
+{"id": "32d87b0d-cf9", "session_id": "", "action": "action", "reward": 0.3, "source": "auto", "context": {"classification": "action", "query": "Update salary for EMP0001 to 75000", "query_complexity": 0.17, "urgent": 0.0}, "timestamp": "2026-06-23T18:24:25.092799+00:00"}
+{"id": "cf8aa997-9f0", "session_id": "test_sess", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:24:55.183701+00:00"}
+{"id": "df377bef-6d6", "session_id": "test_sess", "action": "action", "reward": -1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:24:55.190717+00:00"}
+{"id": "9cc5047d-c66", "session_id": "shrug_test", "action": "policy", "reward": 0.0, "source": "explicit", "context": {"ui_action": "shrug"}, "timestamp": "2026-06-23T18:24:55.205845+00:00"}
+{"id": "053138bf-a76", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:24:55.236137+00:00"}
+{"id": "23771686-092", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:24:55.241935+00:00"}
+{"id": "9744ada8-720", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:24:55.246361+00:00"}
+{"id": "ddbb6cc5-32a", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:24:55.250815+00:00"}
+{"id": "7985be8f-e37", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:24:55.255765+00:00"}
+{"id": "13712b93-476", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:24:55.260695+00:00"}
+{"id": "e3bb095b-af7", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:24:55.266647+00:00"}
+{"id": "4d1da80a-86e", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:24:55.272855+00:00"}
+{"id": "c98f3d79-94b", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:24:55.278206+00:00"}
+{"id": "136d8082-a4a", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:24:55.282848+00:00"}
+{"id": "273a496e-f04", "session_id": "HITL-TEST-WRITE", "action": "policy", "reward": 0.5, "source": "hitl", "context": {}, "timestamp": "2026-06-23T18:25:11.860548+00:00"}
+{"id": "64ddd180-959", "session_id": "", "action": "action", "reward": 0.3, "source": "auto", "context": {"classification": "action", "query": "Find all employees named Daniel Taylor and show their department", "query_complexity": 0.32, "urgent": 0.0}, "timestamp": "2026-06-23T18:25:24.491107+00:00"}
+{"id": "5627de2f-bd2", "session_id": "", "action": "action", "reward": 0.3, "source": "auto", "context": {"classification": "action", "query": "Find all employees named Daniel Taylor and show their department", "query_complexity": 0.32, "urgent": 0.0}, "timestamp": "2026-06-23T18:26:16.115104+00:00"}
+{"id": "036494c5-207", "session_id": "", "action": "action", "reward": 0.3, "source": "auto", "context": {"classification": "action", "query": "test", "query_complexity": 0.02, "urgent": 0.0}, "timestamp": "2026-06-23T18:31:41.594641+00:00"}
+{"id": "72057e1c-169", "session_id": "", "action": "action", "reward": 0.3, "source": "auto", "context": {"classification": "action", "query": "Update salary for EMP0001 to 75000", "query_complexity": 0.17, "urgent": 0.0}, "timestamp": "2026-06-23T18:32:46.624304+00:00"}
+{"id": "b51cd316-e22", "session_id": "test_sess", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:33:05.281696+00:00"}
+{"id": "a60ba06b-fd3", "session_id": "test_sess", "action": "action", "reward": -1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:33:05.289607+00:00"}
+{"id": "9a103d07-400", "session_id": "shrug_test", "action": "policy", "reward": 0.0, "source": "explicit", "context": {"ui_action": "shrug"}, "timestamp": "2026-06-23T18:33:05.303077+00:00"}
+{"id": "64e672b8-765", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:33:05.334360+00:00"}
+{"id": "6b3adb85-1e1", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:33:05.339405+00:00"}
+{"id": "769d224c-57c", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:33:05.343903+00:00"}
+{"id": "0e92d472-476", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:33:05.348233+00:00"}
+{"id": "fee7a96c-dc3", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:33:05.352378+00:00"}
+{"id": "f18d5168-5c0", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:33:05.356200+00:00"}
+{"id": "f06a47ff-0f2", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:33:05.360399+00:00"}
+{"id": "c8e73400-c17", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:33:05.364125+00:00"}
+{"id": "ba82de11-cd8", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:33:05.367962+00:00"}
+{"id": "ec87b6c1-7c0", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:33:05.372391+00:00"}
+{"id": "27b20c9a-ab3", "session_id": "HITL-TEST-WRITE", "action": "policy", "reward": 0.5, "source": "hitl", "context": {}, "timestamp": "2026-06-23T18:33:16.089803+00:00"}
+{"id": "183faee9-a2a", "session_id": "", "action": "action", "reward": 0.3, "source": "auto", "context": {"classification": "action", "query": "Find all employees named Daniel Taylor and show their department", "query_complexity": 0.32, "urgent": 0.0}, "timestamp": "2026-06-23T18:35:19.220794+00:00"}
+{"id": "cae0c080-107", "session_id": "", "action": "anomaly:send_notification", "reward": -1.0, "source": "anomaly_bandit", "context": {"recommended_action": "flag_for_review", "confidence_score": 0.95, "severity": 0.95, "anomaly_type": "inactive_stale_last_active"}, "timestamp": "2026-06-23T18:37:53.698291+00:00"}
+{"id": "67bae08b-743", "session_id": "", "action": "action", "reward": 0.3, "source": "auto", "context": {"classification": "action", "query": "Update salary for EMP0001 to 75000", "query_complexity": 0.17, "urgent": 0.0}, "timestamp": "2026-06-23T18:41:59.373841+00:00"}
+{"id": "e055cb45-c1b", "session_id": "test_sess", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:42:20.021512+00:00"}
+{"id": "f8113849-84e", "session_id": "test_sess", "action": "action", "reward": -1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:42:20.042144+00:00"}
+{"id": "e39f6b70-fda", "session_id": "shrug_test", "action": "policy", "reward": 0.0, "source": "explicit", "context": {"ui_action": "shrug"}, "timestamp": "2026-06-23T18:42:20.071020+00:00"}
+{"id": "8820f28d-d71", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:42:20.158181+00:00"}
+{"id": "634ac94e-407", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:42:20.169659+00:00"}
+{"id": "c20c31fa-c57", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:42:20.182780+00:00"}
+{"id": "2f4f91b4-b56", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:42:20.195947+00:00"}
+{"id": "b083c67f-556", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:42:20.210340+00:00"}
+{"id": "ad65fb02-0a3", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:42:20.225185+00:00"}
+{"id": "778ae140-47d", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:42:20.236666+00:00"}
+{"id": "890b49dd-cce", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:42:20.248039+00:00"}
+{"id": "ed75ab94-6fe", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:42:20.260435+00:00"}
+{"id": "d5184b59-87a", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:42:20.275065+00:00"}
+{"id": "d45d6b8a-d8a", "session_id": "HITL-TEST-WRITE", "action": "policy", "reward": 0.5, "source": "hitl", "context": {}, "timestamp": "2026-06-23T18:42:38.636304+00:00"}
+{"id": "7c6de696-c3d", "session_id": "", "action": "action", "reward": 0.3, "source": "auto", "context": {"classification": "action", "query": "Find all employees named Daniel Taylor and show their department", "query_complexity": 0.32, "urgent": 0.0}, "timestamp": "2026-06-23T18:43:28.638449+00:00"}
+{"id": "635b1f2a-d82", "session_id": "", "action": "anomaly:initiate_pip", "reward": -1.0, "source": "anomaly_bandit", "context": {"recommended_action": "flag_for_review", "confidence_score": 0.95, "severity": 0.95, "anomaly_type": "inactive_stale_last_active"}, "timestamp": "2026-06-23T18:47:28.973175+00:00"}
+{"id": "09b66f4c-ca4", "session_id": "", "action": "action", "reward": 0.3, "source": "auto", "context": {"classification": "action", "query": "Show me employee EMP0001 details", "query_complexity": 0.16, "urgent": 0.0}, "timestamp": "2026-06-23T18:48:01.107405+00:00"}
+{"id": "a9b179eb-c16", "session_id": "", "action": "anomaly:initiate_pip", "reward": -1.0, "source": "anomaly_bandit", "context": {"recommended_action": "flag_for_review", "confidence_score": 0.95, "severity": 0.95, "anomaly_type": "inactive_stale_last_active"}, "timestamp": "2026-06-23T18:51:07.511338+00:00"}
+{"id": "8cb0f392-982", "session_id": "", "action": "anomaly:initiate_pip", "reward": -1.0, "source": "anomaly_bandit", "context": {"recommended_action": "flag_for_review", "confidence_score": 0.95, "severity": 0.95, "anomaly_type": "inactive_stale_last_active"}, "timestamp": "2026-06-23T18:52:57.723285+00:00"}
+{"id": "7d870743-6f8", "session_id": "", "action": "action", "reward": 0.3, "source": "auto", "context": {"classification": "action", "query": "Update salary for EMP0001 to 75000", "query_complexity": 0.17, "urgent": 0.0}, "timestamp": "2026-06-23T18:57:11.297422+00:00"}
+{"id": "d0e89782-f64", "session_id": "test_sess", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:57:30.298154+00:00"}
+{"id": "9e1dfc7f-da8", "session_id": "test_sess", "action": "action", "reward": -1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:57:30.346828+00:00"}
+{"id": "dce8d863-7db", "session_id": "shrug_test", "action": "policy", "reward": 0.0, "source": "explicit", "context": {"ui_action": "shrug"}, "timestamp": "2026-06-23T18:57:30.437477+00:00"}
+{"id": "5c133ee3-825", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:57:30.702679+00:00"}
+{"id": "28c4d6a6-1f0", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:57:30.739938+00:00"}
+{"id": "e415e899-fae", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:57:30.765674+00:00"}
+{"id": "11182ca1-5d1", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:57:30.798769+00:00"}
+{"id": "4ef75f0f-5d6", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:57:30.840226+00:00"}
+{"id": "f4db2efd-747", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:57:30.879244+00:00"}
+{"id": "bc6e5933-5a9", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:57:30.896735+00:00"}
+{"id": "0e07e6a5-322", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:57:30.923719+00:00"}
+{"id": "e0e89051-978", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:57:30.949995+00:00"}
+{"id": "92ead582-51b", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:57:30.969854+00:00"}
+{"id": "c28ddcfc-44a", "session_id": "HITL-TEST-WRITE", "action": "policy", "reward": 0.5, "source": "hitl", "context": {}, "timestamp": "2026-06-23T18:57:43.513465+00:00"}
+{"id": "493b51eb-020", "session_id": "", "action": "action", "reward": 0.3, "source": "auto", "context": {"classification": "action", "query": "Update salary for EMP0001 to 75000", "query_complexity": 0.17, "urgent": 0.0}, "timestamp": "2026-06-23T18:59:16.952967+00:00"}
+{"id": "d7bb2e5f-dde", "session_id": "test_sess", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:59:46.607628+00:00"}
+{"id": "215f8fb3-6c2", "session_id": "test_sess", "action": "action", "reward": -1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:59:46.626091+00:00"}
+{"id": "37db271f-6ed", "session_id": "shrug_test", "action": "policy", "reward": 0.0, "source": "explicit", "context": {"ui_action": "shrug"}, "timestamp": "2026-06-23T18:59:46.671272+00:00"}
+{"id": "f3aecef1-6be", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:59:46.776287+00:00"}
+{"id": "1443ace3-467", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:59:46.795413+00:00"}
+{"id": "0f8cafaa-43a", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:59:46.808513+00:00"}
+{"id": "0783e140-63e", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:59:46.819541+00:00"}
+{"id": "1a5b95aa-7f6", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:59:46.839457+00:00"}
+{"id": "4b324288-fb8", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:59:46.852863+00:00"}
+{"id": "95723171-b37", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:59:46.861245+00:00"}
+{"id": "74724f3d-1a8", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:59:46.880277+00:00"}
+{"id": "31649bc6-869", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:59:46.898701+00:00"}
+{"id": "bc778343-dfb", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T18:59:46.912371+00:00"}
+{"id": "ae3c33af-0bd", "session_id": "HITL-TEST-WRITE", "action": "policy", "reward": 0.5, "source": "hitl", "context": {}, "timestamp": "2026-06-23T19:00:31.333384+00:00"}
+{"id": "39722d42-4df", "session_id": "", "action": "action", "reward": 0.3, "source": "auto", "context": {"classification": "action", "query": "Update salary for EMP0001 to 75000", "query_complexity": 0.17, "urgent": 0.0}, "timestamp": "2026-06-23T19:04:28.571149+00:00"}
+{"id": "33595799-e87", "session_id": "test_sess", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T19:04:56.009152+00:00"}
+{"id": "48d21ee0-8ea", "session_id": "test_sess", "action": "action", "reward": -1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T19:04:56.016084+00:00"}
+{"id": "44ebcd74-9a5", "session_id": "shrug_test", "action": "policy", "reward": 0.0, "source": "explicit", "context": {"ui_action": "shrug"}, "timestamp": "2026-06-23T19:04:56.028289+00:00"}
+{"id": "f02372f9-253", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T19:04:56.062448+00:00"}
+{"id": "5197cdb2-43a", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T19:04:56.067814+00:00"}
+{"id": "30dddc35-a0c", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T19:04:56.073581+00:00"}
+{"id": "af7bebe1-d93", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T19:04:56.079460+00:00"}
+{"id": "f498f96e-572", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T19:04:56.085575+00:00"}
+{"id": "f3eefed6-a99", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T19:04:56.092246+00:00"}
+{"id": "3a92e746-fa7", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T19:04:56.096812+00:00"}
+{"id": "31a60096-8a1", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T19:04:56.102611+00:00"}
+{"id": "d79f7d67-3cd", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T19:04:56.109607+00:00"}
+{"id": "e2d6a9a0-2a8", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T19:04:56.115201+00:00"}
+{"id": "cefd36a5-0f6", "session_id": "HITL-TEST-WRITE", "action": "policy", "reward": 0.5, "source": "hitl", "context": {}, "timestamp": "2026-06-23T19:05:31.262650+00:00"}
+{"id": "20bea05a-0b9", "session_id": "", "action": "action", "reward": 0.3, "source": "auto", "context": {"classification": "action", "query": "Update salary for EMP0001 to 75000", "query_complexity": 0.17, "urgent": 0.0}, "timestamp": "2026-06-23T19:10:22.048621+00:00"}
+{"id": "3a2e918b-6cb", "session_id": "test_sess", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T19:13:02.759483+00:00"}
+{"id": "d99d5a87-3c0", "session_id": "test_sess", "action": "action", "reward": -1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T19:13:02.767910+00:00"}
+{"id": "da0fc3c2-9ee", "session_id": "shrug_test", "action": "policy", "reward": 0.0, "source": "explicit", "context": {"ui_action": "shrug"}, "timestamp": "2026-06-23T19:13:02.781964+00:00"}
+{"id": "c027ca7a-8e0", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T19:13:02.818602+00:00"}
+{"id": "482d9101-2b3", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T19:13:02.826175+00:00"}
+{"id": "d39883d1-78a", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T19:13:02.832593+00:00"}
+{"id": "c5733f0d-e3d", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T19:13:02.837812+00:00"}
+{"id": "13e1896d-e39", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T19:13:02.844260+00:00"}
+{"id": "2952f64a-89c", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T19:13:02.849422+00:00"}
+{"id": "0ab09e41-bc1", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T19:13:02.855581+00:00"}
+{"id": "29fe6e21-56b", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T19:13:02.861517+00:00"}
+{"id": "014397ed-a9b", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T19:13:02.869241+00:00"}
+{"id": "a6f7d74e-e29", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T19:13:02.875747+00:00"}
+{"id": "6e945ccc-217", "session_id": "HITL-TEST-WRITE", "action": "policy", "reward": 0.5, "source": "hitl", "context": {}, "timestamp": "2026-06-23T19:13:06.284606+00:00"}
+{"id": "b397a61c-b26", "session_id": "", "action": "action", "reward": 0.3, "source": "auto", "context": {"classification": "action", "query": "Update salary for EMP0001 to 75000", "query_complexity": 0.17, "urgent": 0.0}, "timestamp": "2026-06-23T19:16:29.295919+00:00"}
+{"id": "af856d7b-9f8", "session_id": "test_sess", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T19:19:46.500905+00:00"}
+{"id": "205276ad-457", "session_id": "test_sess", "action": "action", "reward": -1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T19:19:46.509110+00:00"}
+{"id": "48e48d22-cbb", "session_id": "shrug_test", "action": "policy", "reward": 0.0, "source": "explicit", "context": {"ui_action": "shrug"}, "timestamp": "2026-06-23T19:19:46.523526+00:00"}
+{"id": "53e5b3e8-3c9", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T19:19:46.558206+00:00"}
+{"id": "d5ca1a7e-573", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T19:19:46.563178+00:00"}
+{"id": "d89aff47-e6a", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T19:19:46.569523+00:00"}
+{"id": "6e1f7a29-848", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T19:19:46.573921+00:00"}
+{"id": "58a3eaf6-77d", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T19:19:46.577612+00:00"}
+{"id": "6a2973fe-ba1", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T19:19:46.582055+00:00"}
+{"id": "0493ceb1-b73", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T19:19:46.589406+00:00"}
+{"id": "8bb93196-69c", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T19:19:46.595817+00:00"}
+{"id": "4419d4c3-fcc", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T19:19:46.603321+00:00"}
+{"id": "8fb75eb1-ab3", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T19:19:46.608580+00:00"}

@@ -284,15 +284,15 @@ export const api = {
     /** Inspect the internal LinUCB bandit agent state.
      *
      * @example
-     * const res = await api.rl.state();
+     * const res = await api.rl.state("advanced");
      * // res.data.arms.policy.pulls
      */
-    state: () =>
+    state: (type: string = "standard") =>
       request<APIResponse<{
         arms: Record<string, { theta: number[]; pulls: number; reward: number }>;
         config: { batch_size: number; alpha: number; gamma: number };
         pending_feedbacks: number;
-      }>>("/feedback/rl/state"),
+      }>>(`/feedback/rl/state?type=${encodeURIComponent(type)}`),
   },
 
   policies: {

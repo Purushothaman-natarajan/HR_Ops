@@ -26,6 +26,7 @@ interface FeedbackStat {
  * <RLDashboard />
  */
 export function RLDashboard() {
+  const [modelType, setModelType] = useState<"standard" | "advanced">("standard");
   const [arms, setArms] = useState<ArmInfo[]>([]);
   const [fbStats, setFbStats] = useState<FeedbackStat[]>([]);
   const [totalFeedbacks, setTotalFeedbacks] = useState(0);
@@ -35,8 +36,9 @@ export function RLDashboard() {
   const [fetchError, setFetchError] = useState("");
 
   useEffect(() => {
+    setLoading(true);
     Promise.all([
-      api.rl.state(),
+      api.rl.state(modelType),
       api.feedback.stats(),
     ]).then(([rlRes, fbRes]) => {
       const raw = rlRes.data;
@@ -64,7 +66,7 @@ export function RLDashboard() {
       console.warn("RLDashboard: failed to fetch data", e);
       setFetchError("Could not load RL data. Backend may be unavailable.");
     }).finally(() => setLoading(false));
-  }, []);
+  }, [modelType]);
 
   if (loading) {
     return (
@@ -93,9 +95,22 @@ export function RLDashboard() {
 
   return (
     <div>
-      <div className="page-header">
-        <h1 className="page-title">Reinforcement Learning Dashboard</h1>
-        <p className="page-desc">LinUCB bandit state — agent selection, reward tracking, and human feedback</p>
+      <div className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div>
+          <h1 className="page-title">Reinforcement Learning Dashboard</h1>
+          <p className="page-desc">LinUCB bandit state — agent selection, reward tracking, and human feedback</p>
+        </div>
+        <div>
+          <select 
+            className="input-field" 
+            style={{ padding: "8px 12px", minWidth: 250, cursor: "pointer" }}
+            value={modelType}
+            onChange={(e) => setModelType(e.target.value as "standard" | "advanced")}
+          >
+            <option value="standard">Standard Model (Agent Router)</option>
+            <option value="advanced">Advanced Model (Anomaly Remediation)</option>
+          </select>
+        </div>
       </div>
 
       <div className="stats-grid" style={{ marginBottom: 20 }}>

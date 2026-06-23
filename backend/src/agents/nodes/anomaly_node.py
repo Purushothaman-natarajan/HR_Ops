@@ -73,6 +73,21 @@ async def anomaly_node(state: SharedState) -> dict:
     results = await asyncio.to_thread(run_anomaly_detection, employees)
     anomaly_count = len(results)
 
+    # Contextual remediation actions selection via the anomaly bandit
+    from backend.src.intelligence.rl_layer import anomaly_bandit
+    for a in results:
+        anomaly_context = {
+            "recommended_action": a.recommended_action,
+            "confidence_score": a.confidence_score,
+            "severity": a.severity,
+            "anomaly_type": a.anomaly_type,
+        }
+        bandit_action = anomaly_bandit.select_action(anomaly_context)
+        # Store original rule hint
+        a.suggested_action = a.recommended_action
+        # Override with bandit choice
+        a.recommended_action = bandit_action
+
     # Bucket anomalies by routing decision
     auto_escalate = [a for a in results if a.confidence_score >= _CONFIDENCE_ESCALATE]
     hitl_queue = [a for a in results if _CONFIDENCE_HITL <= a.confidence_score < _CONFIDENCE_ESCALATE]
@@ -122,7 +137,8 @@ async def anomaly_node(state: SharedState) -> dict:
     # ── 5. Store critical anomalies to episodic memory ───────────────────────
     try:
         import asyncio
-        critical_anomalies = [a for a in results if a.severity >= 0.85]
+        # Align with documentation comments: severity >= 0.75
+        critical_anomalies = [a for a in results if a.severity >= 0.75]
         # Limit to top 5 to avoid overloading the vector DB and network API
         critical_anomalies = sorted(critical_anomalies, key=lambda x: x.severity, reverse=True)[:5]
         for anomaly in critical_anomalies:
@@ -142,12 +158,14 @@ async def anomaly_node(state: SharedState) -> dict:
 
     elapsed = (datetime.now(timezone.utc) - start).total_seconds() * 1000
 
-    # hitl_needed if there are any HITL-bucket or auto-escalate anomalies
-    needs_hitl = bool(hitl_queue or auto_escalate)
+    # Separate standard HITL (medium confidence) from high-confidence auto-escalation
+    needs_hitl = bool(hitl_queue)
+    needs_auto_escalate = bool(auto_escalate)
 
     return {
         "anomaly_results": results[:100],
         "hitl_needed": needs_hitl,
+        "auto_escalate_needed": needs_auto_escalate,
         "final_response": narrative,
         "rl_context": {
             **state.rl_context,
@@ -165,6 +183,7 @@ async def anomaly_node(state: SharedState) -> dict:
                     "anomaly_count": anomaly_count,
                     "auto_escalate": len(auto_escalate),
                     "hitl_queue": len(hitl_queue),
+                    "auto_escalate_needed": needs_auto_escalate,
                 },
             )
         ],

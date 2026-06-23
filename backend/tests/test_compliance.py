@@ -62,3 +62,11 @@ def test_validate_policy_reference():
     is_valid, msg = validate_policy_reference(False)
     assert not is_valid
     assert "Policy reference is required" in msg
+
+
+def test_evaluate_action_external_sharing():
+    # Test checking if sharing employee records with an external vendor triggers PRIVACY_003
+    report = evaluate_action("Check if sharing EMP0002 HR records with an external vendor is compliant")
+    assert report.flagged
+    assert not report.compliant
+    assert "PRIVACY_003" in [r.rule_id for r in report.triggered_rules]
