@@ -27,6 +27,12 @@ class AnomalyScheduler:
         self.last_error: str | None = None
 
     async def _run_scheduled_anomaly_detection(self):
+        # Introduce a configurable startup delay to let the system boot up cleanly
+        from backend.src.core.settings import settings
+        startup_delay = settings.app_config.get("scheduler", {}).get("startup_delay_seconds", 300)
+        logger.info("AnomalyScheduler: Waiting %d seconds before running the first background scan...", startup_delay)
+        await asyncio.sleep(startup_delay)
+
         while True:
             try:
                 logger.info("Running scheduled anomaly detection scan (run #%d)", self.run_count + 1)

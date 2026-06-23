@@ -114,3 +114,9 @@ roles:
       policy_crud: false        # Policy management is view-only (no edit/delete buttons)
       can_access_trace: false   # Trace and RL sections are hidden
       can_access_feedback: false
+
+
+# ── Scheduler Configuration ──────────────────────────────────────────
+# Background job and cron configurations.
+scheduler:
+  startup_delay_seconds: 300    # Delay first anomaly scan on startup (prevents heavy CPU load on reboot)

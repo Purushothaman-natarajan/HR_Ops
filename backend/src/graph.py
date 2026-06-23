@@ -43,6 +43,15 @@ def _route_from_supervisor(state: SharedState) -> str:
     return route
 
 
+def _wrap_with_cooperative_yield(node_fn):
+    """Wrap a node function to check for active user queries and dynamically yield/pause if it is a background scan."""
+    async def wrapped(state: SharedState, *args, **kwargs):
+        from backend.src.services.graph_service import cooperative_yield
+        await cooperative_yield(state)
+        return await node_fn(state, *args, **kwargs)
+    return wrapped
+
+
 def build_full_graph() -> CompiledStateGraph:
     """Build and compile the full LangGraph with supervisor, agent nodes, parallel checks, and HITL escalation.
 
@@ -53,13 +62,13 @@ def build_full_graph() -> CompiledStateGraph:
     """
     graph = StateGraph(SharedState)
 
-    graph.add_node("supervisor", supervisor_decision)
-    graph.add_node("policy", policy_node)
-    graph.add_node("action", action_node)
-    graph.add_node("anomaly", anomaly_node)
-    graph.add_node("compliance", compliance_node)
-    graph.add_node("parallel_check", parallel_check_node)
-    graph.add_node("hitl", hitl_escalation_node)
+    graph.add_node("supervisor", _wrap_with_cooperative_yield(supervisor_decision))
+    graph.add_node("policy", _wrap_with_cooperative_yield(policy_node))
+    graph.add_node("action", _wrap_with_cooperative_yield(action_node))
+    graph.add_node("anomaly", _wrap_with_cooperative_yield(anomaly_node))
+    graph.add_node("compliance", _wrap_with_cooperative_yield(compliance_node))
+    graph.add_node("parallel_check", _wrap_with_cooperative_yield(parallel_check_node))
+    graph.add_node("hitl", _wrap_with_cooperative_yield(hitl_escalation_node))
 
     graph.set_entry_point("supervisor")
 
