@@ -145,87 +145,155 @@
         <p class="hrops-section-subtitle">Visualizing the multi-agent state graph and key engineering decisions.</p>
       </div>
 
-      <!-- CSS Flowchart -->
-      <div class="hrops-flowchart-container">
-        <!-- Row 1: Supervisor -->
-        <div class="hrops-flowchart-row">
-          <div class="hrops-flowchart-node supervisor">
-            <div class="hrops-flowchart-node-label">Supervisor Node</div>
-            <div class="hrops-flowchart-node-subtitle">LLM + RL Bandit (LinUCB)</div>
-          </div>
+      <!-- Architecture Tabs -->
+      <div class="hrops-tabs-container" style="margin-bottom: 40px; border: 1px solid var(--border-color); border-radius: var(--radius-lg); overflow: hidden;">
+        <div class="hrops-tabs-header" style="background-color: var(--bg-card); display: flex; border-bottom: 1px solid var(--border-color);">
+          <button class="hrops-tab-btn active" id="btn-standard-arch" onclick="switchArchTab(event, 'standard-arch')" style="flex: 1; padding: 16px; border: none; background: transparent; font-weight: 600; font-size: 0.95rem; cursor: pointer; transition: all var(--transition-fast); border-bottom: 2px solid transparent;">Standard Mode Flowchart</button>
+          <button class="hrops-tab-btn" id="btn-advanced-arch" onclick="switchArchTab(event, 'advanced-arch')" style="flex: 1; padding: 16px; border: none; background: transparent; font-weight: 600; font-size: 0.95rem; cursor: pointer; transition: all var(--transition-fast); border-bottom: 2px solid transparent;">Advanced Mode Flowchart</button>
         </div>
-        
-        <div class="hrops-flowchart-connector-vertical"></div>
-        
-        <!-- Row 2: Four Core Nodes -->
-        <div class="hrops-flowchart-row">
-          <div class="hrops-flowchart-multi-split">
-            <!-- Branch 1: Policy Agent -->
-            <div style="position: relative; display: flex; flex-direction: column; align-items: center;">
-              <div class="hrops-flowchart-branch-line"></div>
-              <div class="hrops-flowchart-node">
-                <div class="hrops-flowchart-node-label">Policy Agent</div>
-                <div class="hrops-flowchart-node-subtitle">RAG via ChromaDB</div>
-              </div>
-              <div class="hrops-flowchart-branch-line-down"></div>
-            </div>
-            
-            <!-- Branch 2: Action Agent -->
-            <div style="position: relative; display: flex; flex-direction: column; align-items: center;">
-              <div class="hrops-flowchart-branch-line"></div>
-              <div class="hrops-flowchart-node">
-                <div class="hrops-flowchart-node-label">Action Agent</div>
-                <div class="hrops-flowchart-node-subtitle">Tool Parsing & Execution</div>
-              </div>
-              <div class="hrops-flowchart-branch-line-down"></div>
-            </div>
-            
-            <!-- Branch 3: Anomaly Engine -->
-            <div style="position: relative; display: flex; flex-direction: column; align-items: center;">
-              <div class="hrops-flowchart-branch-line"></div>
-              <div class="hrops-flowchart-node">
-                <div class="hrops-flowchart-node-label">Anomaly Engine</div>
-                <div class="hrops-flowchart-node-subtitle">23-Rule Engine Pipeline</div>
+
+        <!-- Tab 1: Standard Flowchart -->
+        <div id="standard-arch" class="hrops-arch-tab-content active" style="padding: 40px; background-color: var(--bg-page);">
+          <div class="hrops-flowchart-container" style="border: none; background: transparent; padding: 0; margin-bottom: 0;">
+            <!-- Row 1: Triage -->
+            <div class="hrops-flowchart-row">
+              <div class="hrops-flowchart-node supervisor" style="background-color: var(--color-primary-light); border-color: var(--color-primary);">
+                <div class="hrops-flowchart-node-label" style="font-weight:700;">Triage Node</div>
+                <div class="hrops-flowchart-node-subtitle">LLM Triage Classifier</div>
               </div>
             </div>
             
-            <!-- Branch 4: Compliance Rules -->
-            <div style="position: relative; display: flex; flex-direction: column; align-items: center;">
-              <div class="hrops-flowchart-branch-line"></div>
-              <div class="hrops-flowchart-node">
-                <div class="hrops-flowchart-node-label">Compliance Rules</div>
-                <div class="hrops-flowchart-node-subtitle">YAML Rules Engine</div>
+            <div class="hrops-flowchart-connector-vertical"></div>
+            
+            <!-- Row 2: Policy & Action Nodes -->
+            <div class="hrops-flowchart-row">
+              <div class="hrops-flowchart-multi-split standard-split">
+                <!-- Branch 1: Policy Agent -->
+                <div style="position: relative; display: flex; flex-direction: column; align-items: center;">
+                  <div class="hrops-flowchart-branch-line"></div>
+                  <div class="hrops-flowchart-node">
+                    <div class="hrops-flowchart-node-label">Policy Agent</div>
+                    <div class="hrops-flowchart-node-subtitle">RAG via ChromaDB</div>
+                  </div>
+                  <div class="hrops-flowchart-branch-line-down"></div>
+                </div>
+                
+                <!-- Branch 2: Action Agent -->
+                <div style="position: relative; display: flex; flex-direction: column; align-items: center;">
+                  <div class="hrops-flowchart-branch-line"></div>
+                  <div class="hrops-flowchart-node">
+                    <div class="hrops-flowchart-node-label">Action Agent</div>
+                    <div class="hrops-flowchart-node-subtitle">Tool Parsing & Execution</div>
+                  </div>
+                  <div class="hrops-flowchart-branch-line-down"></div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="hrops-flowchart-connector-vertical"></div>
+            
+            <!-- Row 3: HITL / END Decision -->
+            <div class="hrops-flowchart-row">
+              <div class="hrops-flowchart-decision-row">
+                <div class="hrops-flowchart-node" style="border-color: var(--color-warning); background-color: var(--color-warning-light);">
+                  <div class="hrops-flowchart-node-label">HITL Review</div>
+                  <div class="hrops-flowchart-node-subtitle">UI Escalate Node (Writes)</div>
+                </div>
+                <div class="hrops-flowchart-node" style="border-color: var(--color-success); background-color: var(--color-success-light);">
+                  <div class="hrops-flowchart-node-label">END Node</div>
+                  <div class="hrops-flowchart-node-subtitle">Execution Complete</div>
+                </div>
               </div>
             </div>
           </div>
         </div>
-        
-        <div class="hrops-flowchart-connector-vertical"></div>
-        
-        <!-- Row 3: Parallel Check Container -->
-        <div class="hrops-flowchart-row">
-          <div class="hrops-flowchart-node parallel">
-            <div class="hrops-flowchart-node-label">Parallel Check</div>
-            <div class="hrops-flowchart-node-subtitle">asyncio.gather() concurrent checks</div>
-            <div class="hrops-flowchart-parallel-inner">
-              <div class="hrops-flowchart-subnode">Anomaly (bg check)</div>
-              <div class="hrops-flowchart-subnode">Compliance (bg check)</div>
+
+        <!-- Tab 2: Advanced Flowchart -->
+        <div id="advanced-arch" class="hrops-arch-tab-content" style="display:none; padding: 40px; background-color: var(--bg-page);">
+          <div class="hrops-flowchart-container" style="border: none; background: transparent; padding: 0; margin-bottom: 0;">
+            <!-- Row 1: Supervisor -->
+            <div class="hrops-flowchart-row">
+              <div class="hrops-flowchart-node supervisor">
+                <div class="hrops-flowchart-node-label" style="font-weight:700;">Supervisor Node</div>
+                <div class="hrops-flowchart-node-subtitle">LLM + RL Bandit (LinUCB)</div>
+              </div>
             </div>
-          </div>
-        </div>
-        
-        <div class="hrops-flowchart-connector-vertical"></div>
-        
-        <!-- Row 4: HITL / END Decision -->
-        <div class="hrops-flowchart-row">
-          <div class="hrops-flowchart-decision-row">
-            <div class="hrops-flowchart-node" style="border-color: var(--color-warning); background-color: var(--color-warning-light);">
-              <div class="hrops-flowchart-node-label">HITL Review</div>
-              <div class="hrops-flowchart-node-subtitle">UI Escalate Node</div>
+            
+            <div class="hrops-flowchart-connector-vertical"></div>
+            
+            <!-- Row 2: Four Core Nodes -->
+            <div class="hrops-flowchart-row">
+              <div class="hrops-flowchart-multi-split">
+                <!-- Branch 1: Policy Agent -->
+                <div style="position: relative; display: flex; flex-direction: column; align-items: center;">
+                  <div class="hrops-flowchart-branch-line"></div>
+                  <div class="hrops-flowchart-node">
+                    <div class="hrops-flowchart-node-label">Policy Agent</div>
+                    <div class="hrops-flowchart-node-subtitle">RAG via ChromaDB</div>
+                  </div>
+                  <div class="hrops-flowchart-branch-line-down"></div>
+                </div>
+                
+                <!-- Branch 2: Action Agent -->
+                <div style="position: relative; display: flex; flex-direction: column; align-items: center;">
+                  <div class="hrops-flowchart-branch-line"></div>
+                  <div class="hrops-flowchart-node">
+                    <div class="hrops-flowchart-node-label">Action Agent</div>
+                    <div class="hrops-flowchart-node-subtitle">Tool Parsing & Text-to-SQL</div>
+                  </div>
+                  <div class="hrops-flowchart-branch-line-down"></div>
+                </div>
+                
+                <!-- Branch 3: Anomaly Engine -->
+                <div style="position: relative; display: flex; flex-direction: column; align-items: center;">
+                  <div class="hrops-flowchart-branch-line"></div>
+                  <div class="hrops-flowchart-node">
+                    <div class="hrops-flowchart-node-label">Anomaly Engine</div>
+                    <div class="hrops-flowchart-node-subtitle">23-Rule Engine Pipeline</div>
+                  </div>
+                  <div class="hrops-flowchart-branch-line-down"></div>
+                </div>
+                
+                <!-- Branch 4: Compliance Rules -->
+                <div style="position: relative; display: flex; flex-direction: column; align-items: center;">
+                  <div class="hrops-flowchart-branch-line"></div>
+                  <div class="hrops-flowchart-node">
+                    <div class="hrops-flowchart-node-label">Compliance Rules</div>
+                    <div class="hrops-flowchart-node-subtitle">YAML Rules Engine</div>
+                  </div>
+                  <div class="hrops-flowchart-branch-line-down"></div>
+                </div>
+              </div>
             </div>
-            <div class="hrops-flowchart-node" style="border-color: var(--color-success); background-color: var(--color-success-light);">
-              <div class="hrops-flowchart-node-label">END Node</div>
-              <div class="hrops-flowchart-node-subtitle">Execution Complete</div>
+            
+            <div class="hrops-flowchart-connector-vertical"></div>
+            
+            <!-- Row 3: Parallel Check Container -->
+            <div class="hrops-flowchart-row">
+              <div class="hrops-flowchart-node parallel" style="border-color: var(--color-purple); background-color: var(--color-purple-light);">
+                <div class="hrops-flowchart-node-label">Parallel Check Node</div>
+                <div class="hrops-flowchart-node-subtitle">asyncio.gather() concurrent checks</div>
+                <div class="hrops-flowchart-parallel-inner">
+                  <div class="hrops-flowchart-subnode">Anomaly Node</div>
+                  <div class="hrops-flowchart-subnode">Compliance Node</div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="hrops-flowchart-connector-vertical"></div>
+            
+            <!-- Row 4: HITL / END Decision -->
+            <div class="hrops-flowchart-row">
+              <div class="hrops-flowchart-decision-row">
+                <div class="hrops-flowchart-node" style="border-color: var(--color-warning); background-color: var(--color-warning-light);">
+                  <div class="hrops-flowchart-node-label">HITL Review</div>
+                  <div class="hrops-flowchart-node-subtitle">AG-UI Escalation</div>
+                </div>
+                <div class="hrops-flowchart-node" style="border-color: var(--color-success); background-color: var(--color-success-light);">
+                  <div class="hrops-flowchart-node-label">END Node</div>
+                  <div class="hrops-flowchart-node-subtitle">Execution Complete</div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -802,7 +870,7 @@
       </div>
       <div class="hrops-footer-bottom">
         <span>&copy; 2026 HR Ops System. All rights reserved. Serviced via GitHub Pages.</span>
-        <span>Contact: purushothaman.natarajan@example.com</span>
+        <span>Contact: <a href="mailto:purushothamanprt@gmail.com" style="color:var(--color-primary-light); text-decoration:underline;">purushothamanprt@gmail.com</a> | <a href="https://linkedin.com/in/purushothamann" target="_blank" rel="noopener noreferrer" style="color:var(--color-primary-light); text-decoration:underline;">LinkedIn</a> | <a href="https://github.com/Purushothaman-natarajan" target="_blank" rel="noopener noreferrer" style="color:var(--color-primary-light); text-decoration:underline;">GitHub</a></span>
       </div>
     </div>
   </footer>
@@ -877,6 +945,25 @@
       document.getElementById(tabId).classList.add("active");
       evt.currentTarget.classList.add("active");
     }
+
+    // Architecture Tabs Logic
+    function switchArchTab(evt, tabId) {
+      const tabcontents = document.getElementsByClassName("hrops-arch-tab-content");
+      for (let i = 0; i < tabcontents.length; i++) {
+        tabcontents[i].style.display = "none";
+        tabcontents[i].classList.remove("active");
+      }
+      // Set active button
+      const tablinks = evt.currentTarget.parentNode.getElementsByClassName("hrops-tab-btn");
+      for (let i = 0; i < tablinks.length; i++) {
+        tablinks[i].classList.remove("active");
+      }
+      const target = document.getElementById(tabId);
+      target.style.display = "block";
+      target.classList.add("active");
+      evt.currentTarget.classList.add("active");
+    }
+
   </script>
 
 </body>

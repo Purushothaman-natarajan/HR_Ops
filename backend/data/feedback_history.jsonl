@@ -174,3 +174,23 @@
 {"id": "8bb93196-69c", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T19:19:46.595817+00:00"}
 {"id": "4419d4c3-fcc", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T19:19:46.603321+00:00"}
 {"id": "8fb75eb1-ab3", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-23T19:19:46.608580+00:00"}
+{"id": "d142feb5-89d", "session_id": "HITL-TEST-WRITE", "action": "policy", "reward": 0.5, "source": "hitl", "context": {}, "timestamp": "2026-06-23T19:23:33.847050+00:00"}
+{"id": "a4476674-fa5", "session_id": "", "action": "action", "reward": 0.3, "source": "auto", "context": {"classification": "action", "query": "Update salary for EMP0001 to 75000", "query_complexity": 0.17, "urgent": 0.0}, "timestamp": "2026-06-23T19:26:22.967142+00:00"}
+{"id": "27afe334-ef9", "session_id": "8415b560-6a2", "action": "action", "reward": 0.3, "source": "auto", "context": {"classification": "action", "query": "Find all employees named Daniel Taylor and show their department.", "query_complexity": 0.325, "urgent": 0.0}, "timestamp": "2026-06-23T19:45:53.802187+00:00"}
+{"id": "74230891-fd7", "session_id": "", "action": "anomaly:ignore", "reward": -1.0, "source": "anomaly_bandit", "context": {"recommended_action": "flag_for_review", "confidence_score": 0.95, "severity": 0.95, "anomaly_type": "inactive_stale_last_active"}, "timestamp": "2026-06-24T01:05:02.159165+00:00"}
+{"id": "94d38935-f9b", "session_id": "test_sess", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-24T01:08:15.880953+00:00"}
+{"id": "f7b1852d-e63", "session_id": "test_sess", "action": "action", "reward": -1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-24T01:08:15.886578+00:00"}
+{"id": "5d880fe8-39a", "session_id": "shrug_test", "action": "policy", "reward": 0.0, "source": "explicit", "context": {"ui_action": "shrug"}, "timestamp": "2026-06-24T01:08:15.898793+00:00"}
+{"id": "86d2e494-111", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-24T01:08:15.935350+00:00"}
+{"id": "535e51de-032", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-24T01:08:15.939902+00:00"}
+{"id": "8fef2ab1-cd4", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-24T01:08:15.944238+00:00"}
+{"id": "870f5307-b39", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-24T01:08:15.949491+00:00"}
+{"id": "e3e42514-3cf", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-24T01:08:15.954634+00:00"}
+{"id": "ad40199e-d55", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-24T01:08:15.958685+00:00"}
+{"id": "9ac79937-687", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-24T01:08:15.962817+00:00"}
+{"id": "26df79b9-a68", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-24T01:08:15.968164+00:00"}
+{"id": "1175b0b4-d78", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-24T01:08:15.972464+00:00"}
+{"id": "e3f1f9cb-6c2", "session_id": "batch_test", "action": "policy", "reward": 1.0, "source": "explicit", "context": {}, "timestamp": "2026-06-24T01:08:15.976778+00:00"}
+{"id": "7c8c317d-e0e", "session_id": "HITL-TEST-WRITE", "action": "policy", "reward": 0.5, "source": "hitl", "context": {}, "timestamp": "2026-06-24T04:00:58.198461+00:00"}
+{"id": "dd9a1d7d-20b", "session_id": "44eb1995-d83", "action": "action", "reward": 0.3, "source": "auto", "context": {"classification": "action", "query": "Find all employees named Daniel Taylor and show their department.", "query_complexity": 0.325, "urgent": 0.0}, "timestamp": "2026-06-24T04:02:18.042310+00:00"}
+{"id": "71d2086e-a03", "session_id": "", "action": "anomaly:send_notification", "reward": -1.0, "source": "anomaly_bandit", "context": {"recommended_action": "flag_for_review", "confidence_score": 0.95, "severity": 0.95, "anomaly_type": "inactive_stale_last_active"}, "timestamp": "2026-06-24T04:05:42.272413+00:00"}

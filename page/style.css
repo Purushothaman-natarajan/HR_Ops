@@ -1317,3 +1317,18 @@ a:hover {
     font-size: 0.8rem;
   }
 }
+
+/* Custom Flowchart styles for Standard Mode */
+.hrops-flowchart-multi-split.standard-split {
+  grid-template-columns: repeat(2, 1fr) !important;
+  max-width: 480px !important;
+}
+.hrops-flowchart-multi-split.standard-split::before {
+  left: 25% !important;
+  right: 25% !important;
+}
+.hrops-flowchart-multi-split.standard-split::after {
+  left: 25% !important;
+  right: 25% !important; /* Spans both child nodes in standard split */
+}
+
