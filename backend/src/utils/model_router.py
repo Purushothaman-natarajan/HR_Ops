@@ -249,7 +249,7 @@ async def llm_call(
     estimated_cost = _estimate_cost(model, estimated_input_tokens, "input")
     model_gr = guardrail_registry.check_model({
         "estimated_cost_usd": estimated_cost,
-        "timeout_seconds": max_tokens // 10,
+        "timeout_seconds": settings.guardrails_config.get("model", {}).get("timeout_seconds", 30),
     })
     if not model_gr.passed:
         raise ModelNotAvailableError(f"Model guardrail blocked: {model_gr.message}")

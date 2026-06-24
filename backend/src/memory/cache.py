@@ -70,11 +70,36 @@ class SemanticCache:
         logger.debug("Semantic cache MISS: query=%.50s", query)
         return None
 
+    def get_with_embedding(self, query: str) -> tuple[str | None, list[float]]:
+        """Embed once, check cache, and return both the result AND the query embedding.
+
+        This avoids re-embedding the query for ChromaDB similarity search
+        after a cache miss (saves one API call per policy query).
+        """
+        q_emb = self._embed(query)
+        for key, entry in self._store.items():
+            if time.time() - entry["ts"] > self.ttl_seconds:
+                continue
+            sim = self._cosine_sim(q_emb, entry["embedding"])
+            if sim >= self.threshold:
+                logger.debug("Semantic cache HIT: query=%.50s sim=%.4f", query, sim)
+                return entry["response"], q_emb
+        logger.debug("Semantic cache MISS: query=%.50s", query)
+        return None, q_emb
+
     def set(self, query: str, response: str):
         """Store a query-response pair for future semantic lookups."""
         self._store[self._key(query)] = {
             "response": response,
             "embedding": self._embed(query),
+            "ts": time.time(),
+        }
+
+    def set_with_embedding(self, query: str, response: str, embedding: list[float]):
+        """Store using a pre-computed embedding — skips re-embedding (saves one API call)."""
+        self._store[self._key(query)] = {
+            "response": response,
+            "embedding": embedding,
             "ts": time.time(),
         }
 

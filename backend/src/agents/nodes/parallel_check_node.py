@@ -51,7 +51,9 @@ async def parallel_check_node(state: SharedState) -> dict:
     current_agent = state.current_agent or "policy"
     has_pending_write = bool(state.rl_context.get("pending_tool_call"))
 
-    if current_agent == "policy" or (current_agent == "action" and not has_pending_write):
+    is_read_only = (current_agent == "policy") or (current_agent in ("action", "hybrid") and not has_pending_write)
+
+    if is_read_only:
         # Read-only queries: NEVER escalate from background anomalies/compliance.
         # Background anomaly results are logged but should not block user queries.
         hitl_needed = state.hitl_needed

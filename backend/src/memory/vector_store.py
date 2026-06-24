@@ -93,13 +93,15 @@ def get_document_count(collection_name: str = "hr_policies") -> int:
         return 0
 
 
-def similarity_search(query: str, k: int | None = None, collection_name: str = "hr_policies") -> list[Document]:
+def similarity_search(query: str, k: int | None = None, collection_name: str = "hr_policies", query_embedding: list[float] | None = None) -> list[Document]:
     """Embed the query and return the top-k most similar documents from the vector store.
 
     Args:
         query: Free-text question or search string.
         k: Number of results to return (default from nvidia_config.yaml).
         collection_name: Chroma collection to search.
+        query_embedding: Pre-computed embedding vector. If provided, skips the
+            NVIDIA embedding API call (saves 0.5-3s).
 
     Returns:
         List of Document objects with .page_content and .metadata populated.
@@ -108,6 +110,19 @@ def similarity_search(query: str, k: int | None = None, collection_name: str = "
     cfg = settings.embed_config.get("vector_store", {})
     try:
         store = get_vector_store(collection_name)
+
+        # If we have a pre-computed embedding, use ChromaDB's embedding-directed search
+        # by passing the embedding directly to the collection's query method
+        if query_embedding is not None:
+            results = store.similarity_search_by_vector(query_embedding, k=k or cfg.get("default_k", 4))
+            docs = []
+            for doc in results:
+                doc.metadata["score"] = 0.9  # approximate — exact score not available from vector search
+                docs.append(doc)
+            logger.debug("similarity_search (pre-embedded) query=%.50s hits=%d", query, len(docs))
+            return docs
+
+        # Fallback: embed the query via API and search
         results = store.similarity_search_with_score(query, k=k or cfg.get("default_k", 4))
         
         docs = []

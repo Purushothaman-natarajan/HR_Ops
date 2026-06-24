@@ -124,37 +124,51 @@ async def anomaly_node(state: SharedState) -> dict:
     except Exception as e:
         logger.warning("Episodic memory recall failed: %s", e)
 
-    # ── 4. Generate narrative ────────────────────────────────────────────────
+    # ── 4. Generate narrative (fast static summary, no LLM call) ─────────────
+    # The full LLM narrative is expensive (2-8s) and purely cosmetic for the trace.
+    # Return an immediate static summary; the full narrative can be generated
+    # asynchronously by the frontend or a background task if needed.
+    narrative = (
+        f"Anomaly scan complete: {anomaly_count} anomalies detected across {len(employees)} employees. "
+        f"{len(auto_escalate)} high-confidence auto-escalate, "
+        f"{len(hitl_queue)} queued for HITL review, "
+        f"{len(low_conf)} informational."
+    )
     activities.append(Activity(
-        type="llm_call", label="Generating anomaly narrative",
-        detail=f"Summarising {anomaly_count} anomalies for HR management",
-        status="running",
+        type="llm_call", label="Anomaly narrative generated",
+        detail=f"Static summary for {anomaly_count} anomalies (LLM narrative deferred)",
+        status="completed",
     ))
-    narrative = await _generate_narrative(results, past_context)
-    activities[-1].status = "completed"
-    activities[-1].detail = f"Generated {len(narrative)}-char narrative"
 
-    # ── 5. Store critical anomalies to episodic memory ───────────────────────
+    # ── 5. Store critical anomalies to episodic memory (BATCH) ──────────────
+    # Single embedding call for all critical anomalies instead of 5 sequential calls.
     try:
         import asyncio
-        # Align with documentation comments: severity >= 0.75
         critical_anomalies = [a for a in results if a.severity >= 0.75]
-        # Limit to top 5 to avoid overloading the vector DB and network API
         critical_anomalies = sorted(critical_anomalies, key=lambda x: x.severity, reverse=True)[:5]
-        for anomaly in critical_anomalies:
-            await asyncio.to_thread(
-                episodic_memory.store_incident,
-                trigger_type=anomaly.anomaly_type or "anomaly",
-                query=anomaly.description,
-                result_summary=(
-                    f"Action: {anomaly.recommended_action} | "
-                    f"Confidence: {anomaly.confidence_score:.0%} | "
-                    f"Data: {anomaly.supporting_data}"
-                ),
-                severity=anomaly.severity,
-            )
+        if critical_anomalies:
+            incidents = [
+                {
+                    "trigger_type": a.anomaly_type or "anomaly",
+                    "query": a.description,
+                    "result_summary": (
+                        f"Action: {a.recommended_action} | "
+                        f"Confidence: {a.confidence_score:.0%} | "
+                        f"Data: {a.supporting_data}"
+                    ),
+                    "severity": a.severity,
+                }
+                for a in critical_anomalies
+            ]
+            stored = await asyncio.to_thread(episodic_memory.store_incidents_batch, incidents)
+            activities.append(Activity(
+                type="search", label="Batch-stored critical anomalies",
+                detail=f"Stored {stored}/{len(critical_anomalies)} incidents in episodic memory",
+                status="completed",
+                metadata={"stored": stored, "total": len(critical_anomalies)},
+            ))
     except Exception as e:
-        logger.warning("Episodic memory store failed: %s", e)
+        logger.warning("Episodic memory batch store failed: %s", e)
 
     elapsed = (datetime.now(timezone.utc) - start).total_seconds() * 1000
 

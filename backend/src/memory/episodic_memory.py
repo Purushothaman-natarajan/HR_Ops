@@ -1,7 +1,7 @@
 import logging
 from uuid import uuid4
 from langchain_core.documents import Document
-from backend.src.memory.vector_store import get_vector_store, similarity_search, index_document
+from backend.src.memory.vector_store import get_vector_store, similarity_search, index_document, index_documents
 
 logger = logging.getLogger("hr_ops.episodic_memory")
 
@@ -30,6 +30,40 @@ class EpisodicMemory:
             logger.info("Stored incident in episodic memory: %s", doc_id)
         except Exception as e:
             logger.error("Failed to store incident in episodic memory: %s", e)
+
+    def store_incidents_batch(self, incidents: list[dict]) -> int:
+        """Batch-index multiple incidents with a single embedding call.
+
+        Each incident dict should have: trigger_type, query, result_summary, severity.
+        Returns the number of successfully stored incidents.
+        """
+        if not incidents:
+            return 0
+        docs = []
+        ids = []
+        for inc in incidents:
+            doc_id = str(uuid4())
+            content = (
+                f"Trigger: {inc.get('trigger_type', 'anomaly')}\n"
+                f"Query/Event: {inc.get('query', '')}\n"
+                f"Result/Resolution: {inc.get('result_summary', '')}"
+            )
+            docs.append(Document(
+                page_content=content,
+                metadata={
+                    "trigger_type": inc.get("trigger_type", "anomaly"),
+                    "severity": inc.get("severity", 0.0),
+                    "type": "incident",
+                },
+            ))
+            ids.append(doc_id)
+        try:
+            index_documents(docs, collection_name=EPISODIC_COLLECTION)
+            logger.info("Batch-stored %d incidents in episodic memory", len(docs))
+            return len(docs)
+        except Exception as e:
+            logger.error("Failed to batch-store incidents: %s", e)
+            return 0
 
     def recall_similar_incidents(self, query: str, k: int = 3) -> list[dict]:
         """Find past similar incidents based on the current query."""

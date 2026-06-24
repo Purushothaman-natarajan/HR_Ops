@@ -14,8 +14,9 @@ def model_cost_guardrail(context: dict) -> tuple[bool, str]:
 
 def model_timeout_guardrail(context: dict) -> tuple[bool, str]:
     """Reject inference if timeout exceeds the configured threshold."""
+    from backend.src.core.settings import settings
     timeout = context.get("timeout_seconds", 0)
-    threshold = 30
+    threshold = settings.guardrails_config.get("model", {}).get("timeout_seconds", 30)
     if timeout > threshold:
         return False, f"Timeout {timeout}s exceeds threshold {threshold}s"
     return True, ""

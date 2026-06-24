@@ -9,7 +9,7 @@ from backend.src.domain.agui import InteractionRequest
 logger = logging.getLogger("hr_ops.nodes.hitl")
 
 
-def hitl_escalation_node(state: SharedState) -> dict:
+async def hitl_escalation_node(state: SharedState) -> dict:
     """Create a HITL request and store it in the AGUI store if escalation is needed."""
     if not state.hitl_needed:
         return {}

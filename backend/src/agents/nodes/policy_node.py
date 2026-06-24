@@ -13,29 +13,35 @@ from backend.src.utils.model_router import llm_call
 logger = logging.getLogger("hr_ops.nodes.policy")
 
 
-def _check_cache(query: str, cache_enabled: bool, activities: list) -> str | None:
-    """Check semantic cache and update activities."""
+def _check_cache(query: str, cache_enabled: bool, activities: list) -> tuple[str | None, list[float]]:
+    """Check semantic cache and return (cached_response, query_embedding).
+
+    Embeds the query once and returns the embedding for reuse in ChromaDB search,
+    avoiding a second embedding API call on cache miss.
+    """
     activities.append(Activity(
         type="cache_check", label="Checking semantic cache",
         detail="Comparing query against cached policy answers",
         status="completed",
     ))
-    cached = semantic_cache.get(query) if cache_enabled else None
+    if not cache_enabled:
+        return None, []
+    cached, q_emb = semantic_cache.get_with_embedding(query)
     if cached:
         activities[-1].detail = "Cache HIT — returning cached answer"
     else:
         activities[-1].detail = "Cache MISS — proceeding with RAG retrieval"
-    return cached
+    return cached, q_emb
 
 
-async def _retrieve_and_rerank(query: str, activities: list) -> tuple[list, list]:
-    """Retrieve and rerank relevant policies."""
+async def _retrieve_and_rerank(query: str, activities: list, query_embedding: list[float] | None = None) -> tuple[list, list]:
+    """Retrieve and rerank relevant policies. Uses pre-computed embedding if available."""
     activities.append(Activity(
         type="search", label="Searching vector DB for relevant policies",
         detail=f"Query: {query[:80]}...",
         status="running",
     ))
-    docs = similarity_search(query, k=4)
+    docs = similarity_search(query, k=4, query_embedding=query_embedding if query_embedding else None)
     doc_count = len(docs) if docs else 0
     activities[-1].status = "completed"
     activities[-1].detail = f"Found {doc_count} matching documents"
@@ -107,7 +113,7 @@ async def policy_node(state: SharedState) -> dict:
     activities = []
     cache_enabled = settings.feature_flags.get("semantic_cache", {}).get("enabled", True)
 
-    cached = _check_cache(state.query, cache_enabled, activities)
+    cached, q_emb = _check_cache(state.query, cache_enabled, activities)
     if cached:
         elapsed = (datetime.now(timezone.utc) - start).total_seconds() * 1000
         return {
@@ -126,11 +132,11 @@ async def policy_node(state: SharedState) -> dict:
             ],
         }
 
-    docs, retrieval_docs = await _retrieve_and_rerank(state.query, activities)
+    docs, retrieval_docs = await _retrieve_and_rerank(state.query, activities, query_embedding=q_emb or None)
     answer, cost = await _generate_answer(state.query, docs, activities, state.messages)
 
     if cache_enabled:
-        semantic_cache.set(state.query, answer)
+        semantic_cache.set_with_embedding(state.query, answer, q_emb)
     elapsed = (datetime.now(timezone.utc) - start).total_seconds() * 1000
     return {
         "retrieved_policies": [d.page_content[:300] for d in (docs or [])],
