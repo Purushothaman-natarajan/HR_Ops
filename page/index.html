@@ -335,6 +335,77 @@
     </div>
   </section>
 
+  <!-- Application Showcase Section -->
+  <section class="hrops-section" id="showcase" style="background-color: var(--bg-card); border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color);">
+    <div class="hrops-container">
+      <div class="hrops-section-header">
+        <span class="hrops-section-badge">Visual Tour</span>
+        <h2 class="hrops-section-title">Application Interface</h2>
+        <p class="hrops-section-subtitle">Explore the interactive control panels, live RAG sessions, and reinforcement learning analytics of the HR Ops Platform.</p>
+      </div>
+
+      <div class="hrops-showcase-container">
+        <!-- Tab Selectors -->
+        <div class="hrops-showcase-tabs">
+          <button class="hrops-showcase-tab active" onclick="switchShowcaseTab(event, 'showcase-dashboard')">
+            <span class="tab-icon">📊</span>
+            <span>Dashboard</span>
+          </button>
+          <button class="hrops-showcase-tab" onclick="switchShowcaseTab(event, 'showcase-chat')">
+            <span class="tab-icon">💬</span>
+            <span>Chat Agent</span>
+          </button>
+          <button class="hrops-showcase-tab" onclick="switchShowcaseTab(event, 'showcase-rl')">
+            <span class="tab-icon">📈</span>
+            <span>RL Router</span>
+          </button>
+          <button class="hrops-showcase-tab" onclick="switchShowcaseTab(event, 'showcase-hitl')">
+            <span class="tab-icon">🛡️</span>
+            <span>HITL Requests</span>
+          </button>
+          <button class="hrops-showcase-tab" onclick="switchShowcaseTab(event, 'showcase-policies')">
+            <span class="tab-icon">📚</span>
+            <span>Policy Manager</span>
+          </button>
+        </div>
+
+        <!-- Browser Mockup Window -->
+        <div class="hrops-browser-mockup">
+          <div class="browser-header">
+            <div class="browser-dots">
+              <span class="dot dot-red"></span>
+              <span class="dot dot-yellow"></span>
+              <span class="dot dot-green"></span>
+            </div>
+            <div class="browser-address">
+              <span class="address-lock">🔒</span>
+              <span class="address-text" id="showcase-address-url">http://localhost:5173/dashboard</span>
+            </div>
+          </div>
+          
+          <div class="browser-content">
+            <!-- Slides -->
+            <div id="showcase-dashboard" class="showcase-slide active">
+              <img src="assets/snap-dashboard.png" alt="HR Ops Dashboard" class="showcase-img">
+            </div>
+            <div id="showcase-chat" class="showcase-slide">
+              <img src="assets/snap-chat.png" alt="Query Chat Agent Interface" class="showcase-img">
+            </div>
+            <div id="showcase-rl" class="showcase-slide">
+              <img src="assets/snap-rl-dashboard.png" alt="Reinforcement Learning Contextual Bandit Routing weights and charts" class="showcase-img">
+            </div>
+            <div id="showcase-hitl" class="showcase-slide">
+              <img src="assets/snap-hitl.png" alt="Human-in-the-loop Pending Approval Panel" class="showcase-img">
+            </div>
+            <div id="showcase-policies" class="showcase-slide">
+              <img src="assets/snap-policies.png" alt="Policy Document Knowledge Base CRUD manager" class="showcase-img">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- Agent System Section -->
   <section class="hrops-section" id="agents">
     <div class="hrops-container">
@@ -962,6 +1033,35 @@
       target.style.display = "block";
       target.classList.add("active");
       evt.currentTarget.classList.add("active");
+    }
+
+    // Showcase Tabs Logic
+    function switchShowcaseTab(evt, slideId) {
+      // Get all elements with class="showcase-slide" and hide them
+      const slides = document.getElementsByClassName("showcase-slide");
+      for (let i = 0; i < slides.length; i++) {
+        slides[i].classList.remove("active");
+      }
+
+      // Remove "active" from all showcase tabs
+      const tabs = document.getElementsByClassName("hrops-showcase-tab");
+      for (let i = 0; i < tabs.length; i++) {
+        tabs[i].classList.remove("active");
+      }
+
+      // Show selected slide and activate tab
+      document.getElementById(slideId).classList.add("active");
+      evt.currentTarget.classList.add("active");
+
+      // Update address bar URL
+      const addressUrls = {
+        'showcase-dashboard': 'http://localhost:5173/dashboard',
+        'showcase-chat': 'http://localhost:5173/query',
+        'showcase-rl': 'http://localhost:5173/rl',
+        'showcase-hitl': 'http://localhost:5173/hitl',
+        'showcase-policies': 'http://localhost:5173/policies'
+      };
+      document.getElementById("showcase-address-url").innerText = addressUrls[slideId] || 'http://localhost:5173/';
     }
 
   </script>
